@@ -1,0 +1,3084 @@
+[
+  {
+    "title": "Kolektiva SosMed Setup",
+    "brand": "kolektiva",
+    "sheets": [
+      {
+        "name": "Master To-Do",
+        "columns": [
+          "#",
+          "KATEGORI",
+          "TASK",
+          "DETAIL / BRIEF",
+          "PRIORITAS",
+          "STATUS",
+          "DEADLINE",
+          "PIC"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "1",
+              "PROFIL",
+              "Upload Profile Picture final",
+              "Gunakan iK mark cream background. Export PNG min 320x320px. Test crop circle sebelum upload ke IG.",
+              "🔴 Urgent",
+              "✅ Done",
+              "Hari ini",
+              "Studio Recehan"
+            ],
+            "id": 1,
+            "_status": null
+          },
+          {
+            "cells": [
+              "2",
+              "PROFIL",
+              "Finalisasi Bio & cek tampilan",
+              "Bio sudah live. Cek dari akun lain. Pastikan link in bio sudah aktif.",
+              "🔴 Urgent",
+              "✅ Done",
+              "Hari ini",
+              "Owner"
+            ],
+            "id": 2,
+            "_status": null
+          },
+          {
+            "cells": [
+              "3",
+              "PROFIL",
+              "Setup Link in Bio (WA / Linktree)",
+              "Pilih: wa.me/628xxx langsung, atau Linktree dengan isi: WA, TikTok, Katalog PDF. Jangan biarkan link kosong — ini lubang konversi.",
+              "🔴 Urgent",
+              "⬜ Belum",
+              "Hari ini",
+              "Owner"
+            ],
+            "id": 3,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "4",
+              "PROFIL",
+              "Daftar & setup Linktree",
+              "Daftar di linktree.me (gratis). Isi: Link WA Kolektiva, Link TikTok (jika ada), Link katalog/portfolio PDF. Pakai foto profil & warna brand.",
+              "🔴 Urgent",
+              "⬜ Belum",
+              "Hari ini",
+              "Owner"
+            ],
+            "id": 4,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "5",
+              "HIGHLIGHTS",
+              "Desain cover Highlight: ORDER",
+              "Circle cover. Background: navy. Icon: shopping bag atau checklist. Label: ORDER. Ukuran 1080x1920 tapi yang keliatan bagian tengah.",
+              "🟠 Tinggi",
+              "⬜ Belum",
+              "3 hari",
+              "Studio Recehan"
+            ],
+            "id": 5,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "6",
+              "HIGHLIGHTS",
+              "Desain cover Highlight: PORTFOLIO",
+              "Circle cover. Background: cream. Icon: frame/photo gallery. Label: PORTFOLIO.",
+              "🟠 Tinggi",
+              "⬜ Belum",
+              "3 hari",
+              "Studio Recehan"
+            ],
+            "id": 6,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "7",
+              "HIGHLIGHTS",
+              "Desain cover Highlight: DOKUMEN",
+              "Circle cover. Background: terracotta. Icon: dokumen/file. Label: DOKUMEN. INI PALING PENTING — differentiator utama Kolektiva.",
+              "🔴 Urgent",
+              "⬜ Belum",
+              "3 hari",
+              "Studio Recehan"
+            ],
+            "id": 7,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "8",
+              "HIGHLIGHTS",
+              "Desain cover Highlight: PRODUK",
+              "Circle cover. Background: light navy. Icon: kaos/hanger. Label: PRODUK.",
+              "🟠 Tinggi",
+              "⬜ Belum",
+              "3 hari",
+              "Studio Recehan"
+            ],
+            "id": 8,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "9",
+              "HIGHLIGHTS",
+              "Desain cover Highlight: TESTIMONI",
+              "Circle cover. Background: cream. Icon: bintang / quote bubble. Label: TESTIMONI.",
+              "🟡 Normal",
+              "⬜ Belum",
+              "3 hari",
+              "Studio Recehan"
+            ],
+            "id": 9,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "10",
+              "HIGHLIGHTS",
+              "Upload Story isi tiap Highlight",
+              "Tiap highlight perlu minimal 1 story sebagai placeholder. Buat story branded per kategori, upload, lalu masukkan ke highlight yang sesuai.",
+              "🟠 Tinggi",
+              "⬜ Belum",
+              "4 hari",
+              "Owner"
+            ],
+            "id": 10,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "11",
+              "KONTEN",
+              "Post #1 — Brand Intro / Grand Opening",
+              "Perkenalan Kolektiva. Tone: confident, bukan minta-minta support. Visual: logo + tagline. Hook: 'Vendor event yang bikin LPJ-mu aman — itu kita.' Bukan promo, tapi brand statement.",
+              "🔴 Urgent",
+              "⬜ Belum",
+              "5 hari",
+              "Owner + Studio"
+            ],
+            "id": 11,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "12",
+              "KONTEN",
+              "Post #2 — One-Stop Vendor Visual",
+              "Carousel 6-8 slide. Slide 1: cover bold. Slide 2-7: tiap produk (Kaos, PDH, Lanyard, ID Card, Banner, Dokumen Resmi). Slide 8: CTA DM.",
+              "🔴 Urgent",
+              "⬜ Belum",
+              "5 hari",
+              "Studio Recehan"
+            ],
+            "id": 12,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "13",
+              "KONTEN",
+              "Post #3 — Edukasi Dokumen LPJ",
+              "Carousel 7-9 slide. Hook: 'Vendor kamu bisa kasih ini ga?' Tiap slide = 1 dokumen (RAB, MoU, Invoice, BAST, Kwitansi) + fungsinya. Slide terakhir: CTA.",
+              "🔴 Urgent",
+              "⬜ Belum",
+              "6 hari",
+              "Owner + Studio"
+            ],
+            "id": 13,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "14",
+              "KONTEN",
+              "Post #4 — Portfolio Produk (Kaos/PDH)",
+              "Foto produk close-up, lighting bagus, background clean. Boleh dari project SNM/Evercraft lama. Caption: brief customer, detail bahan & teknik. JANGAN caption generik.",
+              "🟠 Tinggi",
+              "⬜ Belum",
+              "7 hari",
+              "Owner"
+            ],
+            "id": 14,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "15",
+              "KONTEN",
+              "Post #5 — Pain Point Panitia",
+              "Carousel 5-7 slide relatable. Pain point: vendor zonk, deadline meleset, LPJ ga ada, revisi ga direspon. Slide terakhir: 'Kita tau rasanya. Makanya Kolektiva ada.'",
+              "🟠 Tinggi",
+              "⬜ Belum",
+              "8 hari",
+              "Owner"
+            ],
+            "id": 15,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "16",
+              "KONTEN",
+              "Post #6 — Behind The Scene Proses Order",
+              "Reels 30-60 detik. Flow: DM masuk → brief → desain → produksi → QC → packing → kirim dokumen. Text overlay tiap step. Tutup: 'Dokumen LPJ langsung kita kirim.'",
+              "🟡 Normal",
+              "⬜ Belum",
+              "10 hari",
+              "Owner"
+            ],
+            "id": 16,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "17",
+              "STORIES",
+              "Story Day 1 — Perkenalan Brand",
+              "Story hari pertama: logo Kolektiva + tagline + kalimat singkat why exist. Simple, bukan overpromise.",
+              "🔴 Urgent",
+              "⬜ Belum",
+              "Hari ini",
+              "Owner"
+            ],
+            "id": 17,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "18",
+              "STORIES",
+              "Template Story: Order Sekarang",
+              "Template branded dengan CTA order. Elemen: logo, WA link, deadline order (jika ada). Warna navy/cream.",
+              "🟡 Normal",
+              "⬜ Belum",
+              "7 hari",
+              "Studio Recehan"
+            ],
+            "id": 18,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "19",
+              "STORIES",
+              "Template Story: Countdown Deadline",
+              "Template countdown untuk push deadline order. Pakai sticker countdown native IG. Background branded.",
+              "🟡 Normal",
+              "⬜ Belum",
+              "7 hari",
+              "Studio Recehan"
+            ],
+            "id": 19,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "20",
+              "SISTEM",
+              "Setup WA Business",
+              "Nama bisnis: Kolektiva. Foto profil: iK mark. Pesan sambutan otomatis. Pesan away di luar jam kerja. Quick reply: /harga /cara-order /dokumen /portfolio.",
+              "🔴 Urgent",
+              "⬜ Belum",
+              "2 hari",
+              "Owner"
+            ],
+            "id": 20,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "21",
+              "SISTEM",
+              "Buat template dokumen resmi (RAB, MoU, Invoice, BAST, Kwitansi)",
+              "INI CORE DIFFERENTIATOR. Semua dokumen HARUS siap sebelum ada inquiry masuk. Format Word/Google Docs. Detail di sheet Sistem & Template.",
+              "🔴 Urgent",
+              "⬜ Belum",
+              "3 hari",
+              "Owner"
+            ],
+            "id": 21,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "22",
+              "SISTEM",
+              "Buat katalog produk PDF",
+              "1 halaman per produk: foto, pilihan bahan, teknik, MOQ, range harga, timeline, WA CTA. Dikirim ke calon customer saat inquiry.",
+              "🟠 Tinggi",
+              "⬜ Belum",
+              "1 minggu",
+              "Owner + Studio"
+            ],
+            "id": 22,
+            "_status": "belum"
+          },
+          {
+            "cells": [
+              "23",
+              "SISTEM",
+              "Buat spreadsheet order tracking",
+              "Google Sheets. Kolom: Tanggal, Nama PIC, Organisasi, Produk, Qty, Nilai, DP, Sisa, Deadline, Vendor, Status Produksi, Status Kirim, Status Dokumen, Catatan.",
+              "🟠 Tinggi",
+              "⬜ Belum",
+              "3 hari",
+              "Owner"
+            ],
+            "id": 23,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "24",
+              "SISTEM",
+              "Setup Google Drive folder Kolektiva",
+              "Struktur: /Desain, /Dokumen Template, /Portfolio, /Order Active, /Order Archive. Share ke seluruh tim.",
+              "🟡 Normal",
+              "⬜ Belum",
+              "1 minggu",
+              "Owner"
+            ],
+            "id": 24,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "25",
+              "SEO",
+              "Riset & compile 3 set hashtag (30 tag masing-masing)",
+              "Set A: Awareness, Set B: Portfolio, Set C: Edukasi. Detail di sheet Hashtag Sets. Update tiap bulan berdasarkan performa.",
+              "🟠 Tinggi",
+              "⬜ Belum",
+              "5 hari",
+              "Owner"
+            ],
+            "id": 25,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "26",
+              "SEO",
+              "Tag lokasi di setiap post",
+              "Selalu tag lokasi Brebes / Jawa Tengah di setiap post untuk local discovery. Konsisten tanpa pengecualian.",
+              "🟡 Normal",
+              "⬜ Belum",
+              "Ongoing",
+              "Owner"
+            ],
+            "id": 26,
+            "_status": "done"
+          }
+        ],
+        "statusCol": 5
+      },
+      {
+        "name": "6 Post Pertama",
+        "columns": [
+          "#",
+          "JUDUL KONTEN",
+          "FORMAT",
+          "PILAR KONTEN",
+          "BRIEF VISUAL",
+          "BRIEF CAPTION / HOOK",
+          "HASHTAG SET",
+          "JAM POSTING",
+          "STATUS"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "1",
+              "Brand Intro\n/ Grand Opening",
+              "Single Image\natau Reels\n15 detik",
+              "Portfolio &\nBrand Story",
+              "Visual: Logo iK besar di tengah, background cream. Tagline di bawah. Elegan, approachable. BUKAN desain ramai-ramai. Less is more.",
+              "Hook: 'Vendor event yang bikin LPJ-mu aman — itu kita.' Ceritain why Kolektiva exist. Problem apa yang disobe. Bukan 'ayo support kami' tapi brand statement. Akhiri: 'DM untuk konsultasi gratis.'",
+              "Set A\nAwareness",
+              "12.00–13.00",
+              "⬜ Belum"
+            ],
+            "id": 1,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "2",
+              "One-Stop Vendor\nSemua Ada di Sini",
+              "Carousel\n6–8 slide",
+              "Portfolio &\nEdukasi",
+              "Slide 1: Cover bold 'Satu Vendor, Semua Kebutuhan Event.' Slide 2–7: tiap produk (Kaos, PDH, Lanyard, ID Card, Banner, Dokumen Resmi) — foto/icon + nama + 1 kalimat benefit. Slide 8: CTA DM.",
+              "Hook: 'Panitia ga perlu koordinasi ke 5 vendor beda. Kita handle semuanya.' Pamungkas: 'Dokumen LPJ? Udah include. Tanpa minta tambahan.' CTA: 'DM sekarang, konsultasi gratis.'",
+              "Set B\nPortfolio",
+              "19.00–20.00",
+              "⬜ Belum"
+            ],
+            "id": 2,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "3",
+              "Edukasi Dokumen LPJ\nKenapa Vendor Harus Bisa Ini?",
+              "Carousel\n7–9 slide",
+              "Edukasi\nCustom Apparel",
+              "Slide 1: Hook 'Vendor kamu bisa kasih ini ga?' Slide 2–6: 1 dokumen per slide (RAB, MoU, Invoice, BAST, Kwitansi) + penjelasan fungsi 1-2 kalimat. Slide 7: 'Kolektiva kasih semua itu.' Slide 8: CTA.",
+              "Hook: 'Udah pernah kena masalah LPJ gara-gara dokumen vendor ga lengkap?' Tone edukasi bukan hard sell. Posisiin Kolektiva sebagai yang paling paham kebutuhan panitia. Save-worthy — orang sering save konten dokumen.",
+              "Set C\nEdukasi",
+              "07.00–09.00",
+              "⬜ Belum"
+            ],
+            "id": 3,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "4",
+              "Portfolio Produk\nKaos / PDH",
+              "Single Image\natau Carousel\n3–5 foto",
+              "Portfolio &\nHasil Produksi",
+              "Foto close-up, lighting bagus, background clean. Boleh dari project lama SNM/Evercraft. Kalau carousel: variasi angle (detail bordir, keseluruhan, dipakai). Foto in-use jauh lebih autentik.",
+              "Hook: 'Order 50 pcs buat acara wisuda — hasilnya? 👀' Ceritain brief customer singkat. Detail: bahan, teknik sablon/bordir, timeline produksi. JANGAN caption generik 'tersedia berbagai model.'",
+              "Set B\nPortfolio",
+              "12.00–13.00",
+              "⬜ Belum"
+            ],
+            "id": 4,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "5",
+              "Pain Point Panitia\n— We Get You",
+              "Carousel\n5–7 slide",
+              "Interaktif &\nKomunitas",
+              "Slide 1: 'Hal yang paling bikin panitia anxious soal vendor apparel' — relatable, bukan menggurui. Slide 2–5: 1 pain point per slide (vendor hilang, deadline meleset, LPJ ga ada, revisi ga direspon). Slide terakhir: 'Kita tau rasanya. Makanya Kolektiva ada.'",
+              "Hook: 'Vendor hilang H-3 event? Pernah? 🙃' Tone empati, BUKAN pamer. Bangun empati dulu, jualan belakangan. Save & share rate konten ini harusnya tinggi.",
+              "Set A\nAwareness",
+              "19.00–21.00",
+              "⬜ Belum"
+            ],
+            "id": 5,
+            "_status": null
+          },
+          {
+            "cells": [
+              "6",
+              "Behind The Scene\nProses Order Kolektiva",
+              "Reels\n30–60 detik",
+              "Behind The Scene\n& Proses",
+              "Flow video: DM masuk → brief form → desain disetujui → brief ke vendor → produksi (jahit/sablon/bordir) → QC → packing → foto produk → kirim dokumen resmi. Text overlay tiap step. Musik chill/upbeat.",
+              "Hook: 'Dari DM masuk sampai barang sampe ke tangan kamu — ini yang kita lakuin.' Tutup: 'Dan dokumen LPJ-nya langsung kita kirim bersamaan. Jadi tenang aja.' Tone: profesional tapi humanizing.",
+              "Set C\nEdukasi",
+              "07.00–09.00",
+              "⬜ Belum"
+            ],
+            "id": 6,
+            "_status": null
+          }
+        ],
+        "statusCol": 8
+      },
+      {
+        "name": "Highlights Setup",
+        "columns": [
+          "HIGHLIGHT",
+          "LABEL COVER",
+          "VISUAL COVER",
+          "ISI KONTEN (Story yang masuk ke highlight ini)",
+          "PRIORITAS",
+          "STATUS"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "ORDER",
+              "ORDER",
+              "Background: navy. Icon: shopping bag atau checklist. Label: cream/putih bold. Style: clean, bold, readable di ukuran kecil.",
+              "Story panduan cara order step-by-step: 1) DM/WA, 2) Isi brief form, 3) Approval desain, 4) Bayar DP, 5) Produksi, 6) Pelunasan, 7) Terima barang & dokumen. Tambahkan: 'Syarat & Ketentuan' dan 'MOQ per produk'.",
+              "🔴 Urgent",
+              "⬜ Belum"
+            ],
+            "id": 1,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "PORTFOLIO",
+              "PORTFOLIO",
+              "Background: cream. Icon: frame foto / galeri. Label: navy. Style: warm, inviting, trustworthy.",
+              "Screenshot atau foto hasil produksi terbaik. Kategorikan: Kaos, PDH, Lanyard, Banner. Tambahkan text overlay: nama produk + detail singkat. Update rutin setiap project selesai. Ini social proof utama.",
+              "🔴 Urgent",
+              "⬜ Belum"
+            ],
+            "id": 2,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "DOKUMEN",
+              "DOKUMEN",
+              "Background: terracotta. Icon: dokumen/file/kwitansi. Label: putih. INI HIGHLIGHT TERPENTING — differentiator utama yang tidak dimiliki kompetitor manapun.",
+              "Story menjelaskan semua dokumen yang Kolektiva sediakan: RAB, MoU, Quotation, Invoice, BAST, Kwitansi. Tambahkan 1 story edukasi: 'Kenapa dokumen penting untuk LPJ kamu?' Ini senjata pembeda.",
+              "🔴 Urgent",
+              "⬜ Belum"
+            ],
+            "id": 3,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "PRODUK",
+              "PRODUK",
+              "Background: light navy. Icon: kaos/hanger/tag produk. Label: cream.",
+              "Katalog per produk. Tiap produk 1–2 story: foto terbaik + info singkat (bahan, teknik, range harga, MOQ). Urutan: Kaos Custom, PDH, Jas Organisasi, Lanyard, ID Card, Banner, Merchandise.",
+              "🟠 Tinggi",
+              "⬜ Belum"
+            ],
+            "id": 4,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "TESTIMONI",
+              "TESTIMONI",
+              "Background: cream. Icon: bintang atau bubble kutipan. Label: navy. Style: approachable, trustworthy.",
+              "Screenshot testimoni customer yang puas. Boleh dari project SNM/Evercraft lama jika relevan. WAJIB tambahkan context: nama organisasi, produk, qty. JANGAN screenshot tanpa konteks — tidak credible.",
+              "🟠 Tinggi",
+              "⬜ Belum"
+            ],
+            "id": 5,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "CARA ORDER",
+              "CARA ORDER",
+              "Background: navy. Icon: panah langkah / checklist bertahap. Label: cream.",
+              "Infografis alur order yang lebih visual & detail. Fokus: cara komunikasi, apa yang perlu disiapkan customer, timeline produksi per produk, dokumen yang diterima setelah order selesai.",
+              "🟡 Normal",
+              "⬜ Belum"
+            ],
+            "id": 6,
+            "_status": "done"
+          }
+        ],
+        "statusCol": 5
+      },
+      {
+        "name": "Hashtag Sets",
+        "columns": [
+          "SET",
+          "HASHTAG (copy-paste langsung ke caption)",
+          "KAPAN DIPAKAI",
+          "CATATAN"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "SET A\nAWARENESS",
+              "#vendorkaos #vendorevent #konveksibandung #konveksijakarta #konveksiyogyakarta #kaoscustom #kaosevent #kaosorganisasi #pdh #pdhorn #jasorganisasi #merchevent #customapparel #vendormerch #lanyardcustom #idcardcustom #bannercustom #printingmurah #orderkaos #kaospanitia #organisasikampus #bemhima #osis #eventcampus #wisuda #mahasiswaaktif #organisasisekolah #komunitas #eventorganizer #vendorterpercaya",
+              "Post brand intro, konten awareness umum, konten yang target audience baru yang belum kenal Kolektiva sama sekali.",
+              "Fokus: volume reach & discoverability. Update bulanan sesuai trending hashtag event kampus."
+            ],
+            "id": 1,
+            "_status": null
+          },
+          {
+            "cells": [
+              "SET B\nPORTFOLIO",
+              "#hasilproduksi #kaoscustomberkualitas #pdhorn #portfoliodesain #resultkaos #customkaos #orderpdh #jaketorganisasi #hasilbordir #hasilsablon #qualitycontrol #apparel #designkaos #uniformcustom #custommerch #lanyardmurah #idcardmurah #bannermurah #printingcustom #konveksiterpercaya #vendorlokal #vendorbrebes #jawatengah #umkm #umkmlokal #bisnisonline #kolektiva #bykolektiva #vendorprofesional #merchadventory",
+              "Post foto produk, carousel portfolio, hasil project yang sudah selesai dan terkirim.",
+              "Fokus: orang yang aktif cari referensi vendor apparel. Selalu include #bykolektiva di set ini."
+            ],
+            "id": 2,
+            "_status": null
+          },
+          {
+            "cells": [
+              "SET C\nEDUKASI",
+              "#tipspanitia #lpj #lpjevent #dokumenresmi #adminevent #tipsorganisasi #belajarorganisasi #keuanganevent #rab #invoiceevent #mou #bastdokumen #pengalamanpanitia #organisasikampus #panitevent #koordinatorevent #logistikevent #infoevent #infokampus #mahasiswaorganisasi #kehidupanmahasiswa #kampuslife #osis2025 #bem2025 #hima #ukm #eventmanagement #panitiaevent #vendoraman #informasikampus",
+              "Post edukasi, carousel tips, konten pain point panitia, konten dokumen LPJ.",
+              "Fokus: engagement tinggi, save rate, dan share. Konten edukasi paling sering di-save dan di-share."
+            ],
+            "id": 3,
+            "_status": null
+          }
+        ],
+        "statusCol": -1
+      },
+      {
+        "name": "KPI Tracker",
+        "columns": [
+          "METRIK",
+          "TARGET MIN",
+          "TARGET IDEAL",
+          "MINGGU 1",
+          "MINGGU 2",
+          "MINGGU 3",
+          "MINGGU 4",
+          "CATATAN & CARA UKUR"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "Followers Growth",
+              "+100 followers",
+              "+300 followers",
+              "",
+              "",
+              "",
+              "",
+              "IG Insights > Followers. Ukur setiap Senin pagi. Bandingkan week-over-week."
+            ],
+            "id": 1,
+            "_status": null
+          },
+          {
+            "cells": [
+              "Reach Organik per Post",
+              "300 reach",
+              "800 reach",
+              "",
+              "",
+              "",
+              "",
+              "IG Insights > Reach per post. Pantau terutama Reels & Carousel karena jangkauan lebih luas."
+            ],
+            "id": 2,
+            "_status": null
+          },
+          {
+            "cells": [
+              "Engagement Rate (%)",
+              "3%",
+              "6%+",
+              "",
+              "",
+              "",
+              "",
+              "Formula: (Like+Comment+Save) / Followers x 100. Save rate = indikator kuat konten edukasi berhasil."
+            ],
+            "id": 3,
+            "_status": null
+          },
+          {
+            "cells": [
+              "Story Views",
+              "50 views/story",
+              "150 views/story",
+              "",
+              "",
+              "",
+              "",
+              "IG Insights > Stories. Pakai poll & countdown native IG untuk boost views organik."
+            ],
+            "id": 4,
+            "_status": null
+          },
+          {
+            "cells": [
+              "DM Inquiry dari Konten",
+              "2 DM/minggu",
+              "8 DM/minggu",
+              "",
+              "",
+              "",
+              "",
+              "Tracking manual. Tanya calon customer: dari mana tau Kolektiva? Catat di spreadsheet order."
+            ],
+            "id": 5,
+            "_status": null
+          },
+          {
+            "cells": [
+              "Saves per Post",
+              "10 saves",
+              "40 saves",
+              "",
+              "",
+              "",
+              "",
+              "IG Insights > Saves per post. Target konten edukasi dokumen & proses. Saves = konten berkualitas."
+            ],
+            "id": 6,
+            "_status": null
+          },
+          {
+            "cells": [
+              "Project Order Masuk",
+              "1 project/minggu",
+              "3 project/minggu",
+              "",
+              "",
+              "",
+              "",
+              "Revenue driver utama. Catat di spreadsheet order tracking. Track nilai per project."
+            ],
+            "id": 7,
+            "_status": null
+          },
+          {
+            "cells": [
+              "Highlight Views (DOKUMEN)",
+              "20 views",
+              "80 views",
+              "",
+              "",
+              "",
+              "",
+              "Pantau via IG Insights > Highlights. Tinggi = prospect genuinely tertarik dokumen = hot lead."
+            ],
+            "id": 8,
+            "_status": null
+          },
+          {
+            "cells": [
+              "Highlight Views (ORDER)",
+              "30 views",
+              "100 views",
+              "",
+              "",
+              "",
+              "",
+              "Views tinggi di ORDER = niat order tinggi. Follow up aktif ke yang sudah DM setelah lihat highlight."
+            ],
+            "id": 9,
+            "_status": null
+          }
+        ],
+        "statusCol": -1
+      },
+      {
+        "name": "Sistem & Template",
+        "columns": [
+          "ITEM",
+          "FUNGSI",
+          "DETAIL ISI / KOMPONEN WAJIB",
+          "PRIORITAS",
+          "STATUS"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "WA Business Setup",
+              "Channel inquiry & komunikasi utama customer",
+              "Nama bisnis: Kolektiva. Foto profil: iK mark. Pesan sambutan otomatis. Pesan away di luar jam kerja (08.00–17.00 WIB). Quick reply: /harga /cara-order /dokumen /portfolio. Pesan sambutan contoh: 'Halo! Terima kasih sudah contact Kolektiva. Mohon kirimkan: nama, organisasi, produk, qty, dan deadline event.'",
+              "🔴 Urgent",
+              "⬜ Belum"
+            ],
+            "id": 1,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "Template RAB",
+              "Dokumen anggaran resmi dikirim ke customer sebelum deal",
+              "Header: logo Kolektiva, nama dokumen, nomor RAB, tanggal. Identitas: nama project, PIC customer, organisasi. Tabel: nomor, nama item, qty, satuan, harga satuan, total baris. Baris akhir: subtotal, diskon, total akhir. Footer: TTD Kolektiva + TTD customer + tanggal.",
+              "🔴 Urgent",
+              "⬜ Belum"
+            ],
+            "id": 2,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "Template MoU / SPK",
+              "Perjanjian kerjasama resmi yang melindungi kedua pihak",
+              "Judul, nomor SPK, tanggal. Identitas Kolektiva & customer. Detail order: produk, qty, spesifikasi lengkap (warna, ukuran, teknik, bahan). Timeline: deadline produksi & pengiriman. Pembayaran: total, DP, pelunasan, cara bayar. Ketentuan revisi. TTD bermaterai kedua pihak.",
+              "🔴 Urgent",
+              "⬜ Belum"
+            ],
+            "id": 3,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "Template Invoice",
+              "Tagihan resmi ke customer setelah deal atau saat pelunasan",
+              "Header: logo Kolektiva, 'INVOICE', nomor invoice, tanggal terbit. Identitas customer lengkap. Tabel item: nama produk, qty, harga satuan, subtotal. Baris: subtotal, DP sudah dibayar, total yang harus dibayar. Info rekening: bank, no rek, atas nama. Jatuh tempo pembayaran.",
+              "🔴 Urgent",
+              "⬜ Belum"
+            ],
+            "id": 4,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "Template BAST",
+              "Bukti serah terima barang resmi — krusial untuk LPJ",
+              "Judul 'BERITA ACARA SERAH TERIMA BARANG', nomor dokumen, tanggal. Identitas penyerah (Kolektiva) & penerima (customer). Tabel barang: nama produk, qty, kondisi (baik/sesuai spesifikasi). Pernyataan formal. TTD kedua pihak + tanggal + tempat.",
+              "🔴 Urgent",
+              "⬜ Belum"
+            ],
+            "id": 5,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "Template Kwitansi",
+              "Bukti pembayaran resmi — paling sering diminta untuk LPJ",
+              "Header: logo Kolektiva, 'KWITANSI', nomor, tanggal. Nama pembayar. Jumlah: angka + terbilang huruf. Untuk pembayaran: nama project, keterangan DP/pelunasan/full. TTD + nama terang Kolektiva. Stempel (jika ada).",
+              "🔴 Urgent",
+              "⬜ Belum"
+            ],
+            "id": 6,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "Katalog Produk PDF",
+              "Dikirimkan ke calon customer saat pertama kali inquiry",
+              "Cover: logo + tagline. Per produk (1 halaman): foto terbaik, nama produk, 2–3 pilihan bahan, teknik tersedia, MOQ, estimasi range harga, timeline produksi. Penutup: kontak WA + Instagram Kolektiva.",
+              "🟠 Tinggi",
+              "⬜ Belum"
+            ],
+            "id": 7,
+            "_status": null
+          },
+          {
+            "cells": [
+              "Brief Form Customer",
+              "Standarisasi input dari customer sebelum masuk produksi",
+              "Field: Nama PIC, Organisasi, No. WA, Produk, Jumlah (pcs), Breakdown ukuran (S/M/L/XL/XXL), Warna dasar, Detail desain/logo, Teknik (sablon/bordir/DTF), Deadline terima barang, Budget range, Catatan tambahan. Format: Google Form atau PDF isi.",
+              "🟠 Tinggi",
+              "⬜ Belum"
+            ],
+            "id": 8,
+            "_status": null
+          },
+          {
+            "cells": [
+              "Spreadsheet Order Tracking",
+              "Monitor semua project aktif & history order",
+              "Google Sheets. Kolom: No, Tanggal Inquiry, Nama PIC, Organisasi, Produk, Qty, Nilai Order, DP Masuk, Sisa Tagihan, Deadline Customer, Deadline ke Vendor, Vendor, Status Produksi, Status Pengiriman, Status Dokumen (RAB/MoU/Invoice/BAST/Kwitansi), Catatan.",
+              "🟠 Tinggi",
+              "⬜ Belum"
+            ],
+            "id": 9,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "SOP Alur Order",
+              "Panduan operasional standar yang wajib diikuti tiap order",
+              "Step 1: Inquiry masuk via DM/WA. Step 2: Kirim brief form. Step 3: Terima brief, buat RAB/Quotation. Step 4: Customer approval + bayar DP + TTD MoU. Step 5: Brief ke vendor. Step 6: Monitor produksi + QC. Step 7: Pelunasan. Step 8: Kirim barang + foto. Step 9: Kirim semua dokumen resmi (Invoice, BAST, Kwitansi).",
+              "🟡 Normal",
+              "⬜ Belum"
+            ],
+            "id": 10,
+            "_status": null
+          }
+        ],
+        "statusCol": 4
+      }
+    ],
+    "id": 1776610706267,
+    "uploadedAt": "2026-04-19",
+    "archived": false
+  },
+  {
+    "title": "Dikopi Master Plan Q2 2026",
+    "brand": "dikopi",
+    "sheets": [
+      {
+        "name": "🗂️ MASTER TODO",
+        "columns": [
+          "NO",
+          "TASK",
+          "KATEGORI",
+          "PRIORITAS",
+          "DEADLINE",
+          "EST. WAKTU",
+          "STATUS",
+          "CHANNEL",
+          "NOTES"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "1",
+              "Audit analytics semua platform — lihat post terbaik, demografi follower, jam ramai",
+              "KONTEN DIGITAL",
+              "HIGH",
+              "22 Apr 2026",
+              "2 jam",
+              "PENDING",
+              "IG / TikTok / FB",
+              "Fokus: engagement rate, reach, post mana yg pernah perform bagus. Ini jadi dasar semua keputusan konten ke depan."
+            ],
+            "id": 1,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "2",
+              "Tentukan 4 Content Pillar Dikopi (Vibes, Produk, Komunitas, Behind the Scenes)",
+              "KONTEN DIGITAL",
+              "HIGH",
+              "23 Apr 2026",
+              "1 jam",
+              "PENDING",
+              "Semua Platform",
+              "Setiap post harus masuk salah satu pillar. Ini bikin konten konsisten dan ngehindarin lo bingung mau post apa tiap hari."
+            ],
+            "id": 2,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "3",
+              "Update IG Bio — value prop jelas, jam buka, dan link in bio yang berfungsi",
+              "KONTEN DIGITAL",
+              "HIGH",
+              "24 Apr 2026",
+              "30 menit",
+              "PENDING",
+              "Instagram",
+              "Contoh bio: ☕ Kopi & nongkrong malam | Buka 17.00–00.00 | Botol ready 🍶 | [link]. Orang baru harus ngerti Dikopi dalam 5 detik."
+            ],
+            "id": 3,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "4",
+              "Setup Linktree/Beacons sebagai link in bio — isi: menu, Shopee, WA order, IG",
+              "KONTEN DIGITAL",
+              "HIGH",
+              "24 Apr 2026",
+              "1 jam",
+              "PENDING",
+              "IG / TikTok",
+              "Linktree free sudah cukup. Jangan bikin orang bingung mau ke mana setelah lihat konten lo."
+            ],
+            "id": 4,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "5",
+              "Rapikan IG Highlights: kategori Menu, Suasana, Botol, Promo, FAQ",
+              "KONTEN DIGITAL",
+              "MEDIUM",
+              "26 Apr 2026",
+              "1.5 jam",
+              "PENDING",
+              "Instagram",
+              "Highlights = toko virtual lo. Orang baru yang mampir ke profil harus bisa ngerti Dikopi dalam 30 detik."
+            ],
+            "id": 5,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "6",
+              "Buat template konten di Canva — set warna, font, dan style yang konsisten",
+              "KONTEN DIGITAL",
+              "MEDIUM",
+              "27 Apr 2026",
+              "2 jam",
+              "PENDING",
+              "Semua Platform",
+              "Minimal 5 template: feed post, carousel, story promo, story poll, quote. Konsistensi visual = brand equity."
+            ],
+            "id": 6,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "7",
+              "Buat content calendar Mei 2026 — minimal 16 konten (~4/minggu)",
+              "KONTEN DIGITAL",
+              "HIGH",
+              "25 Apr 2026",
+              "2 jam",
+              "PENDING",
+              "Semua Platform",
+              "Gunakan sheet 📱 KONTEN SOSMED di file ini sebagai panduan. Batch produksi jauh lebih efisien dari kerja harian."
+            ],
+            "id": 7,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "8",
+              "Shoot batch B-roll footage suasana malam Dikopi (Sabtu/Minggu malam jam 8-10)",
+              "KONTEN DIGITAL",
+              "HIGH",
+              "27 Apr 2026",
+              "2-3 jam shoot",
+              "PENDING",
+              "IG / TikTok",
+              "Shot wajib: suasana ramai, detail meja, minuman di-pour, board game, pencahayaan warm. Stok konten untuk 2 minggu."
+            ],
+            "id": 8,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "9",
+              "Produksi konten batch pertama: 5 konten siap posting (lihat sheet Konten Sosmed)",
+              "KONTEN DIGITAL",
+              "HIGH",
+              "28 Apr 2026",
+              "3 jam",
+              "PENDING",
+              "IG / TikTok",
+              "Prioritas: 2 Reels/TikTok video, 2 IG feed post, 1 Story series. Done > perfect. Jangan overthink."
+            ],
+            "id": 9,
+            "_status": null
+          },
+          {
+            "cells": [
+              "10",
+              "Set jadwal posting rutin: TikTok 4x/minggu, IG 3x/minggu, Story harian",
+              "KONTEN DIGITAL",
+              "MEDIUM",
+              "25 Apr 2026",
+              "30 menit",
+              "PENDING",
+              "Semua Platform",
+              "Jam optimal: 18.00–20.00 (prime time Gen Z). Gunakan Meta Business Suite untuk jadwal otomatis."
+            ],
+            "id": 10,
+            "_status": null
+          },
+          {
+            "cells": [
+              "11",
+              "Aktifkan fitur IG Collab Post untuk boost reach tanpa tambah effort",
+              "KONTEN DIGITAL",
+              "LOW",
+              "1 Mei 2026",
+              "30 menit",
+              "PENDING",
+              "Instagram",
+              "Collab dengan customer, komunitas lokal, atau brand relevan. Satu konten, dua audience."
+            ],
+            "id": 11,
+            "_status": null
+          },
+          {
+            "cells": [
+              "12",
+              "Hitung HPP per botol RTD + tentukan harga jual untuk channel toko, event, dan grosir",
+              "REVENUE OFFLINE",
+              "HIGH",
+              "23 Apr 2026",
+              "1 jam",
+              "PENDING",
+              "Offline / Event",
+              "Pastikan margin minimal 40-50% di semua channel. Tanpa ini, bisa jual ratusan botol tapi malah rugi."
+            ],
+            "id": 12,
+            "_status": null
+          },
+          {
+            "cells": [
+              "13",
+              "Buat list event CFD, bazaar, & komunitas bulan Mei–Juni di kotamu",
+              "REVENUE OFFLINE",
+              "HIGH",
+              "24 Apr 2026",
+              "1 jam",
+              "PENDING",
+              "Event Offline",
+              "Target: minimal 4 event/bulan. Cari via IG, Google, grup WA komunitas. Prioritas: biaya lapak < Rp100k."
+            ],
+            "id": 13,
+            "_status": null
+          },
+          {
+            "cells": [
+              "14",
+              "Desain dan print stamp loyalty card 100 pcs — buy 5 get 1 free",
+              "REVENUE OFFLINE",
+              "HIGH",
+              "28 Apr 2026",
+              "Desain 1 jam + print 3 hari",
+              "PENDING",
+              "In-store",
+              "Simple dulu: kartu kertas, desain Canva, print lokal. Tujuan: bikin customer balik lagi. Repeat = revenue tanpa akuisisi baru."
+            ],
+            "id": 14,
+            "_status": null
+          },
+          {
+            "cells": [
+              "15",
+              "Pasang QR code di setiap meja — arahkan ke IG + WA order botol + menu digital",
+              "REVENUE OFFLINE",
+              "MEDIUM",
+              "26 Apr 2026",
+              "1 jam",
+              "PENDING",
+              "In-store",
+              "QR gratis di qr.io atau Canva. Print + laminate. Ini nudge halus agar customer follow IG dan order botol."
+            ],
+            "id": 15,
+            "_status": null
+          },
+          {
+            "cells": [
+              "16",
+              "Reach out 3–5 event organizer lokal — tawarkan Dikopi sebagai vendor minuman",
+              "REVENUE OFFLINE",
+              "MEDIUM",
+              "1 Mei 2026",
+              "1 jam",
+              "PENDING",
+              "Event Offline",
+              "Bawa sampel botol. Pitch: PIRT certified, halal label, harga grosir menarik. Buka channel revenue baru."
+            ],
+            "id": 16,
+            "_status": null
+          },
+          {
+            "cells": [
+              "17",
+              "Buat promo 'Sabtu Malam Spesial' rutin setiap jam 20.00–22.00",
+              "REVENUE OFFLINE",
+              "MEDIUM",
+              "3 Mei 2026",
+              "Setup 1 jam",
+              "PENDING",
+              "In-store",
+              "Contoh: beli 2 botol diskon Rp5.000, atau free topping untuk order tertentu. Announce tiap Jumat via Story. Bikin habit."
+            ],
+            "id": 17,
+            "_status": null
+          },
+          {
+            "cells": [
+              "18",
+              "Rapikan label botol RTD — wajib ada: PIRT, halal, komposisi, expired, nama produk",
+              "REVENUE OFFLINE",
+              "HIGH",
+              "5 Mei 2026",
+              "Desain 2 jam + print",
+              "PENDING",
+              "Produk Botol",
+              "Ini bukan opsional — ini mandatory secara hukum. Label proper juga buka peluang masuk event yang lebih resmi."
+            ],
+            "id": 18,
+            "_status": null
+          },
+          {
+            "cells": [
+              "19",
+              "Lengkapi profil toko Shopee Dikopi — foto, deskripsi, lokasi, jam respon",
+              "SHOPEE",
+              "HIGH",
+              "24 Apr 2026",
+              "1 jam",
+              "PENDING",
+              "Shopee",
+              "Toko yang lengkap = trust. Lihat sheet 🛒 SHOPEE SETUP untuk step-by-step lengkap."
+            ],
+            "id": 19,
+            "_status": null
+          },
+          {
+            "cells": [
+              "20",
+              "Foto produk kopi bubuk — white background (5 foto) + lifestyle shot",
+              "SHOPEE",
+              "HIGH",
+              "26 Apr 2026",
+              "2 jam",
+              "PENDING",
+              "Shopee",
+              "Wajib: close-up kemasan, biji kopi, hasil seduhan, lifestyle, infografis PIRT + halal. Tanpa foto bagus, produk ga akan diklik."
+            ],
+            "id": 20,
+            "_status": null
+          },
+          {
+            "cells": [
+              "21",
+              "Tulis judul dan deskripsi produk ground coffee yang SEO-friendly",
+              "SHOPEE",
+              "HIGH",
+              "27 Apr 2026",
+              "1.5 jam",
+              "PENDING",
+              "Shopee",
+              "Keyword target: kopi bubuk robusta, kopi lokal, kopi nusantara, kopi tanpa gula. Format judul: Brand + Tipe + Berat + Keyword."
+            ],
+            "id": 21,
+            "_status": null
+          },
+          {
+            "cells": [
+              "22",
+              "Upload dan aktivasi minimal 2 SKU ground coffee di Shopee",
+              "SHOPEE",
+              "HIGH",
+              "28 Apr 2026",
+              "1 jam",
+              "PENDING",
+              "Shopee",
+              "Contoh SKU: Robusta 100g, Robusta 250g. Pisah SKU untuk bisa track performa masing-masing."
+            ],
+            "id": 22,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "23",
+              "Daftarkan toko ke program Shopee Gratis Ongkir",
+              "SHOPEE",
+              "MEDIUM",
+              "29 Apr 2026",
+              "30 menit",
+              "PENDING",
+              "Shopee",
+              "Gratis ongkir = faktor konversi terbesar di Shopee. Wajib aktif dari hari pertama toko live."
+            ],
+            "id": 23,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "24",
+              "Buat konten launch Shopee untuk drive traffic dari IG dan TikTok",
+              "SHOPEE",
+              "MEDIUM",
+              "3 Mei 2026",
+              "1 jam",
+              "PENDING",
+              "IG / TikTok / Shopee",
+              "Format: 'Kopi Dikopi sekarang bisa dikirim!' + link Shopee di bio. Lihat brief di sheet Konten Sosmed no. 16."
+            ],
+            "id": 24,
+            "_status": null
+          },
+          {
+            "cells": [
+              "25",
+              "Tentukan sourcing kopi bubuk: in-house roast vs pre-roasted dari supplier",
+              "SHOPEE",
+              "HIGH",
+              "28 Apr 2026",
+              "Research 2 jam",
+              "PENDING",
+              "Produk / Shopee",
+              "KEPUTUSAN KRITIKAL. In-house: kontrol penuh, capex tinggi. Outsource: cepat, margin lebih kecil. Ini nentuin harga jual dan diferensiasi."
+            ],
+            "id": 25,
+            "_status": null
+          },
+          {
+            "cells": [
+              "26",
+              "Finalisasi formula butterscotch milk drink (target balance rasa di ~100ml)",
+              "PRODUK RND",
+              "HIGH",
+              "Ongoing",
+              "Per sesi RnD",
+              "IN PROGRESS",
+              "RnD",
+              "Formula saat ini: ~70ml air, 30ml susu segar, 20ml simple syrup 1:1, 10–12ml Trieste butterscotch. Iterasi sampai stabil."
+            ],
+            "id": 26,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "27",
+              "Test shelf life butterscotch milk drink — suhu ruang vs kulkas, observasi 5–7 hari",
+              "PRODUK RND",
+              "HIGH",
+              "10 Mei 2026",
+              "Obs. 5-7 hari",
+              "PENDING",
+              "RnD",
+              "Dokumentasi: perubahan rasa, tekstur, visual per hari. Ini nentuin apakah produk bisa dijual di luar toko."
+            ],
+            "id": 27,
+            "_status": null
+          },
+          {
+            "cells": [
+              "28",
+              "Riset supplier botol 100ml food-safe + ekonomis (min. order 500–1000 pcs)",
+              "PRODUK RND",
+              "MEDIUM",
+              "5 Mei 2026",
+              "2 jam research",
+              "PENDING",
+              "RnD / Produk",
+              "Cari di Tokopedia/Shopee: botol PET 100ml dengan tutup seal. Bandingkan harga per unit."
+            ],
+            "id": 28,
+            "_status": null
+          },
+          {
+            "cells": [
+              "29",
+              "Buat SOP produksi butterscotch milk drink — takaran, urutan, suhu, QC",
+              "PRODUK RND",
+              "MEDIUM",
+              "15 Mei 2026",
+              "1 jam",
+              "PENDING",
+              "RnD / Ops",
+              "SOP penting agar rasa konsisten walau diproduksi kapanpun. Tulis step-by-step + foto tiap tahap."
+            ],
+            "id": 29,
+            "_status": null
+          },
+          {
+            "cells": [
+              "30",
+              "Buat SOP konten digital: template caption, jadwal posting, proses review",
+              "SISTEM",
+              "MEDIUM",
+              "30 Apr 2026",
+              "2 jam",
+              "PENDING",
+              "Internal",
+              "Tulis di Google Docs atau Notion. Tujuan: kalau lo rekrut orang nanti, dia bisa langsung jalankan tanpa banyak tanya."
+            ],
+            "id": 30,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "31",
+              "Setup Google Drive untuk aset digital Dikopi — foto, video, template, dokumen resmi",
+              "SISTEM",
+              "LOW",
+              "24 Apr 2026",
+              "30 menit",
+              "PENDING",
+              "Internal",
+              "Folder: Foto Produk | Video | Template | Dokumen. Rapikan sekarang sebelum aset makin menumpuk."
+            ],
+            "id": 31,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "32",
+              "Evaluasi mingguan: review KPI setiap Senin pagi (30 menit) — lihat sheet KPI Tracker",
+              "SISTEM",
+              "MEDIUM",
+              "Mulai 27 Apr",
+              "30 menit/minggu",
+              "PENDING",
+              "Internal",
+              "Track: follower growth, engagement rate, Shopee views & sold, revenue botol. Perbaiki yang tidak on track."
+            ],
+            "id": 32,
+            "_status": "done"
+          }
+        ],
+        "statusCol": 6
+      },
+      {
+        "name": "📱 KONTEN SOSMED",
+        "columns": [
+          "NO",
+          "PLATFORM",
+          "PILAR",
+          "TIPE KONTEN",
+          "JUDUL / ANGLE",
+          "BRIEF VISUAL",
+          "BRIEF CAPTION",
+          "HASHTAG DIRECTION",
+          "CTA",
+          "DEADLINE",
+          "STATUS"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "1",
+              "TikTok",
+              "🌙 VIBES",
+              "Short Video 15–30s",
+              "POV: Nongkrong malem yang lo butuhin setelah pekan berat",
+              "B-roll suasana Dikopi malam — lampu warm, orang ngobrol, suara café natural. Cut cepat dan aesthetic. Tambah text overlay minimalis di layar.",
+              "Cukup 1 baris: 'Sini dulu.' — biarkan videonya yang bicara. Pakai audio trending calm/cozy. Jangan overexplain.",
+              "#nongkrongmalam #cafelokal #dikopi #coffeevibes #cafenight",
+              "Follow buat tau promo weekend",
+              "26 Apr 2026",
+              "PENDING"
+            ],
+            "id": 1,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "2",
+              "Instagram Reels",
+              "☕ PRODUK",
+              "Reels 30–45s",
+              "5 minuman Dikopi yang wajib dicoba minimal sekali seumur hidup",
+              "Slow-motion pour shot tiap minuman. Close-up: busa kopi, es batu, botol mengkilap. Teks nama minuman muncul satu-satu. Lighting warm.",
+              "Caption: 'Dari yang pahit sampai yang manis, semuanya ada. Mana yang udah lo coba? Komen di bawah!' — ajak interaksi.",
+              "#kopibandung #menukopi #dikopi #coffeereel #espresso",
+              "Tag teman yang harus nyobain",
+              "27 Apr 2026",
+              "PENDING"
+            ],
+            "id": 2,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "3",
+              "Instagram Story",
+              "🤝 KOMUNITAS",
+              "Poll Interactive",
+              "Kamu tim kopi hitam atau kopi susu?",
+              "Foto split: kiri kopi hitam (Americano), kanan kopi susu (Cappuccino). Warna kontras. Poll sticker di tengah. Desain clean di Canva.",
+              "Cukup: 'Kamu tim mana? 🖤 vs 🤍' — follow up besok dengan hasil poll + 'yang kalah wajib coba yang satunya 😏'",
+              "-",
+              "Jawab poll-nya!",
+              "28 Apr 2026",
+              "PENDING"
+            ],
+            "id": 3,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "4",
+              "TikTok",
+              "🎬 BEHIND THE SCENES",
+              "ASMR Process 30–60s",
+              "ASMR: Bikin Black Breeze Americano dari nol — no music, pure sound",
+              "POV kamera overhead. Proses: grind biji kopi, tamping, espresso pull, tambah air, es batu masuk. Suara ASMR natural. Close-up detail tiap langkah.",
+              "Teks: 'Black Breeze Americano — simple, strong, satisfying.' Minimal caption, biarkan suara jadi konten.",
+              "#asmrcoffee #coffeemakingtiktok #barista #dikopi #espressotok",
+              "Order di link bio",
+              "29 Apr 2026",
+              "PENDING"
+            ],
+            "id": 4,
+            "_status": null
+          },
+          {
+            "cells": [
+              "5",
+              "Instagram Post",
+              "☕ PRODUK",
+              "Feed Photo Single",
+              "Product spotlight: Arenso Aren Espresso — kenalan dulu",
+              "Foto hero: botol Arenso di atas meja kayu, background blur warm. Lighting natural. Portrait. Props sederhana: daun kering atau bunga kecil.",
+              "Caption: 'Aren yang ga pake drama. Espresso + gula aren + es — beres. Arenso tersedia di toko dan bisa order botol.' 3–4 baris max.",
+              "#gulaarenespresso #kopibotolan #dikopi #localcoffee #arenespresso",
+              "Mau? DM atau langsung mampir",
+              "30 Apr 2026",
+              "PENDING"
+            ],
+            "id": 5,
+            "_status": null
+          },
+          {
+            "cells": [
+              "6",
+              "TikTok",
+              "🌙 VIBES",
+              "Text Overlay Video 15–30s",
+              "Dikopi tuh tempat buat lo yang butuh jeda — bukan sekadar ngopi",
+              "B-roll slow: orang baca buku di sudut, seseorang ketik laptop, cahaya temaram dan tenang. Audio: lo-fi/indie calm. Text overlay muncul pelan.",
+              "Teks di video: 'Buat yang kerja keras tapi butuh nafas.' Caption: 'Buka jam 5 sore, tutup jam 12 malem. Mampir aja.'",
+              "#thirdplace #coffeeshop #dikopi #nongkrong #studycafe",
+              "Simpan video ini buat reminder",
+              "1 Mei 2026",
+              "PENDING"
+            ],
+            "id": 6,
+            "_status": null
+          },
+          {
+            "cells": [
+              "7",
+              "Instagram Story",
+              "🤝 KOMUNITAS",
+              "Open Question Interactive",
+              "Kalau kamu bisa tambahin 1 menu Dikopi, apa yang lo pilih?",
+              "Story berlatar menu board Dikopi. Gunakan open question sticker. Desain simpel dengan font menarik dan tone warna brand.",
+              "Teks: 'Kita dengerin kalian 👀 Menu apa yang pengen lo liat?' — follow-up story besok: screenshot jawaban paling menarik dari followers.",
+              "-",
+              "Jawab di bawah ya!",
+              "2 Mei 2026",
+              "PENDING"
+            ],
+            "id": 7,
+            "_status": null
+          },
+          {
+            "cells": [
+              "8",
+              "Instagram Reels",
+              "🌙 VIBES",
+              "Timelapse 15–30s",
+              "Dari sepi ke ramai — satu malam di Dikopi dalam 30 detik",
+              "Timelapse kamera fixed dari buka jam 5 sore sampai ramai jam 8–9 malam. Lihat transformasi suasana. Tambah text overlay penunjuk jam.",
+              "Caption: 'Jam 5 sore: masih sepi. Jam 8 malam: lain cerita. Tiap Sabtu–Minggu at Dikopi.' Akhiri dengan lokasi pinned.",
+              "#cafelokal #coffeevibes #dikopi #weekendvibes",
+              "Dateng sebelum penuh!",
+              "3 Mei 2026",
+              "PENDING"
+            ],
+            "id": 8,
+            "_status": null
+          },
+          {
+            "cells": [
+              "9",
+              "TikTok",
+              "🎬 BEHIND THE SCENES",
+              "Vlog Short 45–60s",
+              "Day in the life: solo ngelola coffee shop — jujur aja",
+              "Authentic, ga perlu cinematic. Shoot: buka toko, prep bahan, customer pertama, momen santai, sampai tutup. Voiceover jujur atau teks.",
+              "Teks: 'Dikelola sendiri. Capek? Iya. Nyesel? Engga.' — Authentic > polished. Gen Z reward honesty dengan engage.",
+              "#solopreneur #coffeeshopowner #dikopi #dayinmylife #smallbusiness",
+              "Follow buat update harian",
+              "4 Mei 2026",
+              "PENDING"
+            ],
+            "id": 9,
+            "_status": null
+          },
+          {
+            "cells": [
+              "10",
+              "Instagram Post",
+              "☕ PRODUK",
+              "Promo Feed Post",
+              "Sabtu Malam Special: beli 2 botol, hemat Rp5.000 — tiap minggu",
+              "Desain Canva — bold typography, warna kontras (dark brown + cream/gold). Tampilkan foto 2 botol. Promo tertulis jelas dan besar. Clean layout.",
+              "Caption: 'Tiap Sabtu malam 20.00–22.00, ada promo botol khusus. Jangan bilang yang lain 🤫' — buat FOMO, batas waktu jelas.",
+              "#promokopi #kopibotolan #dikopi #sabtunight #cafelokal",
+              "Langsung ke toko Sabtu malam!",
+              "5 Mei 2026",
+              "PENDING"
+            ],
+            "id": 10,
+            "_status": null
+          },
+          {
+            "cells": [
+              "11",
+              "TikTok",
+              "🤝 KOMUNITAS",
+              "Rating/Review 30–45s",
+              "Gw review menu Dikopi sendiri secara jujur (sebagai owner)",
+              "Founder on cam, casual, ngobrol sambil nyoba menu satu-satu. Ekspresi jujur dan ada humor ringan. Tambah rating di corner layar.",
+              "Hook: 'Gimana rasanya review produk sendiri?' — relatable, humor, tapi tetap informasi. Ini bangun personality brand yang otentik.",
+              "#ownerreview #kopijujur #dikopi #coffeetok #reviewkopi",
+              "Komen: mana yang pengen dicoba duluan?",
+              "7 Mei 2026",
+              "PENDING"
+            ],
+            "id": 11,
+            "_status": null
+          },
+          {
+            "cells": [
+              "12",
+              "Instagram Story",
+              "🎬 BEHIND THE SCENES",
+              "Story Series 3–4 slide",
+              "Behind the scenes: kenapa kita bikin simple syrup sendiri",
+              "Slide 1: Tunjukin bahan (gula + air). Slide 2: Proses masak. Slide 3: Hasil jadi. Slide 4: Penjelasan kenapa ini vs SKM. Casual, kayak ngobrol.",
+              "Storytelling: 'Gula pasir + air = simple syrup. Simpel, tapi ini yang bikin rasa kita beda dari kebanyakan kafe.' Edukatif tapi santai.",
+              "-",
+              "DM kalau mau tanya lebih lanjut",
+              "8 Mei 2026",
+              "PENDING"
+            ],
+            "id": 12,
+            "_status": null
+          },
+          {
+            "cells": [
+              "13",
+              "Instagram Reels",
+              "🎬 BEHIND THE SCENES",
+              "Edu-tainment Reels 30–45s",
+              "Kenapa kita pilih gula asli, bukan susu kental manis — alasan sebenarnya",
+              "Split video: kiri (SKM yang manis berlebih) vs kanan (simple syrup yang balance). Narasi founder, visual testing rasa secara nyata.",
+              "Caption: 'Kebanyakan kafe pakai SKM buat hemat. Kita enggak. Ini alasannya.' — edukasi tanpa menggurui. Relate ke audience.",
+              "#kopibotolan #baristatips #dikopi #coffeelovers #gulaarenvsrkm",
+              "Coba dan rasain bedanya di toko",
+              "9 Mei 2026",
+              "PENDING"
+            ],
+            "id": 13,
+            "_status": null
+          },
+          {
+            "cells": [
+              "14",
+              "TikTok",
+              "🤝 KOMUNITAS",
+              "Relatable Text Overlay 15–30s",
+              "Ngerjain tugas malam di mana? Bukan kamar, bukan perpus...",
+              "Text overlay di video suasana Dikopi yang tenang malam hari. Audio trending. Teks muncul seperti pilihan yang satu-persatu gugur.",
+              "Teks video: 'Kamar: susah fokus. Perpus: tutup malem. Dikopi: buka sampai 12, wifi kenceng, kopi jalan.' — simple truth, relate banget.",
+              "#mahasiswalife #tugasmalam #dikopi #studyvibe #coffeenight",
+              "Pin lokasi ada di bio!",
+              "10 Mei 2026",
+              "PENDING"
+            ],
+            "id": 14,
+            "_status": null
+          },
+          {
+            "cells": [
+              "15",
+              "Instagram Post",
+              "🌙 VIBES",
+              "Carousel 3–5 slide",
+              "Fasilitas Dikopi yang lo mungkin belum tau — swipe sampai habis",
+              "Slide 1: Foto hero toko malam. Slide 2: Board games close-up. Slide 3: Pojok buku. Slide 4: Bar seating. Slide 5: Lesehan suasana. Semua warm.",
+              "Caption: 'Lo kira ini cuma coffee shop biasa? Swipe dulu.' — tiap slide ada caption kecil di foto. Bikin orang curious untuk swipe.",
+              "#cafelokal #coffeeshopvibes #dikopi #nongkrongasik #cafedesign",
+              "Swipe sampai habis!",
+              "12 Mei 2026",
+              "PENDING"
+            ],
+            "id": 15,
+            "_status": null
+          },
+          {
+            "cells": [
+              "16",
+              "Multi-Platform",
+              "☕ PRODUK",
+              "Launch Announcement",
+              "Kopi Dikopi sekarang bisa dikirim — Shopee launch",
+              "Reels/TikTok: unboxing-style reveal packaging kopi bubuk. Tunjukin kemasan, label PIRT + halal, dan cara beli di Shopee. Energy excited.",
+              "Caption: 'Ga bisa ke sini? Kita yang dateng ke kamu. Ground coffee Dikopi sekarang ada di Shopee! Link di bio.' — announcement tone, hype.",
+              "#kopibubuk #shopee #dikopi #kopinusantara #localcoffeeid",
+              "Klik link di bio sekarang!",
+              "3 Mei 2026",
+              "PENDING"
+            ],
+            "id": 16,
+            "_status": null
+          }
+        ],
+        "statusCol": 10
+      },
+      {
+        "name": "💰 REVENUE ACTIONS",
+        "columns": [
+          "NO",
+          "ACTION",
+          "CHANNEL",
+          "TUJUAN REVENUE",
+          "DETAIL EKSEKUSI",
+          "EST. IMPACT",
+          "DEADLINE",
+          "STATUS"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "1",
+              "Aktivasi 'Sabtu-Minggu Malam Spesial' — promo rutin di jam prime time 20.00–22.00",
+              "In-store",
+              "Naikkan average spend per kunjungan + bangun habit datang rutin",
+              "Pilih 1 promo per minggu (contoh: beli 2 botol diskon Rp5k, free topping untuk order di atas Rp20k). Announce tiap Jumat via Story. Evaluasi setiap 2 minggu mana yang paling convert.",
+              "Jika prime time sudah ramai, promo bisa convert 20–30% customer jadi beli lebih. Potensi +Rp150k–300k per malam Sabtu.",
+              "3 Mei 2026",
+              "PENDING"
+            ],
+            "id": 1,
+            "_status": null
+          },
+          {
+            "cells": [
+              "2",
+              "Launch stamp loyalty card — buy 5 get 1 free, berlaku semua menu",
+              "In-store",
+              "Tingkatkan repeat visit dan customer retention tanpa biaya akuisisi",
+              "Desain di Canva, print di percetakan lokal. Distribusi ke semua customer mulai hari H. Track berapa kartu aktif vs redeem tiap minggu. Target: 30 kartu aktif dalam 2 minggu pertama.",
+              "Repeat visit = revenue tanpa akuisisi. Setiap cycle loyalty = 5 transaksi terjamin per customer sebelum 1 gratis.",
+              "28 Apr 2026",
+              "PENDING"
+            ],
+            "id": 2,
+            "_status": null
+          },
+          {
+            "cells": [
+              "3",
+              "Pasang QR code di tiap meja — link ke IG + WA order botol + menu digital",
+              "In-store",
+              "Convert walk-in customer jadi follower aktif + potential botol buyer",
+              "Buat QR di qr.io (gratis). Print + laminate. 1 per meja. Tambah stiker kecil: 'Order botol → WA [no].' Track follower growth setelah dipasang.",
+              "Low cost, high leverage. 1 follow sekarang = potensi reach ratusan orang lewat algoritma feed dan story.",
+              "26 Apr 2026",
+              "PENDING"
+            ],
+            "id": 3,
+            "_status": null
+          },
+          {
+            "cells": [
+              "4",
+              "Aktifkan pre-order botol via WhatsApp — order Jumat, pickup Sabtu jam 5 sore",
+              "Botol RTD",
+              "Reduce waste produksi + pastikan ada demand sebelum produksi massal",
+              "Announce tiap Jumat di Story: 'Pre-order botol minggu ini, pickup Sabtu mulai jam 5 sore. DM atau WA [no]. Limit 30 botol.' Buat urgensi dengan quantity terbatas.",
+              "Pre-order = zero waste, cash di muka, dan create urgency natural. Model ini sustainable bahkan sebelum Dikopi scale.",
+              "1 Mei 2026",
+              "PENDING"
+            ],
+            "id": 4,
+            "_status": null
+          },
+          {
+            "cells": [
+              "5",
+              "Map semua event CFD, bazaar, pasar malam Mei–Juni — daftar minimal 4 event",
+              "Event Offline",
+              "Channel tambahan untuk jualan botol RTD + brand exposure ke audience baru",
+              "Cari via Google, IG event lokal, grup WA komunitas. Catat: tanggal, lokasi, biaya lapak, estimasi pengunjung. Prioritaskan biaya lapak < Rp100k atau gratis.",
+              "Target per event: jual 30–50 botol @ Rp12k–15k. Revenue potensial: Rp360k–750k per event.",
+              "24 Apr 2026",
+              "PENDING"
+            ],
+            "id": 5,
+            "_status": null
+          },
+          {
+            "cells": [
+              "6",
+              "Buat pitch deck 1 halaman untuk approach event organizer sebagai vendor minuman",
+              "Event Offline",
+              "Dapat slot vendor di event yang lebih besar dan terorganisir",
+              "1 halaman A4 di Canva: profil Dikopi, foto produk botol, sertifikasi (PIRT + halal), harga grosir, kontak. Kirim via WA ke 5 EO lokal minimal.",
+              "1 event besar = exposure ke ratusan orang + revenue signifikan dalam 1 hari. ROI jauh lebih tinggi dari boost sosmed.",
+              "1 Mei 2026",
+              "PENDING"
+            ],
+            "id": 6,
+            "_status": null
+          },
+          {
+            "cells": [
+              "7",
+              "Hitung dan finalisasi harga jual botol per channel: toko, event, dan grosir reseller",
+              "Botol RTD",
+              "Pastikan margin sehat (min. 40–50%) di setiap channel tanpa rugi",
+              "Kalkulasi HPP: bahan baku + packaging + label + overhead produksi. Tentukan: harga toko (Rp10k), event (Rp12k–15k), grosir ke reseller (Rp7k–8k). Ini non-negotiable sebelum scale.",
+              "Tanpa kalkulasi ini, bisa jual ratusan botol tapi operasional malah merugi. Harus dikerjain sebelum semua action lain.",
+              "23 Apr 2026",
+              "PENDING"
+            ],
+            "id": 7,
+            "_status": null
+          },
+          {
+            "cells": [
+              "8",
+              "Explore konsinyasi botol RTD ke warung/kantin terdekat (radius 2 km dari Dikopi)",
+              "Botol RTD",
+              "Channel distribusi pasif yang menjangkau customer baru tanpa effort harian",
+              "Approach 3–5 warung/kantin terdekat. Model: titip 10 botol, bayar setelah laku (minus margin Dikopi). HPP sudah dihitung, jadi margin tetap aman meski dipotong komisi titip.",
+              "5 titik x 10 botol/minggu = 50 botol/minggu pasif. Sales tanpa lo harus hadir atau ngelola langsung.",
+              "15 Mei 2026",
+              "PENDING"
+            ],
+            "id": 8,
+            "_status": null
+          },
+          {
+            "cells": [
+              "9",
+              "Siapkan booth setup sederhana tapi instagrammable untuk event offline",
+              "Event Offline",
+              "Tingkatkan visibility di event + trigger orang foto dan share ke sosmed",
+              "Komponen: banner Dikopi, taplak meja branded, display produk rapi, minimal 1 props menarik untuk foto. Budget: Rp200k–400k sekali, tapi reusable untuk semua event.",
+              "Booth yang menarik secara visual = orang foto dan upload = exposure gratis ke audience mereka di IG/TikTok.",
+              "7 Mei 2026",
+              "PENDING"
+            ],
+            "id": 9,
+            "_status": null
+          },
+          {
+            "cells": [
+              "10",
+              "Buka dan launch toko Shopee dengan ground coffee sebagai produk utama",
+              "Shopee",
+              "Channel revenue baru yang bekerja 24/7 tanpa lo harus hadir",
+              "Lihat sheet 🛒 SHOPEE SETUP untuk detail langkah per langkah. Target: toko live sebelum 30 April 2026.",
+              "Ground coffee: shelf life panjang, aman dikirim, margin tinggi. Shopee = passive sales engine.",
+              "28 Apr 2026",
+              "PENDING"
+            ],
+            "id": 10,
+            "_status": null
+          },
+          {
+            "cells": [
+              "11",
+              "Buat konten launch Shopee untuk drive traffic dari IG dan TikTok ke toko",
+              "Shopee + Sosmed",
+              "Konversi followers yang sudah ada menjadi pembeli pertama di Shopee",
+              "Reels + TikTok: 'Kopi Dikopi sekarang bisa dikirim!' + link Shopee di bio. Post 2x per minggu selama bulan pertama. Lihat brief detail di sheet Konten Sosmed no. 16.",
+              "Setiap 1% konversi dari total followers = angka yang sangat signifikan untuk toko Shopee yang baru launch.",
+              "3 Mei 2026",
+              "PENDING"
+            ],
+            "id": 11,
+            "_status": null
+          },
+          {
+            "cells": [
+              "12",
+              "Rapikan label botol RTD — PIRT, halal, komposisi, expired, nama produk, branding",
+              "Botol RTD",
+              "Trust signal + compliance wajib hukum untuk produk yang dijual secara publik",
+              "Desain label di Canva. Print stiker di percetakan. Semua info BPOM wajib tercantum. Ini mandatory — bukan opsional.",
+              "Label proper = bisa masuk event resmi, minimarket lokal, dan basis untuk scale distribusi lebih luas.",
+              "5 Mei 2026",
+              "PENDING"
+            ],
+            "id": 12,
+            "_status": null
+          },
+          {
+            "cells": [
+              "13",
+              "Setup Shopee Live minimal 1x/minggu — demo cara seduh kopi bubuk",
+              "Shopee",
+              "Boost visibility organik di dalam platform Shopee secara gratis",
+              "Shopee Live: demo cara seduh, cerita origin biji kopi, tunjukin packaging dan sertifikasi. Duration: 30–45 menit. Shopee algoritma favoring seller yang aktif Live.",
+              "Shopee Live = free advertising di dalam platform. Seller yang aktif Live dapat exposure jauh lebih besar dari yang tidak.",
+              "10 Mei 2026",
+              "PENDING"
+            ],
+            "id": 13,
+            "_status": null
+          }
+        ],
+        "statusCol": 7
+      },
+      {
+        "name": "🛒 SHOPEE SETUP",
+        "columns": [
+          "NO",
+          "FASE",
+          "LANGKAH",
+          "DETAIL EKSEKUSI",
+          "ASET / DOKUMEN DIBUTUHKAN",
+          "DEADLINE",
+          "STATUS"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "1",
+              "FASE 1 — SETUP AKUN",
+              "Buka atau upgrade akun Shopee ke akun toko seller",
+              "Download Shopee Seller Center. Daftar dengan nomor HP aktif. Pilih: Toko Reguler. Nama toko: 'Dikopi Official' atau 'Dikopi Store' — konsisten dengan branding.",
+              "KTP, nomor HP aktif, foto profil toko (logo Dikopi resolusi tinggi)",
+              "24 Apr 2026",
+              "PENDING"
+            ],
+            "id": 1,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "2",
+              "FASE 1 — SETUP AKUN",
+              "Lengkapi profil toko secara penuh — foto, deskripsi, lokasi",
+              "Upload logo Dikopi sebagai foto profil. Deskripsi toko: 'Kopi lokal berkualitas dari Dikopi. PIRT certified, halal. Tersedia ground coffee dan produk kopi lainnya.' Isi lokasi pengiriman.",
+              "Logo Dikopi, draft deskripsi toko",
+              "24 Apr 2026",
+              "PENDING"
+            ],
+            "id": 2,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "3",
+              "FASE 1 — SETUP AKUN",
+              "Setup rekening bank untuk penarikan dana hasil penjualan",
+              "Seller Center → Keuangan → Tambah rekening bank. Gunakan rekening aktif atas nama yang sesuai dengan identitas toko.",
+              "Info rekening bank aktif",
+              "24 Apr 2026",
+              "PENDING"
+            ],
+            "id": 3,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "4",
+              "FASE 2 — PRODUK",
+              "Tentukan SKU ground coffee yang dijual pertama (mulai 2–3 SKU)",
+              "Mulai dengan: (1) Robusta 100g, (2) Robusta 250g, opsional (3) Arabika/Blend 100g. Pisahkan SKU agar bisa track performa masing-masing. Jangan terlalu banyak SKU di awal.",
+              "Ketersediaan stok kopi bubuk, kemasan/packaging siap",
+              "27 Apr 2026",
+              "PENDING"
+            ],
+            "id": 4,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "5",
+              "FASE 2 — PRODUK",
+              "Foto produk listing Shopee — minimal 5 foto per SKU",
+              "Foto 1: Kemasan close-up (white background). Foto 2: Biji/bubuk kopi. Foto 3: Kopi sudah diseduh. Foto 4: Lifestyle (tangan pegang kemasan, suasana). Foto 5: Infografis (asal biji, cara seduh, sertifikasi PIRT + halal).",
+              "Kamera HP, background putih (karton), ring light atau cahaya natural yang cukup",
+              "26 Apr 2026",
+              "PENDING"
+            ],
+            "id": 5,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "6",
+              "FASE 2 — PRODUK",
+              "Tulis judul produk SEO-friendly — maksimalkan 100 karakter",
+              "Format: [Brand] + [Tipe] + [Berat] + [Keyword]. Contoh: 'Dikopi - Kopi Bubuk Robusta Premium 100gr - Kopi Lokal Nusantara - Cocok V60 French Press'. Keyword utama di depan.",
+              "Riset keyword: ketik 'kopi bubuk' di Shopee dan lihat autocomplete suggestion",
+              "27 Apr 2026",
+              "PENDING"
+            ],
+            "id": 6,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "7",
+              "FASE 2 — PRODUK",
+              "Tulis deskripsi produk lengkap dengan semua info penting",
+              "Wajib sertakan: (1) Asal biji kopi, (2) Profil rasa, (3) Level roast, (4) Cara seduh yang disarankan, (5) Netto, (6) No. PIRT, (7) Label halal, (8) Cara penyimpanan, (9) Expired. Gunakan bullet points agar mudah dibaca.",
+              "No. PIRT, sertifikat halal, komposisi teknis produk",
+              "27 Apr 2026",
+              "PENDING"
+            ],
+            "id": 7,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "8",
+              "FASE 2 — PRODUK",
+              "Set harga dengan riset kompetitor — posisi kompetitif tapi margin sehat",
+              "Cari 5–7 produk kopi bubuk 100g–250g di Shopee. Posisikan harga sedikit di bawah atau sama dengan kompetitor established, tapi highlight value add: PIRT + halal + local story = justifikasi harga.",
+              "Data harga kompetitor (riset manual di Shopee)",
+              "28 Apr 2026",
+              "PENDING"
+            ],
+            "id": 8,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "9",
+              "FASE 3 — SHIPPING",
+              "Setup ekspedisi dan pastikan input berat produk akurat",
+              "Seller Center → Pengiriman → Aktifkan: JNE, J&T, SiCepat. Timbang kemasan lengkap (produk + packaging pengiriman). Berat salah = biaya ongkir tidak sesuai = rugi.",
+              "Timbangan kecil untuk cek berat kemasan akhir",
+              "29 Apr 2026",
+              "PENDING"
+            ],
+            "id": 9,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "10",
+              "FASE 3 — SHIPPING",
+              "Daftar ke program Shopee Gratis Ongkir",
+              "Seller Center → Program → Gratis Ongkir. Daftar sesuai ketentuan. Gratis ongkir adalah faktor konversi terbesar di Shopee — ini wajib diaktifkan dari hari pertama.",
+              "Akun seller sudah lengkap dan produk sudah live",
+              "29 Apr 2026",
+              "PENDING"
+            ],
+            "id": 10,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "11",
+              "FASE 3 — SHIPPING",
+              "Tentukan SLA pengiriman dan siapkan packaging yang aman",
+              "Set: 'Proses 1–2 hari kerja' untuk awal. Packaging: plastik seal atau kraft bag untuk kopi bubuk agar tidak tumpah + bubble wrap tipis. SLA konsisten = rating toko terjaga.",
+              "Bahan packaging: plastik seal, kraft bag, selotip, label pengiriman, bubble wrap",
+              "29 Apr 2026",
+              "PENDING"
+            ],
+            "id": 11,
+            "_status": null
+          },
+          {
+            "cells": [
+              "12",
+              "FASE 4 — LAUNCH",
+              "Review final dan aktivasi semua listing produk menjadi LIVE",
+              "Review checklist: foto ✓, judul ✓, deskripsi ✓, harga ✓, stok ✓, ongkir ✓, gratis ongkir ✓. Klik Aktifkan. Lakukan test order sendiri untuk verifikasi flow pembelian.",
+              "Semua fase sebelumnya selesai",
+              "30 Apr 2026",
+              "PENDING"
+            ],
+            "id": 12,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "13",
+              "FASE 4 — LAUNCH",
+              "Announce launching Shopee di semua sosmed Dikopi",
+              "Post di IG, TikTok, dan FB: 'Kopi Dikopi sekarang bisa dikirim! Cek Shopee kami di link bio.' Gunakan konten brief no. 16 dari sheet 📱 KONTEN SOSMED.",
+              "Konten launch sudah diproduksi",
+              "3 Mei 2026",
+              "PENDING"
+            ],
+            "id": 13,
+            "_status": null
+          },
+          {
+            "cells": [
+              "14",
+              "FASE 4 — LAUNCH",
+              "Setup Shopee Voucher diskon untuk menarik 20 pembeli pertama",
+              "Buat voucher diskon 10–15% untuk 20 pembeli pertama. Tujuan: dapat reviews awal secepat mungkin. Reviews = social proof = konversi lebih tinggi untuk pembeli berikutnya.",
+              "Akun seller aktif dan listing sudah live",
+              "3 Mei 2026",
+              "PENDING"
+            ],
+            "id": 14,
+            "_status": null
+          },
+          {
+            "cells": [
+              "15",
+              "FASE 5 — OPTIMASI",
+              "Follow up ke semua pembeli pertama — minta review dengan sopan",
+              "Setelah pesanan delivered, kirim pesan via Shopee Chat: 'Halo kak, terima kasih udah order! Kalau berkenan tinggalin review di toko kami ya, sangat membantu kami berkembang 🙏' — tidak spammy, kirim sekali.",
+              "Notifikasi 'delivered' dari Shopee sebagai trigger",
+              "Ongoing",
+              "PENDING"
+            ],
+            "id": 15,
+            "_status": null
+          },
+          {
+            "cells": [
+              "16",
+              "FASE 5 — OPTIMASI",
+              "Monitor analytics toko setiap Senin — track views, klik, dan konversi",
+              "Seller Center → Insight Toko. Pantau: views produk, klik, pesanan masuk, conversion rate. Views tinggi tapi konversi rendah → evaluasi foto atau harga. Konversi rendah dari awal → evaluasi deskripsi.",
+              "Akses Shopee Seller Center",
+              "Mulai 4 Mei",
+              "PENDING"
+            ],
+            "id": 16,
+            "_status": null
+          }
+        ],
+        "statusCol": 6
+      },
+      {
+        "name": "📊 KPI TRACKER",
+        "columns": [
+          "METRIC",
+          "PLATFORM / CHANNEL",
+          "TARGET MEI 2026",
+          "MINGGU 1 (28 Apr)",
+          "MINGGU 2 (5 Mei)",
+          "MINGGU 3 (12 Mei)",
+          "MINGGU 4 (19 Mei)",
+          "ACTUAL AKHIR MEI",
+          "STATUS vs TARGET",
+          "NOTES / NEXT ACTION"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "Jumlah Followers",
+              "Instagram",
+              "Audit dulu baseline",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "Isi setelah audit awal",
+              "Cek Instagram Insights sebelum set target. Baseline dulu, baru target."
+            ],
+            "id": 1,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "Engagement Rate (%)",
+              "Instagram",
+              "3.5%",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "ON TRACK / BELOW",
+              "Rumus: (likes+komen+save) ÷ reach × 100. Cek via Insights."
+            ],
+            "id": 2,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "Reach per Post",
+              "Instagram",
+              "500/post",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "ON TRACK / BELOW",
+              "Gunakan Instagram Insights → tiap post → lihat reach."
+            ],
+            "id": 3,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "Jumlah Followers",
+              "TikTok",
+              "200",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "ON TRACK / BELOW",
+              "TikTok lebih volatile, fokus ke views lebih dari follower."
+            ],
+            "id": 4,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "Video Views rata-rata",
+              "TikTok",
+              "500/video",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "ON TRACK / BELOW",
+              "Track via TikTok Studio → Video Analytics."
+            ],
+            "id": 5,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "Jumlah Konten Diposting",
+              "Semua Platform",
+              "16 konten",
+              "4",
+              "8",
+              "12",
+              "16",
+              "",
+              "ON TRACK / BELOW",
+              "Target 4 konten per minggu. Jangan kurang dari ini."
+            ],
+            "id": 6,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "Total Views Produk",
+              "Shopee",
+              "500 views",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "ON TRACK / BELOW",
+              "Seller Center → Insight Toko → Produk Views."
+            ],
+            "id": 7,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "Jumlah Pesanan Masuk",
+              "Shopee",
+              "10 pesanan",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "ON TRACK / BELOW",
+              "Realistis untuk bulan pertama. Fokus ke review dulu."
+            ],
+            "id": 8,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "Conversion Rate (%)",
+              "Shopee",
+              "2%",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "ON TRACK / BELOW",
+              "(Total pesanan ÷ total views) × 100."
+            ],
+            "id": 9,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "Rating Toko",
+              "Shopee",
+              "4.8+",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "ON TRACK / BELOW",
+              "Kejar review dari 20 pembeli pertama aktif."
+            ],
+            "id": 10,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "Revenue In-Store total",
+              "In-store",
+              "(isi baseline)",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "Catat manual",
+              "Catat harian, total mingguan, bandingkan antar minggu."
+            ],
+            "id": 11,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "Revenue Event Offline",
+              "Event Offline",
+              "Rp1.500.000",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "ON TRACK / BELOW",
+              "Target dari 2–3 event @ 30–50 botol per event."
+            ],
+            "id": 12,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "Revenue Shopee",
+              "Shopee",
+              "Rp500.000",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "ON TRACK / BELOW",
+              "Realistis untuk bulan pertama. Fokus volume dulu."
+            ],
+            "id": 13,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "Jumlah Botol Terjual (in-store + event)",
+              "Offline Total",
+              "150 botol",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "ON TRACK / BELOW",
+              "~6 botol/hari target minimal dari in-store."
+            ],
+            "id": 14,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "Jumlah Event Diikuti",
+              "Event Offline",
+              "2 event",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "ON TRACK / BELOW",
+              "CFD, bazaar, atau event komunitas."
+            ],
+            "id": 15,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "Jumlah Loyalty Card Aktif",
+              "In-store",
+              "30 kartu",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "ON TRACK / BELOW",
+              "Distribusi mulai hari pertama launch kartu."
+            ],
+            "id": 16,
+            "_status": "done"
+          },
+          {
+            "cells": [
+              "Jumlah Redeem Loyalty",
+              "In-store",
+              "5 redeem",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "ON TRACK / BELOW",
+              "1 redeem = 5 transaksi sebelumnya. Ini ukuran retensi nyata."
+            ],
+            "id": 17,
+            "_status": "done"
+          }
+        ],
+        "statusCol": 8
+      }
+    ],
+    "id": 1776690765724,
+    "uploadedAt": "2026-04-20",
+    "archived": false
+  },
+  {
+    "brand": "pondokbunga",
+    "title": "Pondok Bunga — Master Plan Mei 2026",
+    "sheets": [
+      {
+        "title": "🌿 Master Todo",
+        "columns": [
+          "No",
+          "Task",
+          "Kategori",
+          "Prioritas",
+          "Deadline",
+          "Est. Waktu",
+          "Status",
+          "Keterkaitan Dikopi",
+          "Notes"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "1",
+              "Foto & audit semua tanaman + bibit + pot yang sedang display di space Dikopi",
+              "DISPLAY FISIK",
+              "HIGH",
+              "24 Apr 2026",
+              "1.5 jam",
+              "PENDING",
+              "Mendahului konten Dikopi batch pertama",
+              "Hasilkan: daftar stok, kondisi visual, harga estimasi awal. Jadi dasar price tag dan konten foto."
+            ],
+            "id": 1,
+            "_status": null
+          },
+          {
+            "cells": [
+              "2",
+              "Buat price tag aesthetic hitam-gold untuk semua tanaman & produk Pondok Bunga",
+              "DISPLAY FISIK",
+              "HIGH",
+              "26 Apr 2026",
+              "2 jam",
+              "PENDING",
+              "Paralel dengan setup visual Dikopi",
+              "Desain di Canva. Warna: hitam + gold = match identitas Dikopi. Wajib ada: nama tanaman, harga, & cara perawatan singkat."
+            ],
+            "id": 2,
+            "_status": null
+          },
+          {
+            "cells": [
+              "3",
+              "Pasang signage utama Pondok Bunga di area display: 'Semua tanaman ini dijual'",
+              "DISPLAY FISIK",
+              "HIGH",
+              "27 Apr 2026",
+              "1 jam",
+              "PENDING",
+              "Selaraskan dengan setup visual Dikopi (Task #15)",
+              "Tagline di signage: 'Dari tadi melirik yang mana? 🌿' — Ini titik konversi paling krusial."
+            ],
+            "id": 3,
+            "_status": null
+          },
+          {
+            "cells": [
+              "4",
+              "Tentukan & finalisasi harga jual per kategori: tanaman jadi, bibit, media tanam, pot",
+              "PRICING",
+              "HIGH",
+              "25 Apr 2026",
+              "1 jam",
+              "PENDING",
+              "Sama timeline dengan kalkulasi HPP Dikopi (Task #12)",
+              "Margin minimal 40%. Buat 3 tier harga: entry (<50k), mid (50-150k), premium (>150k)."
+            ],
+            "id": 4,
+            "_status": null
+          },
+          {
+            "cells": [
+              "5",
+              "Tentukan alur pembelian yang jelas: kasir Dikopi atau WA langsung?",
+              "SISTEM KONVERSI",
+              "HIGH",
+              "26 Apr 2026",
+              "30 menit",
+              "PENDING",
+              "Integrasikan dengan QR code Dikopi (Task #15)",
+              "Rekomendasi: tetap lewat kasir Dikopi. Tambah opsi WA untuk tanya-tanya dulu sebelum datang."
+            ],
+            "id": 5,
+            "_status": null
+          },
+          {
+            "cells": [
+              "6",
+              "Buat katalog digital Pondok Bunga (IG Highlights atau PDF WA) dari hasil foto",
+              "DIGITAL",
+              "MEDIUM",
+              "3 Mei 2026",
+              "2 jam",
+              "PENDING",
+              "Paralel dengan rapikan IG Highlights Dikopi (Task #5)",
+              "Masuk sebagai satu kategori Highlight di IG Dikopi: '🌿 Tanaman'. Isi: foto produk, harga, cara beli."
+            ],
+            "id": 6,
+            "_status": null
+          },
+          {
+            "cells": [
+              "7",
+              "Setup IG Highlight baru di akun Dikopi: '🌿 Pondok Bunga' — foto produk & harga",
+              "DIGITAL",
+              "MEDIUM",
+              "5 Mei 2026",
+              "30 menit",
+              "PENDING",
+              "Masuk ke dalam task rapikan IG Highlights Dikopi (Task #5)",
+              "Konten Highlight: foto tanaman, price list, cara beli, video suasana corner Pondok Bunga."
+            ],
+            "id": 7,
+            "_status": null
+          },
+          {
+            "cells": [
+              "8",
+              "Shoot batch foto tanaman khusus konten: close-up detail, in-context di meja Dikopi",
+              "KONTEN DIGITAL",
+              "HIGH",
+              "27 Apr 2026",
+              "2 jam",
+              "PENDING",
+              "Gabungkan dengan sesi B-roll Dikopi (Task #8)",
+              "Shoot wajib: daun dekat kamera, pot di sudut meja kopi, tangan sentuh tanaman, detail tekstur pot."
+            ],
+            "id": 8,
+            "_status": null
+          },
+          {
+            "cells": [
+              "9",
+              "Buat brief 4 konten Pondok Bunga yang disisipkan ke dalam content calendar Dikopi Mei",
+              "KONTEN DIGITAL",
+              "HIGH",
+              "30 Apr 2026",
+              "1.5 jam",
+              "PENDING",
+              "Masuk ke dalam content calendar Dikopi (Task #7)",
+              "Jangan buat akun terpisah dulu. Konten PB hidup di akun Dikopi sebagai bagian natural dari pillar VIBES dan PRODUK."
+            ],
+            "id": 9,
+            "_status": null
+          },
+          {
+            "cells": [
+              "10",
+              "Buat 1 bundle produk 'Starter Kit Kamar Kos' — tanaman + pot + media tanam",
+              "REVENUE",
+              "MEDIUM",
+              "5 Mei 2026",
+              "1 jam",
+              "PENDING",
+              "Sinergi dengan angle student lifestyle Dikopi",
+              "Bundle: 1 tanaman indoor kecil + pot + media tanam secukupnya. Target: mahasiswa yang nongkrong dan kepincut suasana Dikopi."
+            ],
+            "id": 10,
+            "_status": null
+          },
+          {
+            "cells": [
+              "11",
+              "Riset & daftarkan 1-2 SKU tanaman tahan kirim (succulent/kaktus) di Shopee",
+              "SHOPEE",
+              "LOW",
+              "15 Mei 2026",
+              "3 jam",
+              "PENDING",
+              "Mengikuti infrastructure Shopee yang dibangun Dikopi (Task #19-24)",
+              "Succulent & kaktus = aman kirim, shelf life panjang. Opsional bulan ini — bukan prioritas utama."
+            ],
+            "id": 11,
+            "_status": null
+          },
+          {
+            "cells": [
+              "12",
+              "Planning awal 1 mini-workshop tanaman di Dikopi: konsep, peserta target, tanggal",
+              "EVENT",
+              "LOW",
+              "15 Mei 2026",
+              "1.5 jam",
+              "PENDING",
+              "Sinergi dengan revenue event Dikopi + content gold",
+              "Konsep: repotting session / cara merawat tanaman indoor. Venue: Dikopi after hours atau weekend. Peserta: 10-15 orang."
+            ],
+            "id": 12,
+            "_status": null
+          }
+        ],
+        "statusCol": 6
+      },
+      {
+        "title": "🌿 Konten Sosmed",
+        "columns": [
+          "No",
+          "Platform",
+          "Pillar Dikopi",
+          "Tipe Konten",
+          "Judul / Angle",
+          "Brief Visual",
+          "Brief Caption",
+          "Hashtag",
+          "CTA",
+          "Deadline",
+          "Status"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "1",
+              "TikTok",
+              "🌙 VIBES",
+              "Short Video 20-30s",
+              "Udah berapa lama lo melirik tanaman ini?",
+              "Slow pan dari kamera yang 'melirik' tanaman dari sudut meja kopi. Angle POV. Warm lighting. Text overlay pelan: 'Dari tadi melirik yang mana?'",
+              "Tanpa caption panjang. Cukup: 'Semuanya bisa pulang bareng lo. 🌿 Tanya di kasir atau DM.'",
+              "#tanamanindoor #pondokbunga #dikopi #plantlovers #tanamankamar",
+              "DM atau tanya langsung di kasir",
+              "28 Apr 2026",
+              "PENDING"
+            ],
+            "id": 1,
+            "_status": null
+          },
+          {
+            "cells": [
+              "2",
+              "Instagram Story",
+              "🌙 VIBES",
+              "Story Series 3 slide",
+              "'Ini semua bisa dibawa pulang' — reveal corner Pondok Bunga",
+              "Slide 1: foto wide corner tanaman. Slide 2: close-up price tag. Slide 3: foto tangan pegang tanaman + teks CTA",
+              "Tone casual dan sedikit playful. Jangan terlalu 'jualan'. Ini pengungkapan, bukan iklan.",
+              "—",
+              "DM atau tanya kasir",
+              "30 Apr 2026",
+              "PENDING"
+            ],
+            "id": 2,
+            "_status": null
+          },
+          {
+            "cells": [
+              "3",
+              "Instagram Post",
+              "☕ PRODUK",
+              "Feed Photo Single",
+              "Product spotlight: tanaman bulan ini + harga + cara beli",
+              "Foto hero: 1 tanaman terpilih di atas meja Dikopi, background blur warm. Props: cangkir kopi di samping. Lighting natural.",
+              "'[Nama tanaman] — bisa jadi temen nongkrong di meja lo juga. Tersedia di Pondok Bunga, inside Dikopi. Harga: [harga].'",
+              "#tanamanlokal #tanamanindoor #pondokbunga #dikopi #plantshop",
+              "DM atau langsung mampir",
+              "2 Mei 2026",
+              "PENDING"
+            ],
+            "id": 3,
+            "_status": null
+          },
+          {
+            "cells": [
+              "4",
+              "TikTok / Reels",
+              "🌙 VIBES",
+              "Before-After 30-45s",
+              "Bawa pulang suasana Dikopi — sudut kamar yang beda",
+              "Split atau cut: sudut Dikopi yang hijau & aesthetic → sudut kamar customer yang sudah beli tanaman dari Pondok Bunga.",
+              "'Suasana Dikopi terasa kayak gitu karena tanamannya. Dan lo bisa punya yang sama.'",
+              "#tanamankamar #roommakeover #pondokbunga #dikopi #plantdecor",
+              "Link di bio / tanya di kasir",
+              "5 Mei 2026",
+              "PENDING"
+            ],
+            "id": 4,
+            "_status": null
+          },
+          {
+            "cells": [
+              "5",
+              "Instagram Story",
+              "🤝 KOMUNITAS",
+              "Poll Interactive",
+              "Kamar lo ada tanamannya ga?",
+              "Background: foto close-up tanaman Dikopi yang aesthetic. Poll sticker di tengah. Gold-green tone.",
+              "'Kamar lo ada tanamannya? 🌿 vs ❌' — follow up besok: 'Yang belum — Pondok Bunga siap bantu 👀'",
+              "—",
+              "Jawab poll-nya!",
+              "7 Mei 2026",
+              "PENDING"
+            ],
+            "id": 5,
+            "_status": null
+          },
+          {
+            "cells": [
+              "6",
+              "Instagram Reels",
+              "🎬 BTS",
+              "Mini Tour 30s",
+              "Mini tour: kenalan sama Pondok Bunga — pojok di dalam Dikopi",
+              "Walking shot masuk ke area display Pondok Bunga. Pan pelan ke kiri-kanan. Berakhir di signage 'Dari tadi melirik yang mana?'",
+              "'Di dalam Dikopi, ada yang namanya Pondok Bunga. Kalau lo pernah heran kenapa Dikopi terasa adem — ini jawabannya.'",
+              "#gardenvibes #cafeplants #pondokbunga #dikopi #greenspace",
+              "Simpan buat referensi dekorasi!",
+              "10 Mei 2026",
+              "PENDING"
+            ],
+            "id": 6,
+            "_status": null
+          },
+          {
+            "cells": [
+              "7",
+              "TikTok",
+              "🤝 KOMUNITAS",
+              "Relatable Text Overlay 20s",
+              "POV: lo niat ngopi tapi pulangnya bawa tanaman",
+              "Video orang masuk Dikopi, duduk, kopi dateng — kamera geser ke tanaman — cut ke: tanaman sudah ada di meja rumah.",
+              "'Niat ngopi aja. Pulang bawa tanaman. Salah Dikopi yang naruhnya deket meja 😭'",
+              "#pondokbunga #dikopi #tanamanlovers #impulse #planttok",
+              "Udah pernah kejadian belum?",
+              "12 Mei 2026",
+              "PENDING"
+            ],
+            "id": 7,
+            "_status": null
+          }
+        ],
+        "statusCol": 10
+      },
+      {
+        "title": "💰 Revenue Actions",
+        "columns": [
+          "No",
+          "Action",
+          "Channel",
+          "Tujuan Revenue",
+          "Detail Eksekusi",
+          "Est. Impact",
+          "Deadline",
+          "Status"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "1",
+              "Pasang price tag di SEMUA tanaman display — tanpa ini, tidak ada yang beli",
+              "In-store",
+              "Aktifkan conversion dari traffic Dikopi yang sudah ada",
+              "Desain price tag di Canva, print, laminate. Informasi: nama tanaman, harga, singkat cara rawat. Wajib terpasang sebelum konten apapun dibuat.",
+              "Langsung. 0 effort akuisisi baru. Traffic sudah ada — tinggal diaktifkan.",
+              "26 Apr 2026",
+              "PENDING"
+            ],
+            "id": 1,
+            "_status": null
+          },
+          {
+            "cells": [
+              "2",
+              "Pasang signage 'Dari tadi melirik yang mana? 🌿 Semuanya bisa dibawa pulang'",
+              "In-store",
+              "Ubah passive desire menjadi active interest tanpa interaksi",
+              "A4 atau A3 di Canva, print, frame sederhana. Letakkan di area display dan di kasir.",
+              "Menghilangkan barrier pertama. Satu signage bisa impact semua pengunjung hari itu.",
+              "27 Apr 2026",
+              "PENDING"
+            ],
+            "id": 2,
+            "_status": null
+          },
+          {
+            "cells": [
+              "3",
+              "Buat bundle 'Starter Kit Kamar Kos' — 1 tanaman indoor + pot + media tanam",
+              "In-store",
+              "Naikkan average transaction value dari single item ke bundle",
+              "Pilih 2-3 paket bundle dengan harga berbeda (entry ~75k, mid ~150k). Bungkus dengan craft paper branded atau karton hitam-gold.",
+              "Bundle menaikkan average order value 2-3x dibanding beli satuan.",
+              "5 Mei 2026",
+              "PENDING"
+            ],
+            "id": 3,
+            "_status": null
+          },
+          {
+            "cells": [
+              "4",
+              "Aktifkan pre-order tanaman via WA — announce setiap Jumat di Story Dikopi",
+              "WhatsApp + Story",
+              "Generate demand & reduce waste stok tanaman",
+              "Setiap Jumat Story Dikopi: 'Ada [nama tanaman] baru minggu ini di Pondok Bunga. Pre-order WA [no]. Pickup langsung di Dikopi.' Limit quantity untuk ciptakan urgency.",
+              "Pre-order = kepastian terjual sebelum stok masuk. Zero waste, cash di muka.",
+              "3 Mei 2026",
+              "PENDING"
+            ],
+            "id": 4,
+            "_status": null
+          },
+          {
+            "cells": [
+              "5",
+              "Approach 3 customer reguler Dikopi untuk jadi early buyer & minta foto testimoni",
+              "In-store + WA",
+              "Social proof organik untuk trigger konversi customer baru",
+              "Tawarkan harga khusus untuk 3 pembeli pertama bulan Mei dengan syarat kirimkan foto tanaman di rumah mereka.",
+              "1 foto customer di kamar = 1 konten before-after gratis yang perform jauh lebih baik dari konten branded.",
+              "7 Mei 2026",
+              "PENDING"
+            ],
+            "id": 5,
+            "_status": null
+          },
+          {
+            "cells": [
+              "6",
+              "Planning & eksekusi 1 mini-workshop tanaman di Dikopi (repotting / cara rawat)",
+              "Event In-store",
+              "Revenue event + content day + brand awareness Pondok Bunga",
+              "1.5-2 jam session, maks 12 peserta, biaya Rp50k-75k/orang (include 1 tanaman kecil). Announce via Story Dikopi 2 minggu sebelumnya.",
+              "12 peserta x Rp65k = Rp780k dalam 2 jam. Bonus: konten organik dari peserta.",
+              "20 Mei 2026",
+              "PENDING"
+            ],
+            "id": 6,
+            "_status": null
+          },
+          {
+            "cells": [
+              "7",
+              "Explore konsinyasi pot & tanaman ke warung/kos area kampus (radius 1-2 km)",
+              "Distribusi Pasif",
+              "Channel revenue pasif yang jangkau customer baru",
+              "Model titip: 5-8 item per titik, bayar setelah laku, margin PB tetap aman. Prioritas: kos-kosan besar, kantin kampus. Approach 3 titik dulu sebagai test.",
+              "3 titik x 5 item/minggu = 15 penjualan potensial per minggu tanpa effort harian.",
+              "20 Mei 2026",
+              "PENDING"
+            ],
+            "id": 7,
+            "_status": null
+          }
+        ],
+        "statusCol": 7
+      },
+      {
+        "title": "📊 KPI Tracker",
+        "columns": [
+          "Metric",
+          "Channel",
+          "Target Mei 2026",
+          "Minggu 1 (28 Apr)",
+          "Minggu 2 (5 Mei)",
+          "Minggu 3 (12 Mei)",
+          "Minggu 4 (19 Mei)",
+          "Status vs Target",
+          "Notes / Next Action"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "Jumlah tanaman terjual (in-store)",
+              "In-store",
+              "20 unit/bulan",
+              "",
+              "",
+              "",
+              "",
+              "ON TRACK / BELOW",
+              "~5 unit/minggu dari passive display. Baseline dulu minggu pertama."
+            ],
+            "id": 1,
+            "_status": null
+          },
+          {
+            "cells": [
+              "Revenue Pondok Bunga total (Rp)",
+              "In-store",
+              "Rp 1.500.000",
+              "",
+              "",
+              "",
+              "",
+              "ON TRACK / BELOW",
+              "Kombinasi tanaman satuan + bundle. Catat manual tiap hari, total per minggu."
+            ],
+            "id": 2,
+            "_status": null
+          },
+          {
+            "cells": [
+              "Bundle 'Starter Kit' terjual",
+              "In-store",
+              "5 bundle",
+              "",
+              "",
+              "",
+              "",
+              "ON TRACK / BELOW",
+              "1 bundle ~150k avg. Track setelah bundle tersedia mulai 5 Mei."
+            ],
+            "id": 3,
+            "_status": null
+          },
+          {
+            "cells": [
+              "Jumlah konten PB diposting di Dikopi",
+              "IG / TikTok",
+              "4 konten",
+              "1",
+              "2",
+              "3",
+              "4",
+              "ON TRACK / BELOW",
+              "Target 1 konten/minggu. Sesuai brief di sheet Konten Sosmed."
+            ],
+            "id": 4,
+            "_status": null
+          },
+          {
+            "cells": [
+              "Engagement rate konten PB (%)",
+              "Instagram",
+              ">3%",
+              "",
+              "",
+              "",
+              "",
+              "ON TRACK / BELOW",
+              "Cek via IG Insights per post. Konten tanaman biasanya perform bagus di save & share."
+            ],
+            "id": 5,
+            "_status": null
+          },
+          {
+            "cells": [
+              "Story PB views rata-rata",
+              "Instagram Story",
+              ">100 views",
+              "",
+              "",
+              "",
+              "",
+              "ON TRACK / BELOW",
+              "Baseline dari Story Dikopi saat ini. Target PB story perform setara."
+            ],
+            "id": 6,
+            "_status": null
+          },
+          {
+            "cells": [
+              "Signage & price tag terpasang semua",
+              "In-store",
+              "✅ Done minggu 1",
+              "",
+              "",
+              "",
+              "",
+              "URGENT jika BELOW",
+              "Non-negotiable. Kalau belum done minggu 1, semua metric lain tidak valid."
+            ],
+            "id": 7,
+            "_status": null
+          },
+          {
+            "cells": [
+              "Customer yang tanya / tertarik (estimasi)",
+              "In-store",
+              "10 orang/minggu",
+              "",
+              "",
+              "",
+              "",
+              "ON TRACK / BELOW",
+              "Estimasi kasual dari kasir Dikopi. Tidak harus presisi — ini directional metric."
+            ],
+            "id": 8,
+            "_status": null
+          },
+          {
+            "cells": [
+              "Konversi tanya → beli (%)",
+              "In-store",
+              "30%",
+              "",
+              "",
+              "",
+              "",
+              "ON TRACK / BELOW",
+              "10 orang tanya → 3 beli = 30%. Naikan dengan bundle & signage yang jelas."
+            ],
+            "id": 9,
+            "_status": null
+          },
+          {
+            "cells": [
+              "Workshop diadakan (jumlah)",
+              "Event In-store",
+              "1 event",
+              "",
+              "",
+              "",
+              "",
+              "ON TRACK / BELOW",
+              "Target akhir Mei. Track: peserta daftar, peserta hadir, revenue event."
+            ],
+            "id": 10,
+            "_status": null
+          },
+          {
+            "cells": [
+              "Peserta workshop",
+              "Event In-store",
+              "10-12 orang",
+              "",
+              "",
+              "",
+              "",
+              "ON TRACK / BELOW",
+              "Announce 2 minggu sebelumnya via Story Dikopi."
+            ],
+            "id": 11,
+            "_status": null
+          },
+          {
+            "cells": [
+              "Revenue event workshop (Rp)",
+              "Event In-store",
+              "Rp 650.000",
+              "",
+              "",
+              "",
+              "",
+              "ON TRACK / BELOW",
+              "12 peserta x Rp65k. Sudah termasuk biaya 1 tanaman per peserta."
+            ],
+            "id": 12,
+            "_status": null
+          },
+          {
+            "cells": [
+              "Foto customer dengan tanaman PB (UGC)",
+              "IG / WA",
+              "3 foto",
+              "",
+              "",
+              "",
+              "",
+              "ON TRACK / BELOW",
+              "Aktif minta dari 3 early buyer. Foto di kamar = konten before-after gratis."
+            ],
+            "id": 13,
+            "_status": null
+          },
+          {
+            "cells": [
+              "Testimoni customer (WA / Story)",
+              "WA / Story",
+              "2 testimoni",
+              "",
+              "",
+              "",
+              "",
+              "ON TRACK / BELOW",
+              "Screenshot atau quote dari customer yang sudah beli. Repost di Story Dikopi."
+            ],
+            "id": 14,
+            "_status": null
+          }
+        ],
+        "statusCol": 7
+      }
+    ],
+    "id": 1779472672090,
+    "uploadedAt": "2026-05-22",
+    "archived": false
+  }
+]

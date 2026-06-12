@@ -1,0 +1,17 @@
+{
+  "bonus_barista": {
+    "aktif": true,
+    "metode": "omzet",
+    "feeDasar": 30000,
+    "bonusType": "percentage",
+    "threshold": 50000,
+    "bonusRate": 5,
+    "rules": [
+      {
+        "minMargin": 0,
+        "maxMargin": null,
+        "bonus": 20000
+      }
+    ]
+  }
+}

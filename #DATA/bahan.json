@@ -1,0 +1,177 @@
+[
+  {
+    "id": 1779033835037,
+    "nama": "Kopi Robusta",
+    "satuan": "gram",
+    "hargaBeli": 35000,
+    "qtyBeli": 300,
+    "createdAt": "2026-05-17T16:03:55.037Z",
+    "updatedAt": "2026-05-17T16:08:05.604Z"
+  },
+  {
+    "id": 1779034145985,
+    "nama": "Susu Diamond Plain",
+    "satuan": "ml",
+    "hargaBeli": 18000,
+    "qtyBeli": 1000,
+    "createdAt": "2026-05-17T16:09:05.985Z"
+  },
+  {
+    "id": 1779034629196,
+    "nama": "SKM",
+    "satuan": "ml",
+    "hargaBeli": 20000,
+    "qtyBeli": 535,
+    "createdAt": "2026-05-17T16:17:09.196Z"
+  },
+  {
+    "id": 1779034688640,
+    "nama": "Bubuk Matcha",
+    "satuan": "gram",
+    "hargaBeli": 31000,
+    "qtyBeli": 500,
+    "createdAt": "2026-05-17T16:18:08.640Z",
+    "updatedAt": "2026-06-05T12:23:42.423Z"
+  },
+  {
+    "id": 1779034872085,
+    "nama": "Evapor Tiga Sapi",
+    "satuan": "gram",
+    "hargaBeli": 15000,
+    "qtyBeli": 500,
+    "createdAt": "2026-05-17T16:21:12.085Z"
+  },
+  {
+    "id": 1779035263736,
+    "nama": "Es Batu",
+    "satuan": "gram",
+    "hargaBeli": 13000,
+    "qtyBeli": 12000,
+    "createdAt": "2026-05-17T16:27:43.736Z"
+  },
+  {
+    "id": 1779202585442,
+    "nama": "CUP",
+    "satuan": "pcs",
+    "hargaBeli": 30000,
+    "qtyBeli": 25,
+    "createdAt": "2026-05-19T14:56:25.442Z"
+  },
+  {
+    "id": 1779202657310,
+    "nama": "Sedotan",
+    "satuan": "pcs",
+    "hargaBeli": 10000,
+    "qtyBeli": 300,
+    "createdAt": "2026-05-19T14:57:37.310Z"
+  },
+  {
+    "id": 1779202725500,
+    "nama": "Stiker",
+    "satuan": "pcs",
+    "hargaBeli": 15000,
+    "qtyBeli": 95,
+    "createdAt": "2026-05-19T14:58:45.500Z"
+  },
+  {
+    "id": 1779203894199,
+    "nama": "Kopi Arabika",
+    "satuan": "gram",
+    "hargaBeli": 150000,
+    "qtyBeli": 500,
+    "createdAt": "2026-05-19T15:18:14.199Z",
+    "updatedAt": "2026-06-05T11:49:48.286Z"
+  },
+  {
+    "id": 1779204212833,
+    "nama": "Sirup ALmond",
+    "satuan": "ml",
+    "hargaBeli": 81000,
+    "qtyBeli": 650,
+    "createdAt": "2026-05-19T15:23:32.833Z"
+  },
+  {
+    "id": 1779204853975,
+    "nama": "Gula Aren",
+    "satuan": "ml",
+    "hargaBeli": 41500,
+    "qtyBeli": 1000,
+    "createdAt": "2026-05-19T15:34:13.975Z"
+  },
+  {
+    "id": 1779205489284,
+    "nama": "Sirup butterscotch trieste",
+    "satuan": "ml",
+    "hargaBeli": 82000,
+    "qtyBeli": 650,
+    "createdAt": "2026-05-19T15:44:49.284Z"
+  },
+  {
+    "id": 1779205809926,
+    "nama": "Sirup Caramel",
+    "satuan": "ml",
+    "hargaBeli": 81000,
+    "qtyBeli": 650,
+    "createdAt": "2026-05-19T15:50:09.926Z"
+  },
+  {
+    "id": 1779552756356,
+    "nama": "Bubuk Red Velvet",
+    "satuan": "gram",
+    "hargaBeli": 31000,
+    "qtyBeli": 500,
+    "createdAt": "2026-05-23T16:12:36.356Z",
+    "updatedAt": "2026-06-05T12:23:59.095Z"
+  },
+  {
+    "id": 1779554270749,
+    "nama": "Bubuk Hazelnut",
+    "satuan": "gram",
+    "hargaBeli": 31000,
+    "qtyBeli": 500,
+    "createdAt": "2026-05-23T16:37:50.749Z",
+    "updatedAt": "2026-06-05T12:23:32.209Z"
+  },
+  {
+    "id": 1779554428619,
+    "nama": "Cokelat",
+    "satuan": "gram",
+    "hargaBeli": 31000,
+    "qtyBeli": 500,
+    "createdAt": "2026-05-23T16:40:28.619Z",
+    "updatedAt": "2026-06-05T12:24:11.331Z"
+  },
+  {
+    "id": 1780662285127,
+    "nama": "Kentang",
+    "satuan": "gram",
+    "hargaBeli": 27000,
+    "qtyBeli": 1000,
+    "createdAt": "2026-06-05T12:24:45.127Z"
+  },
+  {
+    "id": 1780662334541,
+    "nama": "SOSIS",
+    "satuan": "pcs",
+    "hargaBeli": 23500,
+    "qtyBeli": 30,
+    "createdAt": "2026-06-05T12:25:34.541Z"
+  },
+  {
+    "id": 1780662407017,
+    "nama": "Bakso",
+    "satuan": "pcs",
+    "hargaBeli": 16000,
+    "qtyBeli": 50,
+    "createdAt": "2026-06-05T12:26:47.017Z"
+  },
+  {
+    "id": 1780662482813,
+    "nama": "Nugget",
+    "satuan": "gram",
+    "hargaBeli": 12000,
+    "qtyBeli": 40,
+    "createdAt": "2026-06-05T12:28:02.813Z",
+    "updatedAt": "2026-06-05T12:29:09.555Z"
+  }
+]

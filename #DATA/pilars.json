@@ -1,0 +1,32 @@
+[
+  {
+    "nama": "Educational",
+    "bg": "rgba(77,158,247,0.15)",
+    "color": "#4d9ef7"
+  },
+  {
+    "nama": "Promotional",
+    "bg": "rgba(247,164,77,0.15)",
+    "color": "#f7a44d"
+  },
+  {
+    "nama": "Entertainment",
+    "bg": "rgba(155,130,245,0.15)",
+    "color": "#9b82f5"
+  },
+  {
+    "nama": "Inspirational",
+    "bg": "rgba(76,201,160,0.15)",
+    "color": "#4cc9a0"
+  },
+  {
+    "nama": "Behind Scene",
+    "bg": "rgba(247,109,109,0.15)",
+    "color": "#f76d6d"
+  },
+  {
+    "nama": "Testimonial",
+    "bg": "rgba(200,200,200,0.12)",
+    "color": "#9dbdd8"
+  }
+]

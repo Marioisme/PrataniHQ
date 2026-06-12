@@ -1,0 +1,107 @@
+[
+  {
+    "id": 1778931074422,
+    "nama": "GRINDER",
+    "total": 500000,
+    "kepada": "Mario",
+    "brand": "dikopi",
+    "tanggal": "2026-05-16",
+    "keterangan": "",
+    "cicilan": [
+      {
+        "id": 1779206972529,
+        "tanggal": "2026-05-19",
+        "nominal": 52000,
+        "ket": "hasil penjualan 19 mei"
+      }
+    ],
+    "createdAt": "2026-05-16T11:31:14.422Z"
+  },
+  {
+    "id": 1778931419458,
+    "nama": "SKM Indomaret",
+    "total": 20000,
+    "kepada": "Mario",
+    "brand": "dikopi",
+    "tanggal": "2026-05-15",
+    "keterangan": "Beli SUSU SKM",
+    "cicilan": [
+      {
+        "id": 1779033696517,
+        "tanggal": "2026-05-17",
+        "nominal": 20000,
+        "ket": ""
+      }
+    ],
+    "createdAt": "2026-05-16T11:36:59.458Z"
+  },
+  {
+    "id": 1778935479028,
+    "nama": "BELANJA BAHAN BAKU",
+    "total": 108000,
+    "kepada": "GILANG",
+    "brand": "dikopi",
+    "tanggal": "2026-05-16",
+    "keterangan": "BELANJA BAHAN BAKU",
+    "cicilan": [
+      {
+        "id": 1779033542715,
+        "tanggal": "2026-05-17",
+        "nominal": 108000,
+        "ket": "hasil penjualan hari ini"
+      }
+    ],
+    "createdAt": "2026-05-16T12:44:39.028Z"
+  },
+  {
+    "id": 1779459441773,
+    "nama": "SIRUP BUTTERSCOTCH",
+    "total": 82000,
+    "kepada": "MARIO",
+    "brand": "dikopi",
+    "tanggal": "2026-05-22",
+    "keterangan": "",
+    "cicilan": [],
+    "createdAt": "2026-05-22T14:17:21.773Z"
+  },
+  {
+    "id": 1779549123978,
+    "nama": "BELANJA TGL 23",
+    "total": 133500,
+    "kepada": "MARIO",
+    "brand": "dikopi",
+    "tanggal": "2026-05-23",
+    "keterangan": "",
+    "cicilan": [],
+    "createdAt": "2026-05-23T15:12:03.978Z"
+  },
+  {
+    "id": 1780412089217,
+    "nama": "Arabika",
+    "total": 160000,
+    "kepada": "Mario",
+    "brand": "dikopi",
+    "tanggal": "2026-06-02",
+    "keterangan": "Beli Kopi",
+    "cicilan": [],
+    "createdAt": "2026-06-02T14:54:49.217Z"
+  },
+  {
+    "id": 1780412102784,
+    "nama": "Robusta",
+    "total": 70000,
+    "kepada": "Baheula 73",
+    "brand": "dikopi",
+    "tanggal": "2026-06-02",
+    "keterangan": "",
+    "cicilan": [
+      {
+        "id": 1780489830238,
+        "tanggal": "2026-06-03",
+        "nominal": 70000,
+        "ket": ""
+      }
+    ],
+    "createdAt": "2026-06-02T14:55:02.785Z"
+  }
+]

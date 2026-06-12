@@ -1,0 +1,2248 @@
+[
+  {
+    "id": 1779980782728,
+    "nama": "ID CARD PVC 2 SISI",
+    "kategori": "Lanyard & ID Card",
+    "supplier": {
+      "nama": "Lanyard Custome Purwokerto",
+      "kontak": "0895-3840-54597",
+      "alamat": "Purwokerto",
+      "ongkirKePratani": 10000
+    },
+    "moq": 15,
+    "hargaDasar": 4500,
+    "marginRekomendasi": 35,
+    "hargaJual": null,
+    "komponenBiaya": [
+      {
+        "nama": "Ongkir",
+        "nominal": 10000,
+        "per": "order"
+      },
+      {
+        "nama": "Desain",
+        "nominal": 20000,
+        "per": "order"
+      }
+    ],
+    "catatan": "- PVC LASER\n- 0.76MM\n- GLOSSY",
+    "createdAt": "2026-05-28T15:06:22.728Z",
+    "hppSnapshot": {
+      "totalHpp": 6500,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 4500,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Ongkir",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Desain",
+          "nilai": 1333,
+          "perProj": true,
+          "qty": 15
+        }
+      ],
+      "tanggal": "28/05/2026",
+      "brand": "kolektiva",
+      "qty": 15
+    },
+    "moqTiers": [
+      {
+        "qty": 500,
+        "hargaDasar": 4000,
+        "hargaJual": 10000
+      }
+    ]
+  },
+  {
+    "id": 1779981566029,
+    "nama": "ID CARD PVC 1 SISI",
+    "kategori": "Lanyard & ID Card",
+    "supplier": {
+      "nama": "Lanyard Custome Purwokerto",
+      "kontak": "0895-3840-54597",
+      "alamat": "Purwokerto",
+      "ongkirKePratani": 10000
+    },
+    "moq": 15,
+    "hargaDasar": 4000,
+    "marginRekomendasi": 35,
+    "hargaJual": null,
+    "komponenBiaya": [
+      {
+        "nama": "Ongkir",
+        "nominal": 10000,
+        "per": "order"
+      },
+      {
+        "nama": "Desain",
+        "nominal": 20000,
+        "per": "order"
+      }
+    ],
+    "catatan": "- PVC LASER\n- 0.76MM\n- GLOSSY",
+    "createdAt": "2026-05-28T15:19:26.029Z",
+    "hppSnapshot": {
+      "totalHpp": 6000,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 4000,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Ongkir",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Desain",
+          "nilai": 1333,
+          "perProj": true,
+          "qty": 15
+        }
+      ],
+      "tanggal": "28/05/2026",
+      "brand": "kolektiva",
+      "qty": 15
+    },
+    "moqTiers": [
+      {
+        "qty": 500,
+        "hargaDasar": 3500,
+        "hargaJual": 8000
+      }
+    ]
+  },
+  {
+    "id": 1779981692212,
+    "nama": "Lanyard 1.5 Kait + Stopper 2 sisi",
+    "kategori": "Lanyard & ID Card",
+    "supplier": {
+      "nama": "Lanyard Custome Purwokerto",
+      "kontak": "895-3840-54597",
+      "alamat": "Purwokerto",
+      "ongkirKePratani": 10000
+    },
+    "moq": 15,
+    "hargaDasar": 7000,
+    "marginRekomendasi": 35,
+    "hargaJual": null,
+    "komponenBiaya": [
+      {
+        "nama": "Ongkir",
+        "nominal": 10000,
+        "per": "order"
+      },
+      {
+        "nama": "Desain",
+        "nominal": 20000,
+        "per": "order"
+      },
+      {
+        "nama": "Marketing",
+        "nominal": 10000,
+        "per": "order"
+      }
+    ],
+    "catatan": "- Bahan Tali Tissue Grade A\n-  Full Print\n- Kait & Stopper\n- Panjang jadi 45cm",
+    "createdAt": "2026-05-28T15:21:32.212Z",
+    "hppSnapshot": {
+      "totalHpp": 9667,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 7000,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Ongkir",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Desain",
+          "nilai": 1333,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Marketing",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        }
+      ],
+      "tanggal": "28/05/2026",
+      "brand": "kolektiva",
+      "qty": 15
+    },
+    "moqTiers": [
+      {
+        "qty": 255,
+        "hargaDasar": 6500,
+        "hargaJual": null
+      },
+      {
+        "qty": 500,
+        "hargaDasar": 6000,
+        "hargaJual": null
+      }
+    ]
+  },
+  {
+    "id": 1779982227936,
+    "nama": "Lanyard 1.5 Kait + Stopper 1 sisi",
+    "kategori": "Lanyard & ID Card",
+    "supplier": {
+      "nama": "Lanyard Custome Purwokerto",
+      "kontak": "895-3840-54597",
+      "alamat": "Purwokerto",
+      "ongkirKePratani": 10000
+    },
+    "moq": 15,
+    "hargaDasar": 6500,
+    "marginRekomendasi": 35,
+    "hargaJual": null,
+    "komponenBiaya": [
+      {
+        "nama": "Ongkir",
+        "nominal": 10000,
+        "per": "order"
+      },
+      {
+        "nama": "Desain",
+        "nominal": 20000,
+        "per": "order"
+      },
+      {
+        "nama": "Marketing",
+        "nominal": 10000,
+        "per": "order"
+      }
+    ],
+    "catatan": "- Bahan Tali Tissue Grade A\n-  Full Print\n- Kait & Stopper\n- Panjang jadi 45cm",
+    "createdAt": "2026-05-28T15:30:27.936Z",
+    "hppSnapshot": {
+      "totalHpp": 9167,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 6500,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Ongkir",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Desain",
+          "nilai": 1333,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Marketing",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        }
+      ],
+      "tanggal": "28/05/2026",
+      "brand": "kolektiva",
+      "qty": 15
+    },
+    "moqTiers": [
+      {
+        "qty": 255,
+        "hargaDasar": 6000,
+        "hargaJual": null
+      },
+      {
+        "qty": 500,
+        "hargaDasar": 5500,
+        "hargaJual": null
+      }
+    ]
+  },
+  {
+    "id": 1779982295134,
+    "nama": "Lanyard Kait 1.5mm 2 Sisi",
+    "kategori": "Lanyard & ID Card",
+    "supplier": {
+      "nama": "Lanyard Custome Purwokerto",
+      "kontak": "895-3840-54597",
+      "alamat": "Purwokerto",
+      "ongkirKePratani": 10000
+    },
+    "moq": 15,
+    "hargaDasar": 6500,
+    "marginRekomendasi": 35,
+    "hargaJual": null,
+    "komponenBiaya": [
+      {
+        "nama": "Ongkir",
+        "nominal": 10000,
+        "per": "order"
+      },
+      {
+        "nama": "Desain",
+        "nominal": 20000,
+        "per": "order"
+      },
+      {
+        "nama": "Marketing",
+        "nominal": 10000,
+        "per": "order"
+      }
+    ],
+    "catatan": "- Bahan Tali Tissue Grade A\n-  Full Print\n- Kait \n- Panjang jadi 45cm",
+    "createdAt": "2026-05-28T15:31:35.134Z",
+    "hppSnapshot": {
+      "totalHpp": 9167,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 6500,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Ongkir",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Desain",
+          "nilai": 1333,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Marketing",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        }
+      ],
+      "tanggal": "28/05/2026",
+      "brand": "kolektiva",
+      "qty": 15
+    },
+    "moqTiers": [
+      {
+        "qty": 255,
+        "hargaDasar": 6000,
+        "hargaJual": null
+      },
+      {
+        "qty": 500,
+        "hargaDasar": 5500,
+        "hargaJual": null
+      }
+    ]
+  },
+  {
+    "id": 1779982374548,
+    "nama": "Lanyard Kait 1.5mm 1 Sisi",
+    "kategori": "Lanyard & ID Card",
+    "supplier": {
+      "nama": "Lanyard Custome Purwokerto",
+      "kontak": "895-3840-54597",
+      "alamat": "Purwokerto",
+      "ongkirKePratani": 10000
+    },
+    "moq": 15,
+    "hargaDasar": 5500,
+    "marginRekomendasi": 35,
+    "hargaJual": null,
+    "komponenBiaya": [
+      {
+        "nama": "Ongkir",
+        "nominal": 10000,
+        "per": "order"
+      },
+      {
+        "nama": "Desain",
+        "nominal": 20000,
+        "per": "order"
+      },
+      {
+        "nama": "Marketing",
+        "nominal": 10000,
+        "per": "order"
+      }
+    ],
+    "catatan": "- Bahan Tali Tissue Grade A\n-  Full Print\n- Kait \n- Panjang jadi 45cm",
+    "createdAt": "2026-05-28T15:32:54.548Z",
+    "hppSnapshot": {
+      "totalHpp": 8167,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 5500,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Ongkir",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Desain",
+          "nilai": 1333,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Marketing",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        }
+      ],
+      "tanggal": "28/05/2026",
+      "brand": "kolektiva",
+      "qty": 15
+    },
+    "moqTiers": [
+      {
+        "qty": 255,
+        "hargaDasar": 5000,
+        "hargaJual": null
+      },
+      {
+        "qty": 500,
+        "hargaDasar": 4500,
+        "hargaJual": null
+      }
+    ]
+  },
+  {
+    "id": 1779982474657,
+    "nama": "Lanyard 2mm Kait + Stopper 2 sisi",
+    "kategori": "Lanyard & ID Card",
+    "supplier": {
+      "nama": "Lanyard Custome Purwokerto",
+      "kontak": "895-3840-54597",
+      "alamat": "Purwokerto",
+      "ongkirKePratani": 10000
+    },
+    "moq": 15,
+    "hargaDasar": 7500,
+    "marginRekomendasi": 35,
+    "hargaJual": null,
+    "komponenBiaya": [
+      {
+        "nama": "Ongkir",
+        "nominal": 10000,
+        "per": "order"
+      },
+      {
+        "nama": "Desain",
+        "nominal": 20000,
+        "per": "order"
+      },
+      {
+        "nama": "Marketing",
+        "nominal": 10000,
+        "per": "order"
+      }
+    ],
+    "catatan": "- Bahan Tali Tissue Grade A\n-  Full Print\n- Kait & Stopper\n- Panjang jadi 45cm",
+    "createdAt": "2026-05-28T15:34:34.657Z",
+    "hppSnapshot": {
+      "totalHpp": 10167,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 7500,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Ongkir",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Desain",
+          "nilai": 1333,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Marketing",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        }
+      ],
+      "tanggal": "28/05/2026",
+      "brand": "kolektiva",
+      "qty": 15
+    },
+    "moqTiers": [
+      {
+        "qty": 255,
+        "hargaDasar": 7000,
+        "hargaJual": null
+      },
+      {
+        "qty": 500,
+        "hargaDasar": 6500,
+        "hargaJual": null
+      }
+    ]
+  },
+  {
+    "id": 1779982533481,
+    "nama": "Lanyard 2mm Kait + Stopper 1 sisi",
+    "kategori": "Lanyard & ID Card",
+    "supplier": {
+      "nama": "Lanyard Custome Purwokerto",
+      "kontak": "895-3840-54597",
+      "alamat": "Purwokerto",
+      "ongkirKePratani": 10000
+    },
+    "moq": 15,
+    "hargaDasar": 6500,
+    "marginRekomendasi": 35,
+    "hargaJual": null,
+    "komponenBiaya": [
+      {
+        "nama": "Ongkir",
+        "nominal": 10000,
+        "per": "order"
+      },
+      {
+        "nama": "Desain",
+        "nominal": 20000,
+        "per": "order"
+      },
+      {
+        "nama": "Marketing",
+        "nominal": 10000,
+        "per": "order"
+      }
+    ],
+    "catatan": "- Bahan Tali Tissue Grade A\n-  Full Print\n- Kait & Stopper\n- Panjang jadi 45cm",
+    "createdAt": "2026-05-28T15:35:33.481Z",
+    "hppSnapshot": {
+      "totalHpp": 9167,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 6500,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Ongkir",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Desain",
+          "nilai": 1333,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Marketing",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        }
+      ],
+      "tanggal": "28/05/2026",
+      "brand": "kolektiva",
+      "qty": 15
+    },
+    "moqTiers": [
+      {
+        "qty": 255,
+        "hargaDasar": 6000,
+        "hargaJual": null
+      },
+      {
+        "qty": 500,
+        "hargaDasar": 5500,
+        "hargaJual": null
+      }
+    ]
+  },
+  {
+    "id": 1779982760149,
+    "nama": "Lanyard Kait 2mm 2 Sisi",
+    "kategori": "Lanyard & ID Card",
+    "supplier": {
+      "nama": "Lanyard Custome Purwokerto",
+      "kontak": "895-3840-54597",
+      "alamat": "Purwokerto",
+      "ongkirKePratani": 10000
+    },
+    "moq": 15,
+    "hargaDasar": 7000,
+    "marginRekomendasi": 35,
+    "hargaJual": null,
+    "komponenBiaya": [
+      {
+        "nama": "Ongkir",
+        "nominal": 10000,
+        "per": "order"
+      },
+      {
+        "nama": "Desain",
+        "nominal": 20000,
+        "per": "order"
+      },
+      {
+        "nama": "Marketing",
+        "nominal": 10000,
+        "per": "order"
+      }
+    ],
+    "catatan": "- Bahan Tali Tissue Grade A\n-  Full Print\n- Kait \n- Panjang jadi 45cm",
+    "createdAt": "2026-05-28T15:39:20.149Z",
+    "hppSnapshot": {
+      "totalHpp": 9667,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 7000,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Ongkir",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Desain",
+          "nilai": 1333,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Marketing",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        }
+      ],
+      "tanggal": "28/05/2026",
+      "brand": "kolektiva",
+      "qty": 15
+    },
+    "moqTiers": [
+      {
+        "qty": 255,
+        "hargaDasar": 6500,
+        "hargaJual": null
+      },
+      {
+        "qty": 500,
+        "hargaDasar": 6000,
+        "hargaJual": null
+      }
+    ]
+  },
+  {
+    "id": 1779982797571,
+    "nama": "Lanyard Kait 2mm 1 Sisi",
+    "kategori": "Lanyard & ID Card",
+    "supplier": {
+      "nama": "Lanyard Custome Purwokerto",
+      "kontak": "895-3840-54597",
+      "alamat": "Purwokerto",
+      "ongkirKePratani": 10000
+    },
+    "moq": 15,
+    "hargaDasar": 6000,
+    "marginRekomendasi": 35,
+    "hargaJual": null,
+    "komponenBiaya": [
+      {
+        "nama": "Ongkir",
+        "nominal": 10000,
+        "per": "order"
+      },
+      {
+        "nama": "Desain",
+        "nominal": 20000,
+        "per": "order"
+      },
+      {
+        "nama": "Marketing",
+        "nominal": 10000,
+        "per": "order"
+      }
+    ],
+    "catatan": "- Bahan Tali Tissue Grade A\n-  Full Print\n- Kait \n- Panjang jadi 45cm",
+    "createdAt": "2026-05-28T15:39:57.571Z",
+    "hppSnapshot": {
+      "totalHpp": 8667,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 6000,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Ongkir",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Desain",
+          "nilai": 1333,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Marketing",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        }
+      ],
+      "tanggal": "28/05/2026",
+      "brand": "kolektiva",
+      "qty": 15
+    },
+    "moqTiers": [
+      {
+        "qty": 255,
+        "hargaDasar": 5500,
+        "hargaJual": null
+      },
+      {
+        "qty": 500,
+        "hargaDasar": 5000,
+        "hargaJual": null
+      }
+    ]
+  },
+  {
+    "id": 1779982848355,
+    "nama": "Lanyard 2.5mm Kait + Stopper 2 sisi",
+    "kategori": "Lanyard & ID Card",
+    "supplier": {
+      "nama": "Lanyard Custome Purwokerto",
+      "kontak": "895-3840-54597",
+      "alamat": "Purwokerto",
+      "ongkirKePratani": 10000
+    },
+    "moq": 15,
+    "hargaDasar": 8500,
+    "marginRekomendasi": 35,
+    "hargaJual": null,
+    "komponenBiaya": [
+      {
+        "nama": "Ongkir",
+        "nominal": 10000,
+        "per": "order"
+      },
+      {
+        "nama": "Desain",
+        "nominal": 20000,
+        "per": "order"
+      },
+      {
+        "nama": "Marketing",
+        "nominal": 10000,
+        "per": "order"
+      }
+    ],
+    "catatan": "- Bahan Tali Tissue Grade A\n-  Full Print\n- Kait & Stopper\n- Panjang jadi 45cm",
+    "createdAt": "2026-05-28T15:40:48.355Z",
+    "hppSnapshot": {
+      "totalHpp": 11167,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 8500,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Ongkir",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Desain",
+          "nilai": 1333,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Marketing",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        }
+      ],
+      "tanggal": "28/05/2026",
+      "brand": "kolektiva",
+      "qty": 15
+    },
+    "moqTiers": [
+      {
+        "qty": 255,
+        "hargaDasar": 8000,
+        "hargaJual": null
+      },
+      {
+        "qty": 500,
+        "hargaDasar": 7500,
+        "hargaJual": null
+      }
+    ]
+  },
+  {
+    "id": 1779982883481,
+    "nama": "Lanyard 2.5mm Kait + Stopper 1 sisi",
+    "kategori": "Lanyard & ID Card",
+    "supplier": {
+      "nama": "Lanyard Custome Purwokerto",
+      "kontak": "895-3840-54597",
+      "alamat": "Purwokerto",
+      "ongkirKePratani": 10000
+    },
+    "moq": 15,
+    "hargaDasar": 7500,
+    "marginRekomendasi": 35,
+    "hargaJual": null,
+    "komponenBiaya": [
+      {
+        "nama": "Ongkir",
+        "nominal": 10000,
+        "per": "order"
+      },
+      {
+        "nama": "Desain",
+        "nominal": 20000,
+        "per": "order"
+      },
+      {
+        "nama": "Marketing",
+        "nominal": 10000,
+        "per": "order"
+      }
+    ],
+    "catatan": "- Bahan Tali Tissue Grade A\n-  Full Print\n- Kait & Stopper\n- Panjang jadi 45cm",
+    "createdAt": "2026-05-28T15:41:23.481Z",
+    "hppSnapshot": {
+      "totalHpp": 10167,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 7500,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Ongkir",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Desain",
+          "nilai": 1333,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Marketing",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        }
+      ],
+      "tanggal": "28/05/2026",
+      "brand": "kolektiva",
+      "qty": 15
+    },
+    "moqTiers": [
+      {
+        "qty": 255,
+        "hargaDasar": 7000,
+        "hargaJual": null
+      },
+      {
+        "qty": 500,
+        "hargaDasar": 6500,
+        "hargaJual": null
+      }
+    ]
+  },
+  {
+    "id": 1779983034973,
+    "nama": "Lanyard Kait 2.5mm 2 Sisi",
+    "kategori": "Lanyard & ID Card",
+    "supplier": {
+      "nama": "Lanyard Custome Purwokerto",
+      "kontak": "895-3840-54597",
+      "alamat": "Purwokerto",
+      "ongkirKePratani": 10000
+    },
+    "moq": 15,
+    "hargaDasar": 8000,
+    "marginRekomendasi": 35,
+    "hargaJual": null,
+    "komponenBiaya": [
+      {
+        "nama": "Ongkir",
+        "nominal": 10000,
+        "per": "order"
+      },
+      {
+        "nama": "Desain",
+        "nominal": 20000,
+        "per": "order"
+      },
+      {
+        "nama": "Marketing",
+        "nominal": 10000,
+        "per": "order"
+      }
+    ],
+    "catatan": "- Bahan Tali Tissue Grade A\n-  Full Print\n- Kait \n- Panjang jadi 45cm",
+    "createdAt": "2026-05-28T15:43:54.973Z",
+    "hppSnapshot": {
+      "totalHpp": 10667,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 8000,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Ongkir",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Desain",
+          "nilai": 1333,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Marketing",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        }
+      ],
+      "tanggal": "28/05/2026",
+      "brand": "kolektiva",
+      "qty": 15
+    },
+    "moqTiers": [
+      {
+        "qty": 255,
+        "hargaDasar": 7500,
+        "hargaJual": null
+      },
+      {
+        "qty": 500,
+        "hargaDasar": 7000,
+        "hargaJual": null
+      }
+    ]
+  },
+  {
+    "id": 1779983117088,
+    "nama": "Lanyard Kait 2.5mm 1 Sisi",
+    "kategori": "Lanyard & ID Card",
+    "supplier": {
+      "nama": "Lanyard Custome Purwokerto",
+      "kontak": "895-3840-54597",
+      "alamat": "Purwokerto",
+      "ongkirKePratani": 10000
+    },
+    "moq": 15,
+    "hargaDasar": 7000,
+    "marginRekomendasi": 35,
+    "hargaJual": null,
+    "komponenBiaya": [
+      {
+        "nama": "Ongkir",
+        "nominal": 10000,
+        "per": "order"
+      },
+      {
+        "nama": "Desain",
+        "nominal": 20000,
+        "per": "order"
+      },
+      {
+        "nama": "Marketing",
+        "nominal": 10000,
+        "per": "order"
+      }
+    ],
+    "catatan": "- Bahan Tali Tissue Grade A\n-  Full Print\n- Kait \n- Panjang jadi 45cm",
+    "createdAt": "2026-05-28T15:45:17.088Z",
+    "hppSnapshot": {
+      "totalHpp": 9667,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 7000,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Ongkir",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Desain",
+          "nilai": 1333,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Marketing",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        }
+      ],
+      "tanggal": "28/05/2026",
+      "brand": "kolektiva",
+      "qty": 15
+    },
+    "moqTiers": [
+      {
+        "qty": 255,
+        "hargaDasar": 6500,
+        "hargaJual": null
+      },
+      {
+        "qty": 500,
+        "hargaDasar": 6000,
+        "hargaJual": null
+      }
+    ]
+  },
+  {
+    "id": 1779983186161,
+    "nama": "Paket Lanyard ID Card 2cm 1ss",
+    "kategori": "Lanyard & ID Card",
+    "supplier": {
+      "nama": "Lanyard Custome Purwokerto",
+      "kontak": "895-3840-54597",
+      "alamat": "Purwokerto",
+      "ongkirKePratani": 10000
+    },
+    "moq": 15,
+    "hargaDasar": 10500,
+    "marginRekomendasi": 35,
+    "hargaJual": null,
+    "komponenBiaya": [
+      {
+        "nama": "Ongkir",
+        "nominal": 10000,
+        "per": "order"
+      },
+      {
+        "nama": "Desain",
+        "nominal": 20000,
+        "per": "order"
+      },
+      {
+        "nama": "Marketing",
+        "nominal": 10000,
+        "per": "order"
+      }
+    ],
+    "catatan": "- Bahan Tali Tissue Grade A\n-  Full Print\n- Kait \n- Panjang jadi 45cm",
+    "createdAt": "2026-05-28T15:46:26.161Z",
+    "hppSnapshot": {
+      "totalHpp": 13167,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 10500,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Ongkir",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Desain",
+          "nilai": 1333,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Marketing",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        }
+      ],
+      "tanggal": "28/05/2026",
+      "brand": "kolektiva",
+      "qty": 15
+    },
+    "moqTiers": [
+      {
+        "qty": 255,
+        "hargaDasar": 10000,
+        "hargaJual": null
+      }
+    ]
+  },
+  {
+    "id": 1779983385637,
+    "nama": "Paket Lanyard ID Card 2cm 2ss",
+    "kategori": "Lanyard & ID Card",
+    "supplier": {
+      "nama": "Lanyard Custome Purwokerto",
+      "kontak": "895-3840-54597",
+      "alamat": "Purwokerto",
+      "ongkirKePratani": 10000
+    },
+    "moq": 15,
+    "hargaDasar": 11500,
+    "marginRekomendasi": 35,
+    "hargaJual": null,
+    "komponenBiaya": [
+      {
+        "nama": "Ongkir",
+        "nominal": 10000,
+        "per": "order"
+      },
+      {
+        "nama": "Desain",
+        "nominal": 20000,
+        "per": "order"
+      },
+      {
+        "nama": "Marketing",
+        "nominal": 10000,
+        "per": "order"
+      }
+    ],
+    "catatan": "- Bahan Tali Tissue Grade A\n-  Full Print\n- Kait \n- Panjang jadi 45cm",
+    "createdAt": "2026-05-28T15:49:45.637Z",
+    "hppSnapshot": {
+      "totalHpp": 14167,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 11500,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Ongkir",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Desain",
+          "nilai": 1333,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Marketing",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        }
+      ],
+      "tanggal": "28/05/2026",
+      "brand": "kolektiva",
+      "qty": 15
+    },
+    "moqTiers": [
+      {
+        "qty": 255,
+        "hargaDasar": 10500,
+        "hargaJual": null
+      }
+    ]
+  },
+  {
+    "id": 1779983484639,
+    "nama": "Paket Lanyard Nametag 2cm 1ss",
+    "kategori": "Lanyard & ID Card",
+    "supplier": {
+      "nama": "Lanyard Custome Purwokerto",
+      "kontak": "895-3840-54597",
+      "alamat": "Purwokerto",
+      "ongkirKePratani": 10000
+    },
+    "moq": 15,
+    "hargaDasar": 8500,
+    "marginRekomendasi": 35,
+    "hargaJual": null,
+    "komponenBiaya": [
+      {
+        "nama": "Ongkir",
+        "nominal": 10000,
+        "per": "order"
+      },
+      {
+        "nama": "Desain",
+        "nominal": 20000,
+        "per": "order"
+      },
+      {
+        "nama": "Marketing",
+        "nominal": 10000,
+        "per": "order"
+      }
+    ],
+    "catatan": "- Bahan Tali Tissue Grade A\n-  Full Print\n- Kait \n- Panjang jadi 45cm",
+    "createdAt": "2026-05-28T15:51:24.639Z",
+    "hppSnapshot": {
+      "totalHpp": 11167,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 8500,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Ongkir",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Desain",
+          "nilai": 1333,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Marketing",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        }
+      ],
+      "tanggal": "28/05/2026",
+      "brand": "kolektiva",
+      "qty": 15
+    },
+    "moqTiers": [
+      {
+        "qty": 255,
+        "hargaDasar": 8000,
+        "hargaJual": null
+      }
+    ]
+  },
+  {
+    "id": 1779983530921,
+    "nama": "Paket Lanyard Nametag 2cm 2ss",
+    "kategori": "Lanyard & ID Card",
+    "supplier": {
+      "nama": "Lanyard Custome Purwokerto",
+      "kontak": "895-3840-54597",
+      "alamat": "Purwokerto",
+      "ongkirKePratani": 10000
+    },
+    "moq": 15,
+    "hargaDasar": 9500,
+    "marginRekomendasi": 35,
+    "hargaJual": null,
+    "komponenBiaya": [
+      {
+        "nama": "Ongkir",
+        "nominal": 10000,
+        "per": "order"
+      },
+      {
+        "nama": "Desain",
+        "nominal": 20000,
+        "per": "order"
+      },
+      {
+        "nama": "Marketing",
+        "nominal": 10000,
+        "per": "order"
+      }
+    ],
+    "catatan": "- Bahan Tali Tissue Grade A\n-  Full Print\n- Kait \n- Panjang jadi 45cm",
+    "createdAt": "2026-05-28T15:52:10.921Z",
+    "hppSnapshot": {
+      "totalHpp": 12167,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 9500,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Ongkir",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Desain",
+          "nilai": 1333,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Marketing",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        }
+      ],
+      "tanggal": "28/05/2026",
+      "brand": "kolektiva",
+      "qty": 15
+    },
+    "moqTiers": [
+      {
+        "qty": 255,
+        "hargaDasar": 9000,
+        "hargaJual": null
+      }
+    ]
+  },
+  {
+    "id": 1779983569007,
+    "nama": "Key Holder",
+    "kategori": "Lanyard & ID Card",
+    "supplier": {
+      "nama": "Lanyard Custome Purwokerto",
+      "kontak": "895-3840-54597",
+      "alamat": "Purwokerto",
+      "ongkirKePratani": 10000
+    },
+    "moq": 15,
+    "hargaDasar": 5000,
+    "marginRekomendasi": 35,
+    "hargaJual": null,
+    "komponenBiaya": [
+      {
+        "nama": "Ongkir",
+        "nominal": 10000,
+        "per": "order"
+      },
+      {
+        "nama": "Desain",
+        "nominal": 20000,
+        "per": "order"
+      },
+      {
+        "nama": "Marketing",
+        "nominal": 10000,
+        "per": "order"
+      }
+    ],
+    "catatan": "- Bahan Tali Tissue Grade A\n-  Full Print",
+    "createdAt": "2026-05-28T15:52:49.007Z",
+    "hppSnapshot": {
+      "totalHpp": 7667,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 5000,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Ongkir",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Desain",
+          "nilai": 1333,
+          "perProj": true,
+          "qty": 15
+        },
+        {
+          "label": "Marketing",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 15
+        }
+      ],
+      "tanggal": "28/05/2026",
+      "brand": "kolektiva",
+      "qty": 15
+    },
+    "moqTiers": [
+      {
+        "qty": 100,
+        "hargaDasar": 3500,
+        "hargaJual": null
+      }
+    ]
+  },
+  {
+    "id": 1779983641305,
+    "nama": "Gelang Tiket",
+    "kategori": "Lanyard & ID Card",
+    "supplier": {
+      "nama": "Lanyard Custome Purwokerto",
+      "kontak": "895-3840-54597",
+      "alamat": "Purwokerto",
+      "ongkirKePratani": 10000
+    },
+    "moq": 30,
+    "hargaDasar": 2000,
+    "marginRekomendasi": 35,
+    "hargaJual": null,
+    "komponenBiaya": [
+      {
+        "nama": "Ongkir",
+        "nominal": 10000,
+        "per": "order"
+      },
+      {
+        "nama": "Desain",
+        "nominal": 20000,
+        "per": "order"
+      },
+      {
+        "nama": "Marketing",
+        "nominal": 10000,
+        "per": "order"
+      }
+    ],
+    "catatan": "- Bahan Tali Tissue Grade A\n-  Full Print",
+    "createdAt": "2026-05-28T15:54:01.305Z",
+    "hppSnapshot": {
+      "totalHpp": 3333,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 2000,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Ongkir",
+          "nilai": 333,
+          "perProj": true,
+          "qty": 30
+        },
+        {
+          "label": "Desain",
+          "nilai": 667,
+          "perProj": true,
+          "qty": 30
+        },
+        {
+          "label": "Marketing",
+          "nilai": 333,
+          "perProj": true,
+          "qty": 30
+        }
+      ],
+      "tanggal": "28/05/2026",
+      "brand": "kolektiva",
+      "qty": 30
+    },
+    "moqTiers": [
+      {
+        "qty": 300,
+        "hargaDasar": 1500,
+        "hargaJual": null
+      }
+    ]
+  },
+  {
+    "id": 1780487039197,
+    "nama": "KAOS POLOS PENDEK",
+    "kategori": "Apparel",
+    "supplier": {
+      "nama": "PRIBE STUDIO",
+      "kontak": "0823-2140-7440",
+      "alamat": "BREBES",
+      "ongkirKePratani": 0
+    },
+    "moq": 1,
+    "moqTiers": [],
+    "hargaDasar": 40000,
+    "marginRekomendasi": 35,
+    "hargaJual": 60000,
+    "komponenBiaya": [],
+    "catatan": "COTTON COMBED 24S",
+    "createdAt": "2026-06-03T11:43:59.197Z",
+    "hppSnapshot": {
+      "totalHpp": 40000,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 40000,
+          "perProj": false,
+          "qty": null
+        }
+      ],
+      "tanggal": "03/06/2026",
+      "brand": "kolektiva",
+      "qty": 1
+    }
+  },
+  {
+    "id": 1780487072259,
+    "nama": "KAOS POLOS PANJANG",
+    "kategori": "Apparel",
+    "supplier": {
+      "nama": "PRIBE STUDIO",
+      "kontak": "0823-2140-7440",
+      "alamat": "BREBES",
+      "ongkirKePratani": 0
+    },
+    "moq": 1,
+    "moqTiers": [],
+    "hargaDasar": 45000,
+    "marginRekomendasi": 35,
+    "hargaJual": 65000,
+    "komponenBiaya": [],
+    "catatan": "COTTON COMBED 24S",
+    "createdAt": "2026-06-03T11:44:32.259Z",
+    "hppSnapshot": {
+      "totalHpp": 45000,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 45000,
+          "perProj": false,
+          "qty": null
+        }
+      ],
+      "tanggal": "03/06/2026",
+      "brand": "kolektiva",
+      "qty": 1
+    }
+  },
+  {
+    "id": 1780487507229,
+    "nama": "SABLON PLASTISOL 30S",
+    "kategori": "Apparel",
+    "supplier": {
+      "nama": "PRIBE STUDIO",
+      "kontak": "0823-2140-7440",
+      "alamat": "BREBES",
+      "ongkirKePratani": 0
+    },
+    "hargaDasar": 65000,
+    "moq": 24,
+    "moqTiers": [
+      {
+        "qty": 51,
+        "hargaDasar": 62000,
+        "hargaJual": null
+      },
+      {
+        "qty": 101,
+        "hargaDasar": 59000,
+        "hargaJual": null
+      },
+      {
+        "qty": 200,
+        "hargaDasar": 56000,
+        "hargaJual": null
+      }
+    ],
+    "marginRekomendasi": 35,
+    "hargaJual": 100000,
+    "komponenBiaya": [
+      {
+        "nama": "Packaging / Plastik",
+        "nominal": 500,
+        "per": "pcs"
+      }
+    ],
+    "hppSnapshot": {
+      "totalHpp": 65500,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 65000,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Packaging / Plastik",
+          "nilai": 500,
+          "perProj": false,
+          "qty": null
+        }
+      ],
+      "tanggal": "03/06/2026",
+      "brand": "kolektiva",
+      "qty": 24
+    },
+    "catatan": "Cotton Combed Regular Fit 30s | Size S M L XL | Maks 7 Screen/Warna | Add-on: +Screen Rp2.000, Area Sablon A2 Rp3.000, Gold/Gliter Rp3.000, Raster Rp5.000, GITD Rp5.000, Plascharge Rp5.000 | Size add-on: XXL +5.000, XXXL +10.000, Lengan Panjang +5.000, OverSize +10.000, Cotton Bambu +10.000",
+    "createdAt": "2026-06-01T00:00:00.000Z"
+  },
+  {
+    "id": 1780487442605,
+    "nama": "SABLON PLASTISOL 24S",
+    "kategori": "Apparel",
+    "supplier": {
+      "nama": "PRIBE STUDIO",
+      "kontak": "0823-2140-7440",
+      "alamat": "BREBES",
+      "ongkirKePratani": 0
+    },
+    "hargaDasar": 70000,
+    "moq": 24,
+    "moqTiers": [
+      {
+        "qty": 51,
+        "hargaDasar": 67000,
+        "hargaJual": null
+      },
+      {
+        "qty": 101,
+        "hargaDasar": 64000,
+        "hargaJual": null
+      },
+      {
+        "qty": 200,
+        "hargaDasar": 61000,
+        "hargaJual": null
+      }
+    ],
+    "marginRekomendasi": 35,
+    "hargaJual": 108000,
+    "komponenBiaya": [
+      {
+        "nama": "Packaging / Plastik",
+        "nominal": 500,
+        "per": "pcs"
+      }
+    ],
+    "hppSnapshot": {
+      "totalHpp": 70500,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 70000,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Packaging / Plastik",
+          "nilai": 500,
+          "perProj": false,
+          "qty": null
+        }
+      ],
+      "tanggal": "03/06/2026",
+      "brand": "kolektiva",
+      "qty": 24
+    },
+    "catatan": "Cotton Combed Regular Fit 24s | Size S M L XL | Maks 7 Screen/Warna | Add-on sama dengan 30s",
+    "createdAt": "2026-06-01T00:00:00.000Z"
+  },
+  {
+    "id": 1780488303076,
+    "nama": "DTF 24s LP + Sablon Logo (10x10cm)",
+    "kategori": "Apparel",
+    "supplier": {
+      "nama": "PRIBE STUDIO ",
+      "kontak": "0823-2140-7440",
+      "alamat": "BREBES",
+      "ongkirKePratani": 0
+    },
+    "hargaDasar": 50000,
+    "moq": 1,
+    "moqTiers": [
+      {
+        "qty": 12,
+        "hargaDasar": 47000,
+        "hargaJual": null
+      },
+      {
+        "qty": 100,
+        "hargaDasar": 44000,
+        "hargaJual": null
+      }
+    ],
+    "marginRekomendasi": 30,
+    "hargaJual": null,
+    "komponenBiaya": [
+      {
+        "nama": "Packaging / Plastik",
+        "nominal": 500,
+        "per": "pcs"
+      }
+    ],
+    "hppSnapshot": {
+      "totalHpp": 50500,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 50000,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Packaging / Plastik",
+          "nilai": 500,
+          "perProj": false,
+          "qty": null
+        }
+      ],
+      "tanggal": "03/06/2026",
+      "brand": "kolektiva",
+      "qty": 1
+    },
+    "catatan": "Kaos: Cotton Combed 24s Lengan Pendek Rp40,000 | Sablon DTF Logo (10x10cm) | Satuan Rp10,000 | 12-50pcs Rp7,000 | >100pcs Rp4,000",
+    "createdAt": "2026-06-01T00:00:00.000Z"
+  },
+  {
+    "id": 1780488311459,
+    "nama": "DTF 24s LP + Sablon Mid (10x25cm)",
+    "kategori": "Apparel",
+    "supplier": {
+      "nama": "PRIBE STUDIO ",
+      "kontak": "0823-2140-7440",
+      "alamat": "BREBES",
+      "ongkirKePratani": 0
+    },
+    "hargaDasar": 55000,
+    "moq": 1,
+    "moqTiers": [
+      {
+        "qty": 12,
+        "hargaDasar": 48000,
+        "hargaJual": null
+      },
+      {
+        "qty": 100,
+        "hargaDasar": 45000,
+        "hargaJual": null
+      }
+    ],
+    "marginRekomendasi": 30,
+    "hargaJual": null,
+    "komponenBiaya": [
+      {
+        "nama": "Packaging / Plastik",
+        "nominal": 500,
+        "per": "pcs"
+      }
+    ],
+    "hppSnapshot": {
+      "totalHpp": 55500,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 55000,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Packaging / Plastik",
+          "nilai": 500,
+          "perProj": false,
+          "qty": null
+        }
+      ],
+      "tanggal": "03/06/2026",
+      "brand": "kolektiva",
+      "qty": 1
+    },
+    "catatan": "Kaos: Cotton Combed 24s Lengan Pendek Rp40,000 | Sablon DTF Mid (10x25cm) | Satuan Rp15,000 | 12-50pcs Rp8,000 | >100pcs Rp5,000",
+    "createdAt": "2026-06-01T00:00:00.000Z"
+  },
+  {
+    "id": 1780488320762,
+    "nama": "DTF 24s LP + Sablon A5 (15x21cm)",
+    "kategori": "Apparel",
+    "supplier": {
+      "nama": "PRIBE STUDIO",
+      "kontak": "0823-2140-7440",
+      "alamat": "BREBES",
+      "ongkirKePratani": 0
+    },
+    "hargaDasar": 60000,
+    "moq": 1,
+    "moqTiers": [
+      {
+        "qty": 12,
+        "hargaDasar": 50000,
+        "hargaJual": null
+      },
+      {
+        "qty": 100,
+        "hargaDasar": 46000,
+        "hargaJual": null
+      }
+    ],
+    "marginRekomendasi": 30,
+    "hargaJual": null,
+    "komponenBiaya": [
+      {
+        "nama": "Packaging / Plastik",
+        "nominal": 500,
+        "per": "pcs"
+      }
+    ],
+    "hppSnapshot": {
+      "totalHpp": 60500,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 60000,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Packaging / Plastik",
+          "nilai": 500,
+          "perProj": false,
+          "qty": null
+        }
+      ],
+      "tanggal": "03/06/2026",
+      "brand": "kolektiva",
+      "qty": 1
+    },
+    "catatan": "Kaos: Cotton Combed 24s Lengan Pendek Rp40,000 | Sablon DTF A5 (15x21cm) | Satuan Rp20,000 | 12-50pcs Rp10,000 | >100pcs Rp6,000",
+    "createdAt": "2026-06-01T00:00:00.000Z"
+  },
+  {
+    "id": 1780488251177,
+    "nama": "DTF 24s LP + Sablon A4 (21x30cm)",
+    "kategori": "Apparel",
+    "supplier": {
+      "nama": "PRIBE STUDIO",
+      "kontak": "0823-2140-7440",
+      "alamat": "BREBES",
+      "ongkirKePratani": 0
+    },
+    "hargaDasar": 65000,
+    "moq": 1,
+    "moqTiers": [
+      {
+        "qty": 12,
+        "hargaDasar": 55000,
+        "hargaJual": null
+      },
+      {
+        "qty": 100,
+        "hargaDasar": 52000,
+        "hargaJual": null
+      }
+    ],
+    "marginRekomendasi": 30,
+    "hargaJual": null,
+    "komponenBiaya": [
+      {
+        "nama": "Packaging / Plastik",
+        "nominal": 500,
+        "per": "pcs"
+      }
+    ],
+    "hppSnapshot": {
+      "totalHpp": 65500,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 65000,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Packaging / Plastik",
+          "nilai": 500,
+          "perProj": false,
+          "qty": null
+        }
+      ],
+      "tanggal": "03/06/2026",
+      "brand": "kolektiva",
+      "qty": 1
+    },
+    "catatan": "Kaos: Cotton Combed 24s Lengan Pendek Rp40,000 | Sablon DTF A4 (21x30cm) | Satuan Rp25,000 | 12-50pcs Rp15,000 | >100pcs Rp12,000",
+    "createdAt": "2026-06-01T00:00:00.000Z"
+  },
+  {
+    "id": 1780488256183,
+    "nama": "DTF 24s LP + Sablon A3 (29x42cm)",
+    "kategori": "Apparel",
+    "supplier": {
+      "nama": "PRIBE STUDIO",
+      "kontak": "0823-2140-7440",
+      "alamat": "BREBES",
+      "ongkirKePratani": 0
+    },
+    "hargaDasar": 75000,
+    "moq": 1,
+    "moqTiers": [
+      {
+        "qty": 12,
+        "hargaDasar": 65000,
+        "hargaJual": null
+      },
+      {
+        "qty": 100,
+        "hargaDasar": 58000,
+        "hargaJual": null
+      }
+    ],
+    "marginRekomendasi": 30,
+    "hargaJual": null,
+    "komponenBiaya": [
+      {
+        "nama": "Packaging / Plastik",
+        "nominal": 500,
+        "per": "pcs"
+      }
+    ],
+    "hppSnapshot": {
+      "totalHpp": 75500,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 75000,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Packaging / Plastik",
+          "nilai": 500,
+          "perProj": false,
+          "qty": null
+        }
+      ],
+      "tanggal": "03/06/2026",
+      "brand": "kolektiva",
+      "qty": 1
+    },
+    "catatan": "Kaos: Cotton Combed 24s Lengan Pendek Rp40,000 | Sablon DTF A3 (29x42cm) | Satuan Rp35,000 | 12-50pcs Rp25,000 | >100pcs Rp18,000",
+    "createdAt": "2026-06-01T00:00:00.000Z"
+  },
+  {
+    "id": 1780488304140,
+    "nama": "DTF 24s Pjg + Sablon Logo (10x10cm)",
+    "kategori": "Apparel",
+    "supplier": {
+      "nama": "PRIBE STUDIO",
+      "kontak": "0823-2140-7440",
+      "alamat": "BREBES",
+      "ongkirKePratani": 0
+    },
+    "hargaDasar": 55000,
+    "moq": 1,
+    "moqTiers": [
+      {
+        "qty": 12,
+        "hargaDasar": 52000,
+        "hargaJual": null
+      },
+      {
+        "qty": 100,
+        "hargaDasar": 49000,
+        "hargaJual": null
+      }
+    ],
+    "marginRekomendasi": 30,
+    "hargaJual": null,
+    "komponenBiaya": [
+      {
+        "nama": "Packaging / Plastik",
+        "nominal": 500,
+        "per": "pcs"
+      }
+    ],
+    "hppSnapshot": {
+      "totalHpp": 55500,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 55000,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Packaging / Plastik",
+          "nilai": 500,
+          "perProj": false,
+          "qty": null
+        }
+      ],
+      "tanggal": "03/06/2026",
+      "brand": "kolektiva",
+      "qty": 1
+    },
+    "catatan": "Kaos: Cotton Combed 24s Lengan Panjang Rp45,000 | Sablon DTF Logo (10x10cm) | Satuan Rp10,000 | 12-50pcs Rp7,000 | >100pcs Rp4,000",
+    "createdAt": "2026-06-01T00:00:00.000Z"
+  },
+  {
+    "id": 1780488296785,
+    "nama": "DTF 24s Pjg + Sablon Mid (10x25cm)",
+    "kategori": "Apparel",
+    "supplier": {
+      "nama": "PRIBE STUDIO",
+      "kontak": "0823-2140-7440",
+      "alamat": "BREBES",
+      "ongkirKePratani": 0
+    },
+    "hargaDasar": 60000,
+    "moq": 1,
+    "moqTiers": [
+      {
+        "qty": 12,
+        "hargaDasar": 53000,
+        "hargaJual": null
+      },
+      {
+        "qty": 100,
+        "hargaDasar": 50000,
+        "hargaJual": null
+      }
+    ],
+    "marginRekomendasi": 30,
+    "hargaJual": null,
+    "komponenBiaya": [
+      {
+        "nama": "Packaging / Plastik",
+        "nominal": 500,
+        "per": "pcs"
+      }
+    ],
+    "hppSnapshot": {
+      "totalHpp": 60500,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 60000,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Packaging / Plastik",
+          "nilai": 500,
+          "perProj": false,
+          "qty": null
+        }
+      ],
+      "tanggal": "03/06/2026",
+      "brand": "kolektiva",
+      "qty": 1
+    },
+    "catatan": "Kaos: Cotton Combed 24s Lengan Panjang Rp45,000 | Sablon DTF Mid (10x25cm) | Satuan Rp15,000 | 12-50pcs Rp8,000 | >100pcs Rp5,000",
+    "createdAt": "2026-06-01T00:00:00.000Z"
+  },
+  {
+    "id": 1780488323140,
+    "nama": "DTF 24s Pjg + Sablon A5 (15x21cm)",
+    "kategori": "Apparel",
+    "supplier": {
+      "nama": "PRIBE STUDIO",
+      "kontak": "0823-2140-7440",
+      "alamat": "BREBES",
+      "ongkirKePratani": 0
+    },
+    "hargaDasar": 65000,
+    "moq": 1,
+    "moqTiers": [
+      {
+        "qty": 12,
+        "hargaDasar": 55000,
+        "hargaJual": null
+      },
+      {
+        "qty": 100,
+        "hargaDasar": 51000,
+        "hargaJual": null
+      }
+    ],
+    "marginRekomendasi": 30,
+    "hargaJual": null,
+    "komponenBiaya": [
+      {
+        "nama": "Packaging / Plastik",
+        "nominal": 500,
+        "per": "pcs"
+      }
+    ],
+    "hppSnapshot": {
+      "totalHpp": 65500,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 65000,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Packaging / Plastik",
+          "nilai": 500,
+          "perProj": false,
+          "qty": null
+        }
+      ],
+      "tanggal": "03/06/2026",
+      "brand": "kolektiva",
+      "qty": 1
+    },
+    "catatan": "Kaos: Cotton Combed 24s Lengan Panjang Rp45,000 | Sablon DTF A5 (15x21cm) | Satuan Rp20,000 | 12-50pcs Rp10,000 | >100pcs Rp6,000",
+    "createdAt": "2026-06-01T00:00:00.000Z"
+  },
+  {
+    "id": 1780488258599,
+    "nama": "DTF 24s Pjg + Sablon A4 (21x30cm)",
+    "kategori": "Apparel",
+    "supplier": {
+      "nama": "PRIBE STUDIO",
+      "kontak": "0823-2140-7440",
+      "alamat": "BREBES",
+      "ongkirKePratani": 0
+    },
+    "hargaDasar": 70000,
+    "moq": 1,
+    "moqTiers": [
+      {
+        "qty": 12,
+        "hargaDasar": 60000,
+        "hargaJual": null
+      },
+      {
+        "qty": 100,
+        "hargaDasar": 57000,
+        "hargaJual": null
+      }
+    ],
+    "marginRekomendasi": 30,
+    "hargaJual": null,
+    "komponenBiaya": [
+      {
+        "nama": "Packaging / Plastik",
+        "nominal": 500,
+        "per": "pcs"
+      }
+    ],
+    "hppSnapshot": {
+      "totalHpp": 70500,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 70000,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Packaging / Plastik",
+          "nilai": 500,
+          "perProj": false,
+          "qty": null
+        }
+      ],
+      "tanggal": "03/06/2026",
+      "brand": "kolektiva",
+      "qty": 1
+    },
+    "catatan": "Kaos: Cotton Combed 24s Lengan Panjang Rp45,000 | Sablon DTF A4 (21x30cm) | Satuan Rp25,000 | 12-50pcs Rp15,000 | >100pcs Rp12,000",
+    "createdAt": "2026-06-01T00:00:00.000Z"
+  },
+  {
+    "id": 1780488312891,
+    "nama": "DTF 24s Pjg + Sablon A3 (29x42cm)",
+    "kategori": "Apparel",
+    "supplier": {
+      "nama": "PRIBE STUDIO",
+      "kontak": "0823-2140-7440",
+      "alamat": "BREBES",
+      "ongkirKePratani": 0
+    },
+    "hargaDasar": 80000,
+    "moq": 1,
+    "moqTiers": [
+      {
+        "qty": 12,
+        "hargaDasar": 70000,
+        "hargaJual": null
+      },
+      {
+        "qty": 100,
+        "hargaDasar": 63000,
+        "hargaJual": null
+      }
+    ],
+    "marginRekomendasi": 30,
+    "hargaJual": null,
+    "komponenBiaya": [
+      {
+        "nama": "Packaging / Plastik",
+        "nominal": 500,
+        "per": "pcs"
+      }
+    ],
+    "hppSnapshot": {
+      "totalHpp": 80500,
+      "komponen": [
+        {
+          "label": "Bahan Baku Pokok",
+          "nilai": 80000,
+          "perProj": false,
+          "qty": null
+        },
+        {
+          "label": "Packaging / Plastik",
+          "nilai": 500,
+          "perProj": false,
+          "qty": null
+        }
+      ],
+      "tanggal": "03/06/2026",
+      "brand": "kolektiva",
+      "qty": 1
+    },
+    "catatan": "Kaos: Cotton Combed 24s Lengan Panjang Rp45,000 | Sablon DTF A3 (29x42cm) | Satuan Rp35,000 | 12-50pcs Rp25,000 | >100pcs Rp18,000",
+    "createdAt": "2026-06-01T00:00:00.000Z"
+  }
+]
