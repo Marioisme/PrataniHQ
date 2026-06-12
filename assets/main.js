@@ -1,0 +1,9930 @@
+﻿// ─── STATE ───────────────────────────────────────────────────
+let dirHandle = null;
+let currentPage = 'dashboard';
+let currentFilter = 'all';
+let currentFolderId = null; // null = root, for dokumen file manager
+let fmView = 'large'; // large | medium | small | list | detail
+
+const BRANDS = ['dikopi','kolektiva','imagineer','pondokbunga'];
+const BRAND_LABEL = { pratani:'🏢 Pratani', dikopi:'☕ Dikopi', kolektiva:'🛍️ Kolektiva', imagineer:'🚀 Imagineer', pondokbunga:'🌸 Pondok Bunga' };
+const MAX_FILE = 20 * 1024 * 1024; // 20MB
+
+// DB: in-memory, synced to SSD
+let db = { todos:[], projects:[], orders:[], dokumen:[], keuangan:[], keu:{kolektiva:[],dikopi:[],imagineer:[],_meta:{}}, kontak:[], pilars:[], strategy:[], analytics:[], adsplan:[], folders:[], trash:[], todolist:[], bahan:[], resep:[], hutang:[], history:[], produk:[], aset:[], settings:{} };
+
+// ── DEFAULT SETTINGS BONUS BARISTA ───────────────────────────
+const DEFAULT_BONUS_SETTINGS = {
+  aktif: true, metode: 'margin', feeDasar: 15000,
+  bonusType: 'flat',       // 'flat' | 'percentage'
+  threshold: 0,            // min base value sebelum bonus dihitung (untuk percentage mode)
+  bonusRate: 5,            // persen untuk percentage mode
+  rules: [
+    { minMargin: 0,      maxMargin: 99999,  bonus: 0 },
+    { minMargin: 100000, maxMargin: 149999, bonus: 5000 },
+    { minMargin: 150000, maxMargin: 199999, bonus: 10000 },
+    { minMargin: 200000, maxMargin: 249999, bonus: 15000 },
+    { minMargin: 250000, maxMargin: null,   bonus: 20000 }
+  ]
+};
+function getBonusSettings() {
+  const s = db.settings && db.settings.bonus_barista;
+  if (!s) return JSON.parse(JSON.stringify(DEFAULT_BONUS_SETTINGS));
+  const def = JSON.parse(JSON.stringify(DEFAULT_BONUS_SETTINGS));
+  return {
+    aktif: s.aktif !== undefined ? s.aktif : true,
+    metode: s.metode || 'margin',
+    feeDasar: Number(s.feeDasar)||15000,
+    bonusType: s.bonusType || 'flat',
+    threshold: Number(s.threshold)||0,
+    bonusRate: Number(s.bonusRate)||5,
+    rules: (s.rules && s.rules.length) ? s.rules.map(r=>({
+      minMargin: Number(r.minMargin)||0,
+      maxMargin: (r.maxMargin===null||r.maxMargin===undefined) ? null : Number(r.maxMargin),
+      bonus: Number(r.bonus)||0
+    })) : def.rules
+  };
+}
+function calcBonusBarista(margin, omzet) {
+  const s = getBonusSettings();
+  if (!s.aktif) return 0;
+  const baseVal = s.metode === 'omzet' ? omzet : (margin !== null ? margin : 0);
+  if (s.bonusType === 'percentage') {
+    if (baseVal <= s.threshold) return 0;
+    return Math.round((baseVal - s.threshold) * (s.bonusRate / 100));
+  }
+  // flat mode — rule-based
+  const sorted = [...s.rules].sort((a,b)=>b.minMargin-a.minMargin);
+  const rule = sorted.find(r => baseVal >= r.minMargin && (r.maxMargin === null || baseVal <= r.maxMargin));
+  return rule ? rule.bonus : 0;
+}
+function getDikopiTxnsByDate(dateStr) {
+  return (db.keu.dikopi||[]).filter(t => t.tanggal === dateStr && t.tipe === 'masuk' && t.kategori === 'Penjualan Langsung');
+}
+function calcMarginFromTxns(txns) {
+  let omzet=0, hppTotal=0, itemsTotal=0, hasItemData=false, allItems=[];
+  txns.forEach(t => {
+    omzet += Number(t.nominal)||0;
+    if (t.items && t.items.length) {
+      hasItemData = true;
+      t.items.forEach(i => {
+        hppTotal += (Number(i.hppSnapshot)||0)*(Number(i.qty)||1);
+        itemsTotal += (Number(i.qty)||1);
+        allItems.push(i);
+      });
+    }
+  });
+  return { omzet, hppTotal, margin: hasItemData ? omzet-hppTotal : null, hasItemData, txnCount:txns.length, itemsTotal, allItems };
+}
+
+// ─── INDEXEDDB FOR HANDLE PERSISTENCE ────────────────────────
+function idbOpen() {
+  return new Promise((res,rej) => {
+    const req = indexedDB.open('pratani_hq', 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore('handles');
+    req.onsuccess = e => res(e.target.result);
+    req.onerror = rej;
+  });
+}
+
+async function idbSaveHandle(handle) {
+  const db = await idbOpen();
+  const tx = db.transaction('handles','readwrite');
+  tx.objectStore('handles').put(handle, 'dir');
+  return new Promise((res,rej) => { tx.oncomplete=res; tx.onerror=rej; });
+}
+
+async function idbLoadHandle() {
+  const idb = await idbOpen();
+  return new Promise((res,rej) => {
+    const tx = idb.transaction('handles','readonly');
+    const req = tx.objectStore('handles').get('dir');
+    req.onsuccess = () => res(req.result || null);
+    req.onerror = () => res(null);
+  });
+}
+
+// ─── FILE SYSTEM ─────────────────────────────────────────────
+async function pickFolder() {
+  try {
+    const handle = await window.showDirectoryPicker({ mode:'readwrite' });
+    dirHandle = handle;
+    await idbSaveHandle(handle);
+    document.getElementById('folderPath').textContent = handle.name;
+    await loadAll();
+    render();
+    toast('✅ Folder terhubung: ' + handle.name, 'success');
+  } catch(e) {
+    if (e.name !== 'AbortError') toast('❌ Gagal pilih folder', 'error');
+  }
+}
+
+
+async function readJSON(name) {
+  try {
+    const fh = await dirHandle.getFileHandle(name, {create:true});
+    const f  = await fh.getFile();
+    const t  = await f.text();
+    return t ? JSON.parse(t) : [];
+  } catch { return []; }
+}
+
+async function writeJSON(name, data) {
+  const fh = await dirHandle.getFileHandle(name, {create:true});
+  const w  = await fh.createWritable();
+  await w.write(JSON.stringify(data, null, 2));
+  await w.close();
+}
+
+async function loadAll() {
+  if (!dirHandle) return;
+  db.todos     = await readJSON('todos.json');
+  db.projects  = await readJSON('projects.json');
+  db.orders    = await readJSON('orders.json');
+  db.dokumen   = await readJSON('dokumen.json');
+  db.keuangan  = await readJSON('keuangan.json');
+  const keuRaw = await readJSON('keu.json');
+  db.keu = {
+    kolektiva: keuRaw?.kolektiva||[],
+    dikopi:    keuRaw?.dikopi||[],
+    studio:    keuRaw?.studio||[],
+    _meta:     keuRaw?._meta||{}
+  };
+  db.kontak    = await readJSON('kontak.json');
+  db.pilars    = await readJSON('pilars.json');
+  db.strategy  = await readJSON('strategy.json');
+  db.analytics = await readJSON('analytics.json');
+  db.adsplan   = await readJSON('adsplan.json');
+  db.folders   = await readJSON('folders.json');
+  db.trash     = await readJSON('trash.json');
+  db.todolist  = await readJSON('todolist.json');
+  db.bahan     = await readJSON('bahan.json');
+  db.resep     = await readJSON('resep.json');
+  db.hutang    = await readJSON('hutang.json');
+  db.history   = await readJSON('history.json');
+  db.produk    = await readJSON('produk.json');
+  db.aset      = await readJSON('aset.json');
+  const rawSettings = await readJSON('settings.json');
+  db.settings  = Array.isArray(rawSettings) ? {} : (rawSettings || {});
+  // Auto-purge history older than 7 days
+  const cutoff = new Date(Date.now() - 7*24*60*60*1000).toISOString();
+  const before = db.history.length;
+  db.history = db.history.filter(h => h.editedAt >= cutoff);
+  if (db.history.length !== before) await saveDB('history');
+  await migrateToKolektiva();
+}
+
+// ── Migration: remap snm + evercraft → kolektiva across all tables ──────────
+async function migrateToKolektiva() {
+  const LEGACY = ['snm', 'evercraft'];
+  const remap = v => LEGACY.includes(v) ? 'kolektiva' : v;
+  let dirty = false;
+
+  // flat tables with .brand field
+  ['todos','projects','orders','keuangan','kontak','analytics','adsplan'].forEach(table => {
+    db[table].forEach(item => {
+      if (LEGACY.includes(item.brand)) { item.brand = 'kolektiva'; dirty = true; }
+    });
+  });
+
+  // strategy: merge snm + evercraft entries into kolektiva
+  const legacyStrats = db.strategy.filter(s => LEGACY.includes(s.brand));
+  const hasKolektiva = db.strategy.some(s => s.brand === 'kolektiva');
+  if (legacyStrats.length > 0 && !hasKolektiva) {
+    // merge: take the one with more data as base
+    const base = legacyStrats.reduce((a,b) =>
+      (a.pilars||[]).length >= (b.pilars||[]).length ? a : b
+    );
+    db.strategy.push({ ...base, brand: 'kolektiva' });
+    dirty = true;
+  }
+  db.strategy = db.strategy.filter(s => !LEGACY.includes(s.brand));
+
+  // pilars custom: remap brand field
+  db.pilars.forEach(p => {
+    if (LEGACY.includes(p.brand)) { p.brand = 'kolektiva'; dirty = true; }
+  });
+
+  if (dirty) {
+    // persist all affected tables silently
+    await Promise.all(['todos','projects','orders','keuangan','kontak','analytics','adsplan','strategy','pilars']
+      .map(t => saveDB(t)));
+  }
+}
+
+async function refreshData() {
+  if (!dirHandle) { toast('⚠️ Pilih folder dulu', 'error'); return; }
+  await loadAll();
+  updateTrashBadge();
+  render();
+  toast('🔄 Data diperbarui dari SSD!', 'success');
+}
+
+async function importTodosFromJSON(input) {
+  if (!dirHandle) { toast('⚠️ Pilih folder dulu', 'error'); input.value=''; return; }
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';
+  try {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+
+    // ── Detect todolist JSON (object with .sheets array) ──
+    if (parsed && !Array.isArray(parsed) && Array.isArray(parsed.sheets)) {
+      parsed.brand = BRANDS.includes(parsed.brand) ? parsed.brand : (tdlBrand || BRANDS[0]);
+      parsed.id = Date.now();
+      parsed.uploadedAt = new Date().toISOString().split('T')[0];
+      parsed.archived = false;
+      parsed.sheets.forEach(sheet => {
+        sheet.rows = (sheet.rows||[]).map((r,i) => ({ ...r, id: i+1, _status: null }));
+        const cols = (sheet.columns||[]).map(c=>c.toLowerCase());
+        sheet.statusCol = cols.findIndex(c=>c.includes('status'));
+      });
+      db.todolist = db.todolist.filter(x=>!(x.brand===parsed.brand && !x.archived));
+      db.todolist.push(parsed);
+      await saveDB('todolist');
+      tdlBrand = parsed.brand;
+      tdlSheet = 0;
+      if (currentPage !== 'todolist') goto('todolist');
+      else render();
+      toast(`✅ To-Do "${parsed.title}" berhasil diimport!`, 'success');
+      return;
+    }
+
+    const newEntries = parsed;
+    if (!Array.isArray(newEntries)) { toast('❌ Format JSON tidak valid', 'error'); return; }
+
+    // ── Remap legacy brands on import ──
+    const LEGACY = ['snm','evercraft'];
+    newEntries.forEach(e => { if (LEGACY.includes(e.brand)) e.brand = 'kolektiva'; });
+
+    // ── Detect strategy import (array of objects with .brand + .pilars/.info) ──
+    const isStrategy = newEntries.length > 0 && newEntries[0].hasOwnProperty('pilars') && newEntries[0].hasOwnProperty('info');
+    if (isStrategy) {
+      if (!db.strategy) db.strategy = [];
+      let updated = 0;
+      newEntries.forEach(entry => {
+        const idx = db.strategy.findIndex(s => s.brand === entry.brand);
+        if (idx >= 0) { db.strategy[idx] = { ...db.strategy[idx], ...entry }; }
+        else { db.strategy.push(entry); }
+        updated++;
+      });
+      await saveDB('strategy');
+      if (currentPage === 'strategy') { strategyBrand = newEntries[0].brand; }
+      render();
+      toast(`✅ Strategy ${newEntries.map(e=>BRAND_LABEL[e.brand]||e.brand).join(', ')} berhasil diimport!`, 'success');
+      return;
+    }
+
+    // ── Detect adsplan import ──
+    const isAds = newEntries.length > 0 && newEntries[0].hasOwnProperty('tujuan') && newEntries[0].hasOwnProperty('budgetHari');
+    if (isAds) {
+      if (!db.adsplan) db.adsplan = [];
+      const existingIds = new Set(db.adsplan.map(t => t.id));
+      let added = 0;
+      newEntries.forEach(entry => {
+        if (existingIds.has(entry.id)) entry.id = Date.now() + Math.random();
+        db.adsplan.push(entry); existingIds.add(entry.id); added++;
+      });
+      await saveDB('adsplan');
+      render();
+      toast(`✅ ${added} campaign ads berhasil diimport!`, 'success');
+      return;
+    }
+
+    // ── Default: content plan (todos) import ──
+    const existingIds = new Set(db.todos.map(t => t.id));
+    let added = 0;
+    newEntries.forEach(entry => {
+      if (existingIds.has(entry.id)) entry.id = Date.now() + Math.random();
+      db.todos.push(entry); existingIds.add(entry.id); added++;
+    });
+    await saveDB('todos');
+    render();
+    toast(`✅ ${added} konten berhasil diimport!`, 'success');
+  } catch(e) {
+    toast('❌ Gagal baca file: ' + e.message, 'error');
+  }
+}
+
+async function saveDB(table) {
+  if (!dirHandle) { toast('⚠️ Pilih folder dulu', 'error'); return; }
+  await writeJSON(table + '.json', db[table]);
+}
+
+// ─── WRITE FILE TO SSD ────────────────────────────────────────
+async function writeFileSSD(file) {
+  const filesDir = await dirHandle.getDirectoryHandle('files', {create:true});
+  // generate unique name if conflict
+  const safeName = Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_');
+  const fh = await filesDir.getFileHandle(safeName, {create:true});
+  const w  = await fh.createWritable();
+  await w.write(file);
+  await w.close();
+  return safeName;
+}
+
+async function openFileSSD(storedName) {
+  try {
+    const filesDir = await dirHandle.getDirectoryHandle('files');
+    const fh = await filesDir.getFileHandle(storedName);
+    const f  = await fh.getFile();
+    const url = URL.createObjectURL(f);
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  } catch { toast('❌ File tidak ditemukan di SSD', 'error'); }
+}
+
+// ─── ROUTER ──────────────────────────────────────────────────
+const PAGE_TITLES = {
+  dashboard:'Dashboard', todos:'Content Plan', todolist:'To-Do List', projects:'Projects',
+  orders:'Orders', dokumen:'Dokumen',
+  keuangan:'Keuangan', keu_dashboard:'💰 Dashboard Keuangan', keu_buku:'📒 Buku Kas',
+  keu_bulanan:'📅 Rekap Bulanan', keu_tahunan:'📆 Rekap Tahunan', keu_nota:'🗂️ Dokumen & Nota', keu_hutang:'💳 Hutang & Cicilan',
+  kontak:'Kontak', hpp:'🧮 Kalkulator HPP', resep:'☕ Resep Dikopi', produk_kolektiva:'🛍️ Produk Kolektiva',
+  shift_analisis:'📈 Analisis Shift Dikopi', settings_bonus:'⚙️ Settings Bonus Barista',
+  kontak:'Kontak', hpp:'🧮 Kalkulator HPP',
+  strategy:'Strategy', analytics:'Analytics', adsplan:'Ads Plan', sampah:'🗑️ Sampah',
+  gen_invoice:'Invoice', gen_penawaran:'Surat Penawaran', gen_rab:'RAB',
+  gen_mou:'MoU', gen_bast:'BAST', gen_kwitansi:'Kwitansi'
+};
+
+function goto(page) {
+  currentPage = page;
+  currentFilter = 'all';
+  if (page !== 'dokumen') currentFolderId = null;
+  document.querySelectorAll('.nav-item').forEach(el => {
+    const txt = el.textContent.trim().toLowerCase();
+    const map = { 'dashboard':'dashboard','content plan':'todos','to-do list':'todolist','projects':'projects','dokumen':'dokumen','keuangan':'keuangan','kontak':'kontak','kalkulator hpp':'hpp','strategy':'strategy','analytics':'analytics','ads plan':'adsplan' };
+    el.classList.toggle('active', map[txt] === page);
+  });
+  // sampah custom element
+  const ns = document.getElementById('navSampah');
+  if (ns) { ns.style.color = page==='sampah'?'var(--red)':'var(--muted)'; ns.style.fontWeight = page==='sampah'?'600':'400'; }
+  // keu subitems
+  const KEU_PAGES = ['keu_dashboard','keu_buku','keu_bulanan','keu_tahunan','keu_nota','keu_hutang','keuangan'];
+  if (KEU_PAGES.includes(page)) {
+    const m=document.getElementById('navKeuMenu'), c2=document.getElementById('navKeuChevron');
+    if(m) m.style.display='block'; if(c2) c2.style.transform='rotate(0deg)';
+    document.getElementById('navKeuangan')?.classList.add('active');
+  } else { document.getElementById('navKeuangan')?.classList.remove('active'); }
+
+  // gen dok subitems
+  const GEN_PAGES = ['gen_invoice','gen_penawaran','gen_rab','gen_mou','gen_bast','gen_kwitansi'];
+  document.querySelectorAll('.nav-subitem').forEach(el => {
+    const pageId = el.getAttribute('onclick')?.match(/goto\('([^']+)'\)/)?.[1];
+    el.classList.toggle('active', pageId === page);
+  });
+  // auto-open gen dok dropdown when a gen page is active
+  if (GEN_PAGES.includes(page)) {
+    const menu = document.getElementById('navGenDokMenu');
+    const chevron = document.getElementById('navGenDokChevron');
+    if (menu) menu.style.display = 'block';
+    if (chevron) chevron.style.transform = 'rotate(0deg)';
+    document.getElementById('navGenDok')?.classList.add('active');
+  } else {
+    document.getElementById('navGenDok')?.classList.remove('active');
+  }
+  document.getElementById('pageTitle').textContent = PAGE_TITLES[page] || page;
+  render();
+}
+
+function render() {
+  const c = document.getElementById('content');
+  c.style.overflow = '';
+  c.style.padding = '';
+  if (!dirHandle) { c.innerHTML = renderSetup(); return; }
+  switch(currentPage) {
+    case 'dashboard': c.innerHTML = renderDashboard(); break;
+    case 'todos':     c.innerHTML = renderTodos();     break;
+    case 'todolist':  c.innerHTML = renderTodolist();  break;
+    case 'projects':  c.innerHTML = renderProjects();  break;
+    case 'orders':    c.innerHTML = renderOrders();    break;
+    case 'dokumen':   c.innerHTML = renderDokumen();   break;
+    case 'keuangan':
+    case 'keu_dashboard': c.innerHTML = renderKeuDashboard(); break;
+    case 'keu_buku':      c.innerHTML = renderKeuBuku();      break;
+    case 'keu_bulanan':   c.innerHTML = renderKeuBulanan();   break;
+    case 'keu_tahunan':   c.innerHTML = renderKeuTahunan();   break;
+    case 'keu_nota':      c.innerHTML = renderKeuNota();      break;
+    case 'keu_hutang':    c.innerHTML = renderKeuHutang();    break;
+    case 'resep':
+      c.innerHTML = renderResep();
+      c.style.overflow = 'hidden';
+      c.style.padding = '28px 28px 0';
+      break;
+    case 'produk_kolektiva':
+      c.innerHTML = renderProdukKolektiva();
+      c.style.overflow = 'hidden';
+      c.style.padding = '28px 28px 0';
+      break;
+      break;
+    case 'kontak':    c.innerHTML = renderKontak();    break;
+    case 'hpp':       c.innerHTML = renderHPP();       break;
+    case 'strategy':  c.innerHTML = renderStrategy();  break;
+    case 'analytics': c.innerHTML = renderAnalytics(); break;
+    case 'adsplan':   c.innerHTML = renderAdsplan();   break;
+    case 'sampah':    c.innerHTML = renderSampah();    break;
+    case 'shift_analisis': c.innerHTML = renderShiftAnalisis(); break;
+    case 'settings_bonus': c.innerHTML = renderSettingsBonus(); break;
+    case 'gen_invoice':    c.innerHTML = renderGenInvoice();    break;
+    case 'gen_penawaran': c.innerHTML = renderGenPenawaran();         break;
+    case 'gen_rab':      c.innerHTML = renderGenDok(currentPage);     break;
+    case 'gen_mou':      c.innerHTML = renderGenMou();                break;
+    case 'gen_kwitansi': c.innerHTML = renderGenKwitansi();           break;
+    case 'gen_bast':     c.innerHTML = renderGenBast();               break;
+  }
+  attachEvents();
+}
+
+// ─── SETUP ───────────────────────────────────────────────────
+function renderSetup() {
+  document.getElementById('addBtn').classList.add('hidden');
+  return `
+  <div class="setup-screen">
+  <div class="setup-icon">🗂️</div>
+    <div class="setup-title">Pilih folder di SSD lo</div>
+    <div class="setup-desc">
+      Semua data — tasks, orders, dokumen, keuangan, kontak — tersimpan langsung di folder yang lo pilih. Offline total. Backup tinggal copy folder.
+    </div>
+    <button class="btn btn-primary" style="font-size:15px;padding:14px 32px" onclick="pickFolder()">
+      📂 Pilih Folder Sekarang
+    </button>
+    <div class="setup-note">WORKS DI CHROME & EDGE · OFFLINE · DATA LO, BUKAN CLOUD ORANG LAIN</div>
+  </div>`;
+}
+
+// ─── DASHBOARD ───────────────────────────────────────────────
+function renderDashboard() {
+  document.getElementById('addBtn').classList.add('hidden');
+
+  const pendingTodos   = db.todos.filter(t => !t.done).length;
+  const activeProjects = db.projects.filter(p => p.status !== 'done').length;
+  const openOrders     = db.orders.filter(o => o.status !== 'done' && o.status !== 'batal').length;
+  const thisMonth = new Date().toISOString().substring(0,7);
+  // keu stats from new structure
+  const allKeuTxns = [...(db.keu?.kolektiva||[]),...(db.keu?.dikopi||[]),...(db.keu?.studio||[])];
+  const thisMonthTxns = allKeuTxns.filter(k=>k.tanggal?.startsWith(thisMonth));
+  const totalMasuk  = thisMonthTxns.filter(k=>k.tipe==='masuk').reduce((s,k)=>s+Number(k.nominal),0);
+  const totalKeluar = thisMonthTxns.filter(k=>k.tipe==='keluar').reduce((s,k)=>s+Number(k.nominal),0);
+  const saldo = totalMasuk - totalKeluar;
+  // helper: is this todo in thisMonth?
+  const inThisMonth = t =>
+    t.bulan === thisMonth ||
+    (!t.bulan && t.tanggalPosting && t.tanggalPosting.startsWith(thisMonth));
+
+  const brandCards = BRANDS.map(b => {
+    const allC  = db.todos.filter(t => t.brand === b && inThisMonth(t)).length;
+    const doneC = db.todos.filter(t => t.brand === b && t.done && inThisMonth(t)).length;
+    return `<div class="brand-card" style="border-left-color:var(--${b})">
+      <div class="brand-card-name" style="color:var(--${b})">${BRAND_LABEL[b]}</div>
+      <div class="brand-card-num">${allC}</div>
+      <div class="brand-card-label">${doneC}/${allC} posted</div>
+    </div>`;
+  }).join('');
+
+  // recent todos — ALL content this month, sorted by date
+  const recentTodos = [...db.todos]
+    .filter(t => inThisMonth(t))
+    .sort((a,b) => (a.tanggalPosting||'').localeCompare(b.tanggalPosting||''))
+    .slice(0,6);
+
+  // active projects
+  const recentProjects = [...db.projects].filter(p=>p.status!=='done').sort((a,b)=>b.id-a.id).slice(0,4);
+
+  // progress — this month only
+  const total = db.todos.filter(t => inThisMonth(t)).length;
+  const done  = db.todos.filter(t => t.done && inThisMonth(t)).length;
+  const pct   = total ? Math.round(done/total*100) : 0;
+
+  // ── To-Do List summary ──────────────────────────────────────
+  const activeTdlSets = BRANDS.map(b => {
+    const set = db.todolist.find(x => x.brand === b && !x.archived);
+    if (!set) return null;
+    const statusSheets = (set.sheets||[]).filter(s => s.statusCol >= 0);
+    const total = statusSheets.reduce((a,s) => a + s.rows.length, 0);
+    const done  = statusSheets.reduce((a,s) => a + s.rows.filter(r =>
+      (r._status || tdlParseStatus(r.cells[s.statusCol]||'')) === 'done'
+    ).length, 0);
+    const pct = total ? Math.round(done/total*100) : 0;
+    return { b, set, total, done, pct };
+  }).filter(Boolean);
+
+  const tdlSummaryCards = activeTdlSets.length ? activeTdlSets.map(({b, set, total, done, pct}) => `
+    <div class="item-row clickable" onclick="tdlBrand='${b}';tdlSheet=0;goto('todolist')" style="flex-direction:column;align-items:flex-start;gap:8px">
+      <div style="display:flex;align-items:center;gap:10px;width:100%">
+        <div style="flex:1;min-width:0">
+          <div class="item-text" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(set.title)}</div>
+          <div class="item-sub" style="color:var(--${b})">${BRAND_LABEL[b]}</div>
+        </div>
+        <span style="font-family:'DM Mono',monospace;font-size:11px;color:${pct===100?'#4cc9a0':'var(--muted)'};font-weight:600">${done}/${total}</span>
+      </div>
+      <div style="width:100%">
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${pct===100?'var(--green)':'var(--accent)'}"></div></div>
+      </div>
+    </div>
+  `).join('') : `<div class="empty"><div class="empty-icon">✅</div>Belum ada To-Do aktif<br><span style="font-size:11px">Upload file JSON di halaman To-Do List</span></div>`;
+
+  return `
+  <div class="grid-5 section-gap" style="margin-top:0">${brandCards}</div>
+
+  <div class="grid-2 section-gap">
+    <div class="card">
+      <div class="card-title">
+        📅 Konten Bulan Ini
+        <span>${total} total · ${done} posted</span>
+      </div>
+      <div class="progress-wrap" style="margin-top:0;margin-bottom:14px">
+        <div class="progress-label"><span>Sudah dipost</span><span>${done}/${total}</span></div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      </div>
+      <div class="item-list">
+        ${recentTodos.length ? recentTodos.map(t => `
+          <div class="item-row clickable" onclick="showTodoDetail(${t.id})" style="${t.done?'opacity:0.6':''}">
+            <div style="width:8px;height:8px;border-radius:50%;background:${t.done?'var(--green)':'var(--accent)'};flex-shrink:0"></div>
+            <div style="flex:1;min-width:0">
+              <div class="item-text" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.judul||t.konsep||'—')}</div>
+              <div class="item-sub">${esc(t.pilar||'—')} · ${fmtTanggal(t.tanggalPosting)} · ${BRAND_LABEL[t.brand]||'—'}</div>
+            </div>
+            ${t.done ? `<span class="pill pill-done" style="font-size:10px">✅ Done</span>` : `<span class="pill pill-pending" style="font-size:10px">⏳</span>`}
+          </div>
+        `).join('') : `<div class="empty"><div class="empty-icon">📅</div>Belum ada konten bulan ini</div>`}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🗂️ Active Projects <span>${activeProjects} berjalan</span></div>
+      <div class="item-list">
+        ${recentProjects.length ? recentProjects.map(p => {
+          const pct = p.progress||0;
+          return `<div class="item-row clickable" style="flex-direction:column;align-items:flex-start;gap:8px" onclick="openEditProject(${p.id})">
+            <div style="display:flex;align-items:center;gap:10px;width:100%">
+              <div style="flex:1">
+                <div class="item-text">${esc(p.nama)}</div>
+                <div class="item-sub">${BRAND_LABEL[p.brand]||'—'} · ${p.deadline||'no deadline'}</div>
+              </div>
+              <span class="pill pill-${p.status}">${projStatusLabel(p.status)}</span>
+            </div>
+            <div style="width:100%">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="font-size:11px;color:var(--text2)">Progress</span>
+                <span style="font-size:11px;color:var(--accent);font-family:'DM Mono',monospace">${pct}%</span>
+              </div>
+              <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+            </div>
+          </div>`;
+        }).join('') : `<div class="empty"><div class="empty-icon">🗂️</div>Belum ada project</div>`}
+      </div>
+    </div>
+  </div>
+
+  <div class="section-gap">
+    <div class="card">
+      <div class="card-title">✅ To-Do List Aktif <span>${activeTdlSets.length} brand</span></div>
+      <div class="item-list">
+        ${tdlSummaryCards}
+      </div>
+    </div>
+  </div>
+
+  ${renderDikopiHariIniCards()}`;
+}
+
+// ─── DIKOPI MARGIN HARIAN CARDS ───────────────────────────────
+function renderDikopiHariIniCards() {
+  const today = new Date().toISOString().split('T')[0];
+  const txns = getDikopiTxnsByDate(today);
+  if (!txns.length) return `
+  <div class="section-gap">
+    <div class="card" style="border-color:rgba(255,159,67,0.2)">
+      <div class="card-title" style="color:var(--dikopi)">☕ Dikopi Hari Ini
+        <span style="font-size:11px;color:var(--muted)">Belum ada transaksi</span>
+      </div>
+      <div style="font-size:12px;color:var(--muted);padding:8px 0">
+        Catat penjualan di
+        <button class="btn btn-ghost btn-sm" onclick="goto('keu_buku')" style="padding:2px 8px;font-size:11px">📒 Buku Kas</button>
+      </div>
+    </div>
+  </div>`;
+  const { omzet, hppTotal, margin, hasItemData, txnCount, itemsTotal } = calcMarginFromTxns(txns);
+  const s = getBonusSettings();
+  const bonus = (s.aktif && margin !== null) ? calcBonusBarista(margin, omzet) : 0;
+  const feeDasar = s.aktif ? s.feeDasar : 0;
+  const totalFee = feeDasar + bonus;
+  const marginBersih = margin !== null ? margin - totalFee : null;
+  const indikator = marginBersih === null ? '' : marginBersih >= 100000 ? '🟢 Aman' : marginBersih >= 50000 ? '🟡 Tipis' : '🔴 Berisiko';
+  const hppHtml = hasItemData ? fmtRp(hppTotal) : '<span style="color:var(--muted);font-size:11px">—</span>';
+  const marginHtml = margin !== null
+    ? `<span style="color:${margin>=0?'#4cc9a0':'var(--red)'}">${fmtRp(margin)}</span>`
+    : '<span style="color:var(--muted);font-size:11px">Input item</span>';
+  const bonusHtml = (s.aktif && margin !== null)
+    ? fmtRp(bonus)
+    : `<span style="color:var(--muted);font-size:11px">${s.aktif?'—':'Nonaktif'}</span>`;
+  return `
+  <div class="section-gap">
+    <div class="card" style="border-color:rgba(255,159,67,0.25)">
+      <div class="card-title" style="color:var(--dikopi)">☕ Dikopi Hari Ini
+        <span style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:11px;color:var(--muted)">${txnCount} transaksi${itemsTotal?' · '+itemsTotal+' item':''}</span>
+          <button class="btn btn-ghost btn-sm" onclick="goto('shift_analisis')" style="font-size:11px;padding:2px 8px">📈 Detail Shift</button>
+        </span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+        <div class="keu-card" style="border-color:rgba(76,201,160,0.3)">
+          <div class="keu-label">📈 Omzet Hari Ini</div>
+          <div class="keu-val keu-green" style="font-size:18px">${fmtRp(omzet)}</div>
+        </div>
+        <div class="keu-card" style="border-color:rgba(245,166,35,0.3)">
+          <div class="keu-label">📦 HPP Hari Ini</div>
+          <div class="keu-val" style="font-size:18px;color:#f5a623">${hppHtml}</div>
+          ${!hasItemData?'<div style="font-size:9px;color:var(--muted);margin-top:3px">Input per item utk lihat HPP</div>':''}
+        </div>
+        <div class="keu-card" style="border-color:${margin!==null&&margin>=0?'rgba(76,201,160,0.3)':'rgba(212,96,58,0.3)'}">
+          <div class="keu-label">💰 Margin Kotor</div>
+          <div class="keu-val" style="font-size:18px">${marginHtml}</div>
+        </div>
+        <div class="keu-card" style="border-color:rgba(139,111,255,0.3)">
+          <div class="keu-label">👨‍🍳 Bonus Barista</div>
+          <div class="keu-val" style="font-size:18px;color:#9b82f5">${bonusHtml}</div>
+          ${s.aktif && margin !== null ? `<div style="font-size:9px;color:var(--muted);margin-top:3px">Fee: ${fmtRp(feeDasar)} · Total: ${fmtRp(totalFee)}</div>` : ''}
+        </div>
+      </div>
+      ${marginBersih !== null ? `<div style="margin-top:10px;padding:10px 14px;background:var(--surface2);border-radius:8px;display:flex;align-items:center;justify-content:space-between;font-size:12px">
+        <span style="color:var(--text2)">Margin Bersih setelah fee barista</span>
+        <span style="font-family:'DM Mono',monospace;font-weight:700;color:${marginBersih>=100000?'#4cc9a0':marginBersih>=50000?'#f5a623':'var(--red)'}">
+          ${fmtRp(marginBersih)} &nbsp; ${indikator}
+        </span>
+      </div>` : ''}
+    </div>
+  </div>`;
+}
+
+// ─── CONTENT PLANNING (TO-DO) ────────────────────────────────
+const DEFAULT_PILARS = [
+  { nama:'Educational',   bg:'rgba(77,158,247,0.15)',  color:'#4d9ef7' },
+  { nama:'Promotional',   bg:'rgba(247,164,77,0.15)',  color:'#f7a44d' },
+  { nama:'Entertainment', bg:'rgba(155,130,245,0.15)', color:'#9b82f5' },
+  { nama:'Inspirational', bg:'rgba(76,201,160,0.15)',  color:'#4cc9a0' },
+  { nama:'Behind Scene',  bg:'rgba(247,109,109,0.15)', color:'#f76d6d' },
+  { nama:'Testimonial',   bg:'rgba(200,200,200,0.12)', color:'#9dbdd8' },
+];
+
+// db.pilars will be loaded from SSD; fallback to defaults
+function getPilars() {
+  return (db.pilars && db.pilars.length) ? db.pilars : DEFAULT_PILARS;
+}
+
+function getPilarStyle(nama) {
+  const p = getPilars().find(x=>x.nama===nama);
+  return p ? `background:${p.bg};color:${p.color}` : 'background:rgba(90,122,154,0.15);color:var(--text2)';
+}
+
+// also update loadAll & db
+const MONTH_NAMES = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+
+let collapsedMonths = {};
+let todoViewMode = 'table';
+let projectViewMode = 'table';
+let collapsedProjectMonths = {};
+let _projDragId = null;
+
+function getBulanLabel(ym) {
+  if (!ym) return '—';
+  const [y, m] = ym.split('-');
+  return `${MONTH_NAMES[parseInt(m)-1]} ${y}`;
+}
+
+function renderTodos() {
+  document.getElementById('addBtn').classList.remove('hidden');
+
+  const activeBrand = (currentFilter === 'all' || !BRANDS.includes(currentFilter)) ? BRANDS[0] : currentFilter;
+  const currentMonthKey = new Date().toISOString().substring(0,7);
+
+  const brandTabs = BRANDS.map(b => `
+    <button class="filter-btn ${activeBrand===b?'active':''}" onclick="setFilter('${b}')">${BRAND_LABEL[b]}</button>
+  `).join('');
+
+  const topbar = `
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+    <div class="filter-row" style="margin-bottom:0">${brandTabs}</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <div class="view-toggle">
+        <button class="view-toggle-btn ${todoViewMode==='table'?'active':''}" onclick="setTodoView('table')">≡ Table</button>
+        <button class="view-toggle-btn ${todoViewMode==='board'?'active':''}" onclick="setTodoView('board')">⊞ Board</button>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="openKelolapilar()">🏷️ Kelola Pilar</button>
+    </div>
+  </div>`;
+
+  if (todoViewMode === 'board') {
+    return topbar + renderBoardView(activeBrand, currentMonthKey);
+  }
+
+  // ── TABLE VIEW ──────────────────────────────────────────────
+  const brandTodos = db.todos
+    .filter(t => t.brand === activeBrand)
+    .sort((a,b) => (a.tanggalPosting||'').localeCompare(b.tanggalPosting||''));
+
+  const byMonth = {};
+  brandTodos.forEach(t => {
+    const key = t.bulan || (t.tanggalPosting ? t.tanggalPosting.substring(0,7) : 'unset');
+    if (!byMonth[key]) byMonth[key] = [];
+    byMonth[key].push(t);
+  });
+
+  const sortedMonths = Object.keys(byMonth).sort((a,b) => a.localeCompare(b)); // ascending = oldest first
+
+  const HARI = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+  function getHari(dateStr) {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr + 'T00:00:00');
+    return isNaN(d) ? '—' : HARI[d.getDay()];
+  }
+
+  let rowCounter = 0; // global counter per brand view
+
+  const monthBlocks = sortedMonths.map(key => {
+    const items = byMonth[key];
+    const doneCount = items.filter(t=>t.done).length;
+    const isCollapsed = collapsedMonths[activeBrand+'_'+key] ?? (key !== currentMonthKey && doneCount === items.length);
+    const label = key === 'unset' ? 'Belum ada tanggal' : getBulanLabel(key);
+    const allDone = doneCount === items.length && items.length > 0;
+
+    const rows = items.map(t => {
+      rowCounter++;
+      return `
+      <tr class="${t.done?'row-done':''}" id="trow_${t.id}">
+        <td class="td-no">${rowCounter}</td>
+        <td class="td-tanggal">${fmtTanggal(t.tanggalPosting)}</td>
+        <td class="td-hari">${getHari(t.tanggalPosting)}</td>
+        <td class="td-pilar"><span class="pill-pilar" style="${getPilarStyle(t.pilar)}">${esc(t.pilar||'—')}</span></td>
+        <td class="td-brand"><span style="color:var(--${t.brand});font-size:10px;font-weight:600">${BRAND_LABEL[t.brand]||'—'}</span></td>
+        <td class="td-format">${esc(t.format||'—')}</td>
+        <td class="td-judul">${esc(t.judul||t.konsep||'—')}</td>
+        <td class="td-hook">${esc(t.hook||'—')}</td>
+        <td class="td-cta">${esc(t.cta||'—')}</td>
+        <td class="td-hashtag">${esc(t.hashtag||'—')}</td>
+        <td class="td-status">
+          <div style="display:flex;align-items:center;justify-content:center;gap:3px">
+            <div class="tbl-check ${t.done?'done':''}" onclick="toggleTodo(${t.id})" title="${t.done?'Done':'Belum'}">${t.done?'✓':''}</div>
+            <button class="tbl-action-btn tbl-edit" onclick="openEditConten(${t.id})" title="Edit">✏️</button>
+            <button class="tbl-action-btn tbl-del" onclick="deleteItem('todos',${t.id})" title="Hapus">🗑️</button>
+          </div>
+        </td>
+        <td class="td-notes">${esc(t.notes||'—')}</td>
+      </tr>`;
+    }).join('');
+
+    return `
+    <div class="month-block">
+      <div class="month-header ${isCollapsed?'collapsed':''}" onclick="toggleMonth('${activeBrand}_${key}')">
+        <div class="month-header-left">
+          <span class="month-chevron">▾</span>
+          <span class="month-title">${label}</span>
+          <span class="month-count">${items.length} konten</span>
+          ${doneCount > 0 ? `<span class="month-done-count">· ${doneCount} done</span>` : ''}
+          ${allDone ? `<span class="pill pill-done" style="font-size:10px">✅ Selesai</span>` : ''}
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openAddConten('${activeBrand}','${key}')">+ Konten</button>
+        </div>
+      </div>
+      <div id="month_${activeBrand}_${key.replace('-','_')}" style="${isCollapsed?'display:none':''}">
+        <div class="content-table-wrap">
+          <table class="content-table">
+            <thead>
+              <tr>
+                <th class="td-no">No</th>
+                <th class="td-tanggal">Tgl Posting</th>
+                <th class="td-hari">Hari</th>
+                <th class="td-pilar">Pilar</th>
+                <th class="td-brand">Brand</th>
+                <th class="td-format">Format</th>
+                <th class="td-judul">Judul / Tema</th>
+                <th class="td-hook">Caption Hook</th>
+                <th class="td-cta">CTA</th>
+                <th class="td-hashtag">Hashtag Bucket</th>
+                <th class="td-status">Status</th>
+                <th class="td-notes">Notes</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const emptyState = `<div class="empty"><div class="empty-icon">📅</div>Belum ada konten planning untuk brand ini</div>`;
+
+  return topbar + (sortedMonths.length ? monthBlocks : emptyState) + `
+  <button class="month-add-btn" onclick="openAddConten('${activeBrand}', '${currentMonthKey}')">
+    + Tambah Konten Baru
+  </button>`;
+}
+
+// ── BOARD VIEW ──────────────────────────────────────────────────
+let _dragId = null; // id of card being dragged
+
+function renderBoardView(activeBrand, currentMonthKey) {
+  const allTodos = db.todos.filter(t => t.brand === activeBrand);
+  const getStatus = t => t.boardStatus || (t.done ? 'done' : 'not_started');
+
+  const cols = [
+    { key:'not_started', label:'Not Started', dot:'#5a7a9a',      cls:'col-not-started' },
+    { key:'in_progress', label:'In Progress', dot:'var(--accent)', cls:'col-in-progress' },
+    { key:'done',        label:'Done',        dot:'var(--green)',  cls:'col-done' },
+  ];
+
+  const brandColor = `var(--${activeBrand})`;
+
+  function makeCard(t) {
+    const status = getStatus(t);
+    const otherStatuses = cols.filter(c=>c.key!==status);
+    return `
+    <div class="board-card"
+      id="bcard_${t.id}"
+      draggable="true"
+      ondragstart="boardDragStart(event,${t.id})"
+      ondragend="boardDragEnd(event)"
+      onclick="showTodoDetail(${t.id})">
+      <div class="board-card-brand" style="color:${brandColor}">${BRAND_LABEL[activeBrand]}</div>
+      <div class="board-card-konsep">${esc(t.judul||t.konsep||'Tanpa judul')}</div>
+      <div class="board-card-meta">
+        ${t.pilar ? `<span class="pill-pilar" style="${getPilarStyle(t.pilar)};font-size:10px;padding:2px 8px;border-radius:99px">${esc(t.pilar)}</span>` : ''}
+        ${t.tanggalPosting ? `<span class="board-card-date">📅 ${fmtTanggal(t.tanggalPosting)}</span>` : ''}
+      </div>
+      <div class="board-card-actions" onclick="event.stopPropagation()">
+        ${otherStatuses.map(s => `
+          <button class="board-action-btn" onclick="setBoardStatus(${t.id},'${s.key}')">→ ${s.label}</button>
+        `).join('')}
+        <button class="board-action-btn" onclick="openEditConten(${t.id})">✏️</button>
+        <button class="board-action-btn danger" onclick="deleteItem('todos',${t.id})">🗑️</button>
+      </div>
+    </div>`;
+  }
+
+  const colsHTML = cols.map(col => {
+    const items = allTodos.filter(t => getStatus(t) === col.key)
+      .sort((a,b) => (a.tanggalPosting||'').localeCompare(b.tanggalPosting||''));
+    return `
+    <div class="board-col ${col.cls}">
+      <div class="board-col-header">
+        <div class="board-col-dot" style="background:${col.dot}"></div>
+        <div class="board-col-title">${col.label}</div>
+        <div class="board-col-count">${items.length}</div>
+      </div>
+      <div class="board-cards"
+        id="bcol_${col.key}"
+        ondragover="boardDragOver(event,'${col.key}')"
+        ondragleave="boardDragLeave(event)"
+        ondrop="boardDrop(event,'${col.key}')">
+        ${items.map(makeCard).join('')}
+      </div>
+      <button class="board-add-btn" onclick="openAddConten('${activeBrand}','${currentMonthKey}')">+ New page</button>
+    </div>`;
+  }).join('');
+
+  return `<div class="board-wrap">${colsHTML}</div>`;
+}
+
+// ── DRAG HANDLERS ───────────────────────────────────────────────
+function boardDragStart(e, id) {
+  _dragId = id;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', id);
+  // slight delay so the card renders before going semi-transparent
+  setTimeout(() => {
+    const el = document.getElementById('bcard_'+id);
+    if (el) el.classList.add('dragging');
+  }, 0);
+}
+
+function boardDragEnd(e) {
+  if (_dragId) {
+    const el = document.getElementById('bcard_'+_dragId);
+    if (el) el.classList.remove('dragging');
+  }
+  // clear all drag-over highlights
+  document.querySelectorAll('.board-cards').forEach(c => c.classList.remove('drag-over'));
+  _dragId = null;
+}
+
+function boardDragOver(e, colKey) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const col = document.getElementById('bcol_'+colKey);
+  if (col) col.classList.add('drag-over');
+}
+
+function boardDragLeave(e) {
+  // only remove highlight if leaving the column entirely (not entering a child)
+  const col = e.currentTarget;
+  if (!col.contains(e.relatedTarget)) {
+    col.classList.remove('drag-over');
+  }
+}
+
+async function boardDrop(e, colKey) {
+  e.preventDefault();
+  const col = document.getElementById('bcol_'+colKey);
+  if (col) col.classList.remove('drag-over');
+  if (_dragId === null) return;
+  await setBoardStatus(_dragId, colKey);
+  _dragId = null;
+}
+
+function setTodoView(mode) {
+  todoViewMode = mode;
+  render();
+}
+
+async function setBoardStatus(id, status) {
+  const t = db.todos.find(x=>x.id===id);
+  if (!t) return;
+  t.boardStatus = status;
+  t.done = (status === 'done');
+  await saveDB('todos');
+  render();
+}
+function toggleMonth(key) {
+  collapsedMonths[key] = !collapsedMonths[key];
+  render();
+}
+
+function fmtTanggal(str) {
+  if (!str) return '—';
+  const [y,m,d] = str.split('-');
+  if (!y||!m||!d) return str;
+  return `${d}/${m}/${y}`;
+}
+
+// auto-insert slashes as user types: 25 → 25/ → 25/12 → 25/12/
+function autoSlashDate(el) {
+  let v = el.value.replace(/[^\d]/g,'');
+  if (v.length > 2) v = v.slice(0,2)+'/'+v.slice(2);
+  if (v.length > 5) v = v.slice(0,5)+'/'+v.slice(5);
+  if (v.length > 10) v = v.slice(0,10);
+  el.value = v;
+}
+
+// DD/MM/YYYY → YYYY-MM-DD (for storage/sorting)
+function toStorageDate(str) {
+  if (!str) return '';
+  const [d,m,y] = str.split('/');
+  if (!d||!m||!y) return '';
+  return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+}
+
+// YYYY-MM-DD → DD/MM/YYYY (for display in inputs)
+function toDisplayDate(str) {
+  if (!str) return '';
+  const [y,m,d] = str.split('-');
+  if (!y||!m||!d) return '';
+  return `${d}/${m}/${y}`;
+}
+
+function openAddConten(brand, bulan) {
+  const currentBulanYM = bulan || new Date().toISOString().substring(0,7);
+  document.getElementById('modalTitle').textContent = '+ Tambah Konten Planning';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Brand / Divisi</div>
+        <select class="form-select" id="f_brand">
+          ${BRANDS.map(b=>`<option value="${b}" ${b===brand?'selected':''}>${BRAND_LABEL[b]}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <div class="form-label">Bulan</div>
+        <input class="form-input" id="f_bulan" type="month" value="${currentBulanYM}">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Tanggal Posting</div>
+        <input class="form-input" id="f_tanggalPosting" placeholder="DD/MM/YYYY" maxlength="10" oninput="autoSlashDate(this)">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Konten Pilar</div>
+        ${pilarSelect('f_pilar')}
+      </div>
+      <div class="form-group">
+        <div class="form-label">Format Konten</div>
+        <select class="form-select" id="f_format">
+          <option value="">— Pilih Format —</option>
+          <option>Reels</option>
+          <option>Carousel</option>
+          <option>Single Post</option>
+          <option>Story</option>
+          <option>Video</option>
+          <option>Blog</option>
+          <option>Thread</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Judul / Tema Konten</div>
+      <input class="form-input" id="f_judul" placeholder="Judul atau tema utama konten...">
+    </div>
+    <div class="form-group">
+      <div class="form-label">Caption Hook</div>
+      <textarea class="form-textarea" id="f_hook" placeholder="Kalimat pembuka yang menarik perhatian..."></textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">CTA</div>
+        <input class="form-input" id="f_cta" placeholder="Call to action...">
+      </div>
+      <div class="form-group" style="flex:2">
+        <div class="form-label">Hashtag Bucket</div>
+        <input class="form-input" id="f_hashtag" placeholder="#hashtag1 #hashtag2 ...">
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Notes</div>
+      <textarea class="form-textarea" id="f_notes" placeholder="Catatan tambahan, referensi, brief visual..."></textarea>
+    </div>
+  `;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="submitConten()">💾 Simpan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+}
+
+function pilarSelect(id, selected='') {
+  const opts = getPilars().map(p =>
+    `<option value="${p.nama}" ${p.nama===selected?'selected':''}>${p.nama}</option>`
+  ).join('');
+  return `<select class="form-select" id="${id}"><option value="">— Pilih Pilar —</option>${opts}</select>`;
+}
+
+function openEditConten(id) {
+  const t = db.todos.find(x=>x.id===id);
+  if (!t) return;
+  document.getElementById('modalTitle').textContent = '✏️ Edit Konten';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Brand / Divisi</div>
+        <select class="form-select" id="f_brand">
+          ${BRANDS.map(b=>`<option value="${b}" ${b===t.brand?'selected':''}>${BRAND_LABEL[b]}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <div class="form-label">Bulan</div>
+        <input class="form-input" id="f_bulan" type="month" value="${t.bulan||''}">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Tanggal Posting</div>
+        <input class="form-input" id="f_tanggalPosting" placeholder="DD/MM/YYYY" maxlength="10" oninput="autoSlashDate(this)" value="${toDisplayDate(t.tanggalPosting)}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Konten Pilar</div>
+        ${pilarSelect('f_pilar', t.pilar)}
+      </div>
+      <div class="form-group">
+        <div class="form-label">Format Konten</div>
+        <select class="form-select" id="f_format">
+          <option value="">— Pilih Format —</option>
+          ${['Reels','Carousel','Single Post','Story','Video','Blog','Thread'].map(f=>`<option ${f===(t.format||'')?'selected':''}>${f}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Judul / Tema Konten</div>
+      <input class="form-input" id="f_judul" value="${esc(t.judul||t.konsep||'')}">
+    </div>
+    <div class="form-group">
+      <div class="form-label">Caption Hook</div>
+      <textarea class="form-textarea" id="f_hook">${esc(t.hook||'')}</textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">CTA</div>
+        <input class="form-input" id="f_cta" value="${esc(t.cta||'')}">
+      </div>
+      <div class="form-group" style="flex:2">
+        <div class="form-label">Hashtag Bucket</div>
+        <input class="form-input" id="f_hashtag" value="${esc(t.hashtag||'')}">
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Notes</div>
+      <textarea class="form-textarea" id="f_notes">${esc(t.notes||'')}</textarea>
+    </div>
+  `;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="saveEditConten(${id})">💾 Simpan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+}
+
+async function saveEditConten(id) {
+  if (!dirHandle) { toast('⚠️ Pilih folder dulu', 'error'); return; }
+  const t = db.todos.find(x=>x.id===id);
+  if (!t) return;
+  t.brand          = gv('f_brand');
+  t.bulan          = gv('f_bulan');
+  t.tanggalPosting = toStorageDate(gv('f_tanggalPosting'));
+  t.pilar          = gv('f_pilar');
+  t.format         = gv('f_format');
+  t.judul          = gv('f_judul').trim();
+  t.hook           = gv('f_hook');
+  t.cta            = gv('f_cta');
+  t.hashtag        = gv('f_hashtag');
+  t.notes          = gv('f_notes');
+  await saveDB('todos');
+  document.getElementById('modalBackdrop').classList.add('hidden');
+  toast('✅ Konten diperbarui!', 'success');
+  render();
+}
+
+function openKelolapilar() {
+  const pilars = getPilars();
+  function renderPilarList() {
+    return getPilars().map((p,i) => `
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <span class="pill-pilar" style="background:${p.bg};color:${p.color};min-width:120px;text-align:center">${esc(p.nama)}</span>
+        <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
+          <input type="color" value="${p.color}" title="Warna teks"
+            onchange="updatePilarColor(${i},'color',this.value)"
+            style="width:28px;height:28px;border:none;background:none;cursor:pointer;padding:0">
+          <button class="btn btn-danger btn-sm" onclick="deletePilar(${i})">✕</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  document.getElementById('modalTitle').textContent = '🏷️ Kelola Konten Pilar';
+  document.getElementById('modalBody').innerHTML = `
+    <div id="pilarList" style="margin-bottom:16px">${renderPilarList()}</div>
+    <div style="border-top:1px solid var(--border);padding-top:16px">
+      <div class="form-label" style="margin-bottom:8px">Tambah Pilar Baru</div>
+      <div class="form-row">
+        <div class="form-group" style="flex:2">
+          <input class="form-input" id="new_pilar_nama" placeholder="Nama pilar baru...">
+        </div>
+        <div class="form-group" style="flex:0;min-width:unset">
+          <div class="form-label">Warna</div>
+          <input type="color" id="new_pilar_color" value="#4d9ef7"
+            style="width:40px;height:38px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);cursor:pointer;padding:2px">
+        </div>
+        <div class="form-group" style="flex:0;min-width:unset;justify-content:flex-end;padding-top:18px">
+          <button class="btn btn-primary btn-sm" onclick="addPilar()">+ Tambah</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Tutup</button>
+    <button class="btn btn-primary" onclick="savePilars()">✅ Selesai</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+}
+
+function hexToRgba(hex, alpha=0.15) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+async function addPilar() {
+  const nama = document.getElementById('new_pilar_nama').value.trim();
+  const color = document.getElementById('new_pilar_color').value;
+  if (!nama) { toast('⚠️ Nama pilar tidak boleh kosong', 'error'); return; }
+  if (getPilars().find(p=>p.nama.toLowerCase()===nama.toLowerCase())) { toast('⚠️ Pilar sudah ada', 'error'); return; }
+  if (!db.pilars.length) db.pilars = [...DEFAULT_PILARS];
+  db.pilars.push({ nama, color, bg: hexToRgba(color) });
+  if (dirHandle) await saveDB('pilars');
+  document.getElementById('new_pilar_nama').value = '';
+  document.getElementById('pilarList').innerHTML = getPilars().map((p,i) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <span class="pill-pilar" style="background:${p.bg};color:${p.color};min-width:120px;text-align:center">${esc(p.nama)}</span>
+      <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
+        <input type="color" value="${p.color}" title="Warna teks"
+          onchange="updatePilarColor(${i},'color',this.value)"
+          style="width:28px;height:28px;border:none;background:none;cursor:pointer;padding:0">
+        <button class="btn btn-danger btn-sm" onclick="deletePilar(${i})">✕</button>
+      </div>
+    </div>
+  `).join('');
+  toast('✅ Pilar ditambahkan & disimpan', 'success');
+}
+
+async function updatePilarColor(i, prop, val) {
+  if (!db.pilars.length) db.pilars = [...DEFAULT_PILARS];
+  db.pilars[i][prop] = val;
+  db.pilars[i].bg = hexToRgba(val);
+  if (dirHandle) await saveDB('pilars');
+}
+
+async function deletePilar(i) {
+  if (!db.pilars.length) db.pilars = [...DEFAULT_PILARS];
+  db.pilars.splice(i,1);
+  if (dirHandle) await saveDB('pilars');
+  openKelolapilar();
+}
+
+async function savePilars() {
+  if (!dirHandle) { toast('⚠️ Pilih folder dulu', 'error'); return; }
+  if (!db.pilars.length) db.pilars = [...DEFAULT_PILARS];
+  await saveDB('pilars');
+  document.getElementById('modalBackdrop').classList.add('hidden');
+  toast('✅ Pilar tersimpan ke SSD!', 'success');
+  render();
+}
+
+async function submitConten() {
+  if (!dirHandle) { toast('⚠️ Pilih folder dulu', 'error'); return; }
+  const judul = gv('f_judul').trim();
+  if (!judul) { toast('⚠️ Judul / Tema tidak boleh kosong', 'error'); return; }
+  const item = {
+    id:             Date.now(),
+    brand:          gv('f_brand'),
+    bulan:          gv('f_bulan'),
+    tanggalPosting: toStorageDate(gv('f_tanggalPosting')),
+    pilar:          gv('f_pilar'),
+    format:         gv('f_format'),
+    judul,
+    hook:           gv('f_hook'),
+    cta:            gv('f_cta'),
+    hashtag:        gv('f_hashtag'),
+    notes:          gv('f_notes'),
+    done:           false
+  };
+  db.todos.push(item);
+  await saveDB('todos');
+  document.getElementById('modalBackdrop').classList.add('hidden');
+  toast('✅ Konten tersimpan!', 'success');
+  render();
+}
+
+// ─── PROJECTS ────────────────────────────────────────────────
+function renderProjects() {
+  document.getElementById('addBtn').classList.remove('hidden');
+
+  const activeBrand = (currentFilter === 'all' || !BRANDS.includes(currentFilter)) ? BRANDS[0] : currentFilter;
+  const currentMonthKey = new Date().toISOString().substring(0,7);
+
+  const brandTabs = BRANDS.map(b => `
+    <button class="filter-btn ${activeBrand===b?'active':''}" onclick="setFilter('${b}')">${BRAND_LABEL[b]}</button>
+  `).join('');
+
+  const topbar = `
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+    <div class="filter-row" style="margin-bottom:0">${brandTabs}</div>
+    <div class="view-toggle">
+      <button class="view-toggle-btn ${projectViewMode==='table'?'active':''}" onclick="setProjView('table')">≡ Table</button>
+      <button class="view-toggle-btn ${projectViewMode==='board'?'active':''}" onclick="setProjView('board')">⊞ Board</button>
+    </div>
+  </div>`;
+
+  if (projectViewMode === 'board') {
+    return topbar + renderProjectBoard(activeBrand, currentMonthKey);
+  }
+
+  // ── TABLE VIEW ───────────────────────────────────────────────
+  const brandProjects = db.projects
+    .filter(p => p.brand === activeBrand)
+    .sort((a,b) => (a.tanggalMulai||a.deadline||'').localeCompare(b.tanggalMulai||b.deadline||''));
+
+  const byMonth = {};
+  brandProjects.forEach(p => {
+    const ref = p.tanggalMulai || p.deadline || '';
+    const key = ref ? ref.substring(0,7) : 'unset';
+    if (!byMonth[key]) byMonth[key] = [];
+    byMonth[key].push(p);
+  });
+
+  const sortedMonths = Object.keys(byMonth).sort((a,b) => b.localeCompare(a));
+
+  const monthBlocks = sortedMonths.map(key => {
+    const items = byMonth[key];
+    const doneCount = items.filter(p => p.status === 'done').length;
+    const isCollapsed = collapsedProjectMonths[activeBrand+'_'+key] ?? (key !== currentMonthKey && doneCount === items.length);
+    const label = key === 'unset' ? 'Tanpa Tanggal' : getBulanLabel(key);
+    const allDone = doneCount === items.length && items.length > 0;
+
+    const rows = items.map(p => {
+      const pct = p.progress || 0;
+      const fileCount = (p.files||[]).length;
+      return `
+      <tr id="prow_${p.id}">
+        <td style="min-width:110px;font-family:'DM Mono',monospace;font-size:11px;white-space:nowrap">
+          <div>${fmtTanggal(p.tanggalMulai)||'—'}</div>
+          <div style="color:var(--muted);margin-top:2px;font-size:10px">s/d ${fmtTanggal(p.deadline)||'—'}</div>
+        </td>
+        <td style="min-width:160px;font-weight:600;font-size:13px">${esc(p.nama||'—')}</td>
+        <td style="min-width:120px;font-size:12px;color:var(--text2)">${esc(p.contactPerson||'—')}</td>
+        <td style="min-width:200px;font-size:12px;color:var(--text2)">${esc(p.deskripsi||'—')}</td>
+        <td style="min-width:110px;font-family:'DM Mono',monospace;font-size:12px;color:var(--green);white-space:nowrap">${p.nilaiProyek ? fmtRp(p.nilaiProyek) : '—'}</td>
+        <td style="min-width:80px;text-align:center">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+            <div class="progress-bar" style="width:60px"><div class="progress-fill" style="width:${pct}%"></div></div>
+            <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent)">${pct}%</span>
+          </div>
+        </td>
+        <td style="min-width:80px;text-align:center">
+          <span class="pill pill-proj-${p.status}" style="font-size:10px">${projStatusLabel(p.status)}</span>
+        </td>
+        <td style="min-width:90px;text-align:center">
+          <button class="board-action-btn" style="font-size:11px" onclick="openUploadProjectFile(${p.id})">
+            📎 ${fileCount ? fileCount+' file' : 'Upload'}
+          </button>
+        </td>
+        <td style="min-width:80px;text-align:center">
+          <div style="display:flex;align-items:center;justify-content:center;gap:4px">
+            <button class="tbl-action-btn tbl-edit" onclick="openEditProject(${p.id})" title="Edit">✏️</button>
+            <button class="tbl-action-btn tbl-del" onclick="deleteItem('projects',${p.id})" title="Hapus">🗑️</button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+
+    return `
+    <div class="month-block">
+      <div class="month-header ${isCollapsed?'collapsed':''}" onclick="toggleProjectMonth('${activeBrand}_${key}')">
+        <div class="month-header-left">
+          <span class="month-chevron">▾</span>
+          <span class="month-title">${label}</span>
+          <span class="month-count">${items.length} project</span>
+          ${doneCount > 0 ? `<span class="month-done-count">· ${doneCount} selesai</span>` : ''}
+          ${allDone ? `<span class="pill pill-done" style="font-size:10px">✅ Selesai</span>` : ''}
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openAddProject('${activeBrand}')">+ Project</button>
+      </div>
+      <div style="${isCollapsed?'display:none':''}">
+        <div class="content-table-wrap">
+          <table class="content-table">
+            <thead>
+              <tr>
+                <th>Tanggal Mulai / Deadline</th>
+                <th>Nama Project</th>
+                <th>Contact Person</th>
+                <th>Deskripsi</th>
+                <th>Nilai Project</th>
+                <th>Progress</th>
+                <th>Status</th>
+                <th>Files</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const emptyState = `<div class="empty"><div class="empty-icon">💼</div>Belum ada project untuk brand ini</div>`;
+
+  return topbar + (sortedMonths.length ? monthBlocks : emptyState) + `
+  <button class="month-add-btn" onclick="openAddProject('${activeBrand}')">+ Tambah Project Baru</button>`;
+}
+
+function setProjView(mode) { projectViewMode = mode; render(); }
+function toggleProjectMonth(key) { collapsedProjectMonths[key] = !collapsedProjectMonths[key]; render(); }
+
+// ── PROJECT BOARD ────────────────────────────────────────────────
+function renderProjectBoard(activeBrand, currentMonthKey) {
+  const items = db.projects.filter(p => p.brand === activeBrand);
+  const cols = [
+    { key:'planning',  label:'Planning',    dot:'#9ab6f5', cls:'col-not-started' },
+    { key:'ongoing',   label:'In Progress', dot:'var(--accent)', cls:'col-in-progress' },
+    { key:'review',    label:'Review',      dot:'var(--brown)',  cls:'' },
+    { key:'done',      label:'Done',        dot:'var(--green)',  cls:'col-done' },
+  ];
+
+  function makeCard(p) {
+    const pct = p.progress || 0;
+    const otherCols = cols.filter(c=>c.key!==p.status);
+    return `
+    <div class="board-card" id="pcard_${p.id}"
+      draggable="true"
+      ondragstart="projDragStart(event,${p.id})"
+      ondragend="projDragEnd(event)"
+      onclick="openEditProject(${p.id})">
+      <div class="board-card-brand" style="color:var(--${activeBrand})">${BRAND_LABEL[activeBrand]}</div>
+      <div class="board-card-konsep">${esc(p.nama||'Tanpa nama')}</div>
+      <div class="board-card-meta" style="margin-bottom:8px">
+        ${p.deadline ? `<span class="board-card-date">⏰ ${fmtTanggal(p.deadline)}</span>` : ''}
+        ${p.nilaiProyek ? `<span class="board-card-date" style="color:var(--green)">💰 ${fmtRp(p.nilaiProyek)}</span>` : ''}
+      </div>
+      <div style="margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span style="font-size:10px;color:var(--muted)">Progress</span>
+          <span style="font-size:10px;color:var(--accent);font-family:'DM Mono',monospace">${pct}%</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      </div>
+      <div class="board-card-actions" onclick="event.stopPropagation()">
+        ${otherCols.map(c=>`<button class="board-action-btn" onclick="setProjBoardStatus(${p.id},'${c.key}')">→ ${c.label}</button>`).join('')}
+        <button class="board-action-btn danger" onclick="deleteItem('projects',${p.id})">🗑️</button>
+      </div>
+    </div>`;
+  }
+
+  const colsHTML = cols.map(col => {
+    const colItems = items.filter(p => (p.status||'planning') === col.key)
+      .sort((a,b) => (a.deadline||'').localeCompare(b.deadline||''));
+    return `
+    <div class="board-col ${col.cls}">
+      <div class="board-col-header">
+        <div class="board-col-dot" style="background:${col.dot}"></div>
+        <div class="board-col-title">${col.label}</div>
+        <div class="board-col-count">${colItems.length}</div>
+      </div>
+      <div class="board-cards" id="pcol_${col.key}"
+        ondragover="projDragOver(event,'${col.key}')"
+        ondragleave="projDragLeave(event)"
+        ondrop="projDrop(event,'${col.key}')">
+        ${colItems.map(makeCard).join('')}
+      </div>
+      <button class="board-add-btn" onclick="openAddProject('${activeBrand}')">+ New project</button>
+    </div>`;
+  }).join('');
+
+  return `<div class="board-wrap" style="grid-template-columns:repeat(4,1fr)">${colsHTML}</div>`;
+}
+
+// ── PROJECT DRAG HANDLERS ────────────────────────────────────────
+function projDragStart(e, id) {
+  _projDragId = id;
+  e.dataTransfer.effectAllowed = 'move';
+  setTimeout(() => { const el=document.getElementById('pcard_'+id); if(el) el.classList.add('dragging'); }, 0);
+}
+function projDragEnd(e) {
+  if (_projDragId) { const el=document.getElementById('pcard_'+_projDragId); if(el) el.classList.remove('dragging'); }
+  document.querySelectorAll('.board-cards').forEach(c=>c.classList.remove('drag-over'));
+  _projDragId = null;
+}
+function projDragOver(e, key) {
+  e.preventDefault();
+  const col = document.getElementById('pcol_'+key);
+  if (col) col.classList.add('drag-over');
+}
+function projDragLeave(e) {
+  if (!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.classList.remove('drag-over');
+}
+async function projDrop(e, key) {
+  e.preventDefault();
+  const col = document.getElementById('pcol_'+key);
+  if (col) col.classList.remove('drag-over');
+  if (_projDragId === null) return;
+  await setProjBoardStatus(_projDragId, key);
+  _projDragId = null;
+}
+async function setProjBoardStatus(id, status) {
+  const p = db.projects.find(x=>x.id===id);
+  if (!p) return;
+  p.status = status;
+  await saveDB('projects');
+  render();
+}
+
+// ── ADD PROJECT MODAL ─────────────────────────────────────────────
+function openAddProject(brand) {
+  document.getElementById('modalTitle').textContent = '💼 Tambah Project Baru';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="form-row">
+      <div class="form-group" style="flex:2">
+        <div class="form-label">Nama Project *</div>
+        <input class="form-input" id="fp_nama" placeholder="Nama project...">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Brand</div>
+        <select class="form-select" id="fp_brand">
+          ${BRANDS.map(b=>`<option value="${b}" ${b===brand?'selected':''}>${BRAND_LABEL[b]}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Tanggal Mulai</div>
+        <input class="form-input" id="fp_tanggalMulai" placeholder="DD/MM/YYYY" maxlength="10" oninput="autoSlashDate(this)">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Deadline</div>
+        <input class="form-input" id="fp_deadline" placeholder="DD/MM/YYYY" maxlength="10" oninput="autoSlashDate(this)">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Status</div>
+        <select class="form-select" id="fp_status">
+          <option value="planning">📋 Planning</option>
+          <option value="ongoing" selected>⚙️ Ongoing</option>
+          <option value="review">🔍 Review</option>
+          <option value="done">✅ Done</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Contact Person</div>
+        <input class="form-input" id="fp_contactPerson" placeholder="Nama PIC / klien...">
+      </div>
+      <div class="form-group">
+        <div class="form-label">No. HP / WA</div>
+        <input class="form-input" id="fp_contactHp" placeholder="08xx...">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:2">
+        <div class="form-label">Deskripsi Project</div>
+        <textarea class="form-textarea" id="fp_deskripsi" placeholder="Scope, tujuan, catatan project..."></textarea>
+      </div>
+      <div class="form-group">
+        <div class="form-label">Nilai Project (Rp)</div>
+        <input class="form-input" id="fp_nilaiProyek" type="text" inputmode="numeric" placeholder="0" oninput="hppFmtInput(this)">
+      </div>
+    </div>
+  `;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="submitAddProject()">💾 Simpan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+}
+
+async function submitAddProject() {
+  if (!dirHandle) { toast('⚠️ Pilih folder dulu', 'error'); return; }
+  const nama = gv('fp_nama').trim();
+  if (!nama) { toast('⚠️ Nama project tidak boleh kosong', 'error'); return; }
+  const item = {
+    id: Date.now(),
+    nama,
+    brand:         gv('fp_brand'),
+    tanggalMulai:  toStorageDate(gv('fp_tanggalMulai')),
+    deadline:      toStorageDate(gv('fp_deadline')),
+    status:        gv('fp_status'),
+    contactPerson: gv('fp_contactPerson'),
+    contactHp:     gv('fp_contactHp'),
+    deskripsi:     gv('fp_deskripsi'),
+    nilaiProyek:   parseFloat((gv('fp_nilaiProyek')||'0').replace(/\./g,''))||0,
+    progress:      0,
+    files:         [],
+  };
+  db.projects.unshift(item);
+  await saveDB('projects');
+  document.getElementById('modalBackdrop').classList.add('hidden');
+  toast('✅ Project tersimpan!', 'success');
+  render();
+}
+
+// ── UPLOAD FILE KE PROJECT ────────────────────────────────────────
+function openUploadProjectFile(id) {
+  const p = db.projects.find(x=>x.id===id);
+  if (!p) return;
+  if (!p.files) p.files = [];
+
+  const fileList = p.files.map((f,i) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:16px">${fileIcon(f.ext)}</span>
+      <div style="flex:1">
+        <div style="font-size:13px;color:var(--text)">${esc(f.origName)}</div>
+        <div style="font-size:11px;color:var(--muted)">${fmtSize(f.size)} · ${f.date||'—'}</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="openFileSSD('${f.stored}')">📂</button>
+      <button class="btn btn-danger btn-sm" onclick="removeProjectFile(${id},${i})">✕</button>
+    </div>
+  `).join('');
+
+  document.getElementById('modalTitle').textContent = `📎 Files — ${esc(p.nama)}`;
+  document.getElementById('modalBody').innerHTML = `
+    <div id="proj_file_list" style="margin-bottom:14px">
+      ${fileList || `<div style="text-align:center;color:var(--muted);padding:20px 0">Belum ada file</div>`}
+    </div>
+    <div class="drop-zone" style="padding:20px"
+      onclick="document.getElementById('proj_file_input_${id}').click()"
+      ondragover="event.preventDefault();this.classList.add('drag')"
+      ondragleave="this.classList.remove('drag')"
+      ondrop="handleProjFileDrop(event,${id})">
+      <div class="drop-zone-icon">📎</div>
+      <div class="drop-zone-text">Drag & drop, atau klik untuk upload</div>
+      <div class="drop-zone-sub">PDF · DOCX · XLSX · PNG · JPG · MAX 20MB</div>
+    </div>
+    <input type="file" id="proj_file_input_${id}" class="hidden" multiple onchange="handleProjFileInput(event,${id})">
+  `;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Tutup</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+}
+
+async function uploadProjFiles(files, projId) {
+  if (!dirHandle) { toast('⚠️ Pilih folder dulu', 'error'); return; }
+  const p = db.projects.find(x=>x.id===projId);
+  if (!p) return;
+  if (!p.files) p.files = [];
+  let count = 0;
+  for (const file of files) {
+    if (file.size > MAX_FILE) { toast(`❌ ${file.name} > 20MB`, 'error'); continue; }
+    try {
+      const stored = await writeFileSSD(file);
+      p.files.push({ origName:file.name, stored, size:file.size, ext:file.name.split('.').pop().toLowerCase(), date:todayStr() });
+      count++;
+    } catch(e) { toast(`❌ Gagal upload ${file.name}`, 'error'); }
+  }
+  if (count) {
+    await saveDB('projects');
+    toast(`✅ ${count} file tersimpan!`, 'success');
+    openUploadProjectFile(projId); // refresh modal
+  }
+}
+function handleProjFileDrop(e, id) {
+  e.preventDefault(); e.currentTarget.classList.remove('drag');
+  uploadProjFiles(Array.from(e.dataTransfer.files), id);
+}
+function handleProjFileInput(e, id) {
+  uploadProjFiles(Array.from(e.target.files), id);
+  e.target.value = '';
+}
+async function removeProjectFile(projId, idx) {
+  const p = db.projects.find(x=>x.id===projId);
+  if (!p || !p.files) return;
+  p.files.splice(idx, 1);
+  await saveDB('projects');
+  openUploadProjectFile(projId);
+}
+
+// ─── ORDERS ──────────────────────────────────────────────────
+function renderOrders() {
+  document.getElementById('addBtn').classList.remove('hidden');
+  const statuses = ['all','pending','proses','done','batal'];
+  let list = currentFilter === 'all' ? db.orders : db.orders.filter(o => o.status === currentFilter);
+  list = [...list].sort((a,b) => b.id - a.id);
+
+  const filters = statuses.map(s => {
+    const lbl = s==='all'?'Semua':statusLabel(s);
+    return `<button class="filter-btn ${currentFilter===s?'active':''}" onclick="setFilter('${s}')">${lbl}</button>`;
+  }).join('');
+
+  const rows = list.map(o => `
+    <div class="item-row">
+      <div style="flex:1">
+        <div class="item-text">${esc(o.nama)}</div>
+        <div class="item-sub">${esc(o.klien)} · ${esc(o.brand?BRAND_LABEL[o.brand]:'—')} · ${fmtRp(o.nominal)}</div>
+        ${o.notes?`<div class="item-sub">${esc(o.notes)}</div>`:''}
+      </div>
+      <span class="pill pill-${o.status}">${statusLabel(o.status)}</span>
+      <select class="form-select" style="width:120px;padding:5px 8px;font-size:12px" onchange="updateOrderStatus(${o.id},this.value)">
+        ${['pending','proses','done','batal'].map(s=>`<option value="${s}" ${o.status===s?'selected':''}>${statusLabel(s)}</option>`).join('')}
+      </select>
+      <button class="btn btn-danger btn-sm" onclick="deleteItem('orders',${o.id})">✕</button>
+    </div>
+  `).join('');
+
+  return `
+  <div class="filter-row">${filters}</div>
+  <div class="item-list">${rows || `<div class="empty"><div class="empty-icon">📦</div>Belum ada order</div>`}</div>`;
+}
+
+// ─── DOKUMEN ─────────────────────────────────────────────────
+const FM_EMOJIS = ['📁','📂','🗂️','📋','📌','📎','🗒️','🗃️','📊','📈','📉','📝','✏️','🖊️','🖋️','📏','📐','🗑️','💡','🔑','🔒','🔓','⚙️','🛠️','🔧','🔨','💻','🖥️','📱','📷','🎨','🎬','🎯','🎪','🏆','⭐','🌟','💫','✨','🔥','💎','💰','💳','📦','📫','📬','🗺️','🌐','🏢','🏭','🏠','☕','🍕','🛒','🚀','✈️','🌈','❤️','💙','💚','💛','🧡','💜','🖤','🤍','🩵','🩷'];
+
+function renderDokumen() {
+  document.getElementById('addBtn').classList.add('hidden');
+
+  function getBreadcrumb(folderId) {
+    const path = []; let cur = folderId;
+    while (cur) {
+      const f = db.folders.find(x => x.id === cur);
+      if (!f) break;
+      path.unshift(f); cur = f.parentId;
+    }
+    return path;
+  }
+
+  const breadPath = getBreadcrumb(currentFolderId);
+  const breadcrumb = `
+    <div class="fm-breadcrumb">
+      <span class="fm-bread-item ${!currentFolderId?'active':''}" onclick="currentFolderId=null;render()">📁 Dokumen</span>
+      ${breadPath.map((f,i) => `
+        <span class="fm-bread-sep">›</span>
+        <span class="fm-bread-item ${i===breadPath.length-1?'active':''}" onclick="currentFolderId=${f.id};render()">${fmIconEl(f.icon||'📁','14px')} ${esc(f.name)}</span>
+      `).join('')}
+    </div>`;
+
+  const subFolders = db.folders.filter(f => (f.parentId||null) === (currentFolderId||null)).sort((a,b)=>a.name.localeCompare(b.name));
+  const files = db.dokumen.filter(d => (d.folderId||null) === (currentFolderId||null)).sort((a,b)=>b.id-a.id);
+
+  function folderItem(f) {
+    const childCount = db.folders.filter(x=>x.parentId===f.id).length + db.dokumen.filter(x=>x.folderId===f.id).length;
+    const icon = f.icon || '📁';
+    const iconSmall = fmIconEl(icon, '18px');
+    const iconMed   = fmIconEl(icon, fmView==='medium'?'26px':'20px');
+    const iconLarge = fmIconEl(icon, '36px');
+    const actions = `<div class="fm-item-actions">
+      <button class="fm-item-btn" onclick="event.stopPropagation();openFolderEdit(${f.id})" title="Edit">✏️</button>
+      <button class="fm-item-btn danger" onclick="event.stopPropagation();softDeleteFolder(${f.id})" title="Hapus">🗑️</button>
+    </div>`;
+    if (fmView==='list') return `<div class="fm-item" onclick="currentFolderId=${f.id};render()">${actions}<span class="fm-icon">${iconSmall}</span><span class="fm-item-name">${esc(f.name)}</span><span class="fm-item-meta">${childCount} item</span></div>`;
+    if (fmView==='detail') return `<div class="fm-item" onclick="currentFolderId=${f.id};render()">${actions}<span class="fm-icon">${fmIconEl(icon,'16px')}</span><span class="fm-item-name">${esc(f.name)}</span><span class="fm-item-meta">Folder</span><span class="fm-item-meta">${childCount} item</span><span class="fm-item-meta">${f.date||'—'}</span></div>`;
+    return `<div class="fm-item" ondblclick="currentFolderId=${f.id};render()" onclick="">${actions}
+      <div class="fm-icon" onclick="currentFolderId=${f.id};render()" style="margin-bottom:8px">${fmView==='small'?iconMed:iconLarge}</div>
+      <div class="fm-item-name" onclick="currentFolderId=${f.id};render()">${esc(f.name)}</div>
+      <div class="fm-item-meta">${childCount} item${childCount!==1?'s':''}</div>
+    </div>`;
+  }
+
+  function fileItem(d) {
+    const icon = fileIcon(d.ext);
+    const open = d.stored ? `<button class="fm-item-btn" onclick="event.stopPropagation();openFileSSD('${d.stored}')" title="Buka">📂</button>` : '';
+    const del = `<button class="fm-item-btn danger" onclick="event.stopPropagation();deleteItem('dokumen',${d.id})" title="Hapus">🗑️</button>`;
+    const actions = `<div class="fm-item-actions">${open}${del}</div>`;
+    if (fmView==='list') return `<div class="fm-item">${actions}<span class="fm-icon">${icon}</span><span class="fm-item-name">${esc(d.origName)}</span><span class="fm-item-meta">${fmtSize(d.size)}</span></div>`;
+    if (fmView==='detail') return `<div class="fm-item">${actions}<span class="fm-icon">${icon}</span><span class="fm-item-name">${esc(d.origName)}</span><span class="fm-item-meta">${d.ext?.toUpperCase()||'—'}</span><span class="fm-item-meta">${fmtSize(d.size)}</span><span class="fm-item-meta">${d.date||'—'}</span></div>`;
+    return `<div class="fm-item">${actions}
+      <span class="fm-icon">${icon}</span>
+      <div class="fm-item-name">${esc(d.origName)}</div>
+      <div class="fm-item-meta">${fmtSize(d.size)}<br>${d.date||'—'}</div>
+    </div>`;
+  }
+
+  const isEmpty = !subFolders.length && !files.length;
+  const allItems = [...subFolders.map(f=>folderItem(f)), ...files.map(d=>fileItem(d))].join('');
+
+  const detailHeader = fmView==='detail' ? `
+    <div class="fm-detail-header">
+      <span></span><span>Nama</span><span>Tipe</span><span>Ukuran</span><span>Tanggal</span>
+    </div>` : '';
+
+  const viewClass = `fm-view-${fmView}`;
+  const wrapStart = fmView==='detail' ? `<div class="fm-view-detail">` : `<div class="${viewClass}">`;
+
+  const gridContent = isEmpty
+    ? `<div class="${viewClass}"><div class="fm-empty-folder"><div class="empty-icon">📂</div>Folder ini kosong<br><span style="font-size:12px">Upload file atau buat folder baru di atas</span></div></div>`
+    : detailHeader + wrapStart + allItems + `</div>`;
+
+  const viewToggle = `
+    <div class="fm-view-toggle">
+      <button class="fm-view-btn ${fmView==='large'?'active':''}" onclick="fmView='large';render()" title="Large">⊞</button>
+      <button class="fm-view-btn ${fmView==='medium'?'active':''}" onclick="fmView='medium';render()" title="Medium">⊟</button>
+      <button class="fm-view-btn ${fmView==='small'?'active':''}" onclick="fmView='small';render()" title="Small">⊠</button>
+      <button class="fm-view-btn ${fmView==='list'?'active':''}" onclick="fmView='list';render()" title="List">☰</button>
+      <button class="fm-view-btn ${fmView==='detail'?'active':''}" onclick="fmView='detail';render()" title="Detail">⊟</button>
+    </div>`;
+
+  const toolbar = `
+    <div class="fm-toolbar">
+      <button class="btn btn-ghost btn-sm" onclick="createFolder()">📁 Buat Folder</button>
+      <div class="fm-toolbar-sep"></div>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('fmFileInput').click()">📄 Upload File</button>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('fmFolderInput').click()">📂 Upload Folder</button>
+      <input type="file" id="fmFileInput" class="hidden" multiple onchange="handleFmFileInput(event,false)">
+      <input type="file" id="fmFolderInput" class="hidden" multiple webkitdirectory onchange="handleFmFileInput(event,true)">
+      ${viewToggle}
+    </div>`;
+
+  return `${toolbar}${breadcrumb}
+    <div class="fm-drop-overlay" id="fmDropOverlay">⬆️ Drop file di sini</div>
+    <div ondragover="event.preventDefault();document.getElementById('fmDropOverlay').classList.add('active')"
+         ondragleave="document.getElementById('fmDropOverlay').classList.remove('active')"
+         ondrop="handleFmDrop(event)">
+      ${gridContent}
+    </div>`;
+}
+
+// ── Folder operations ──────────────────────────────────────────────────────
+let _fmSelectedIcon = '📁'; // bisa emoji string atau data:image/... base64
+
+function fmIsImage(icon) {
+  return icon && icon.startsWith('data:image');
+}
+
+// Render icon — bisa img tag (upload) atau teks (emoji)
+function fmIconEl(icon, size='36px') {
+  if (fmIsImage(icon)) return `<img src="${icon}" style="width:${size};height:${size};object-fit:cover;border-radius:6px;display:block">`;
+  return `<span style="font-size:${size};line-height:1">${icon||'📁'}</span>`;
+}
+
+function fmIconPicker(current) {
+  _fmSelectedIcon = current || '📁';
+  const isImg = fmIsImage(current);
+  return `
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button type="button" class="btn btn-ghost btn-sm" id="fmTabUpload" onclick="fmSwitchTab('upload')" style="${!isImg?'':'border-color:var(--accent);color:var(--accent)'}">🖼️ Upload Gambar</button>
+      <button type="button" class="btn btn-ghost btn-sm" id="fmTabEmoji" onclick="fmSwitchTab('emoji')" style="${isImg?'':'border-color:var(--accent);color:var(--accent)'}">😊 Emoji</button>
+    </div>
+
+    <div id="fmPreviewWrap" style="text-align:center;padding:12px;background:var(--surface2);border-radius:10px;margin-bottom:12px;border:1px solid var(--border)">
+      <div id="fmIconPreview" style="display:inline-block">${fmIconEl(_fmSelectedIcon,'48px')}</div>
+    </div>
+
+    <div id="fmPanelUpload" style="display:${isImg?'block':'none'}">
+      <div style="border:2px dashed var(--border);border-radius:8px;padding:18px;text-align:center;cursor:pointer;transition:all 0.15s"
+        onclick="document.getElementById('fmIconUploadInput').click()"
+        ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+        ondragleave="this.style.borderColor='var(--border)'"
+        ondrop="fmIconDrop(event);this.style.borderColor='var(--border)'">
+        <div style="font-size:24px;margin-bottom:6px">📁</div>
+        <div style="font-size:12px;color:var(--text2)">Klik atau drag & drop gambar</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:3px;font-family:'DM Mono',monospace">PNG · JPG · SVG · WEBP · MAX 2MB</div>
+      </div>
+      <input type="file" id="fmIconUploadInput" accept="image/*" class="hidden" onchange="fmIconUpload(this)">
+      ${isImg ? `<button type="button" class="btn btn-ghost btn-sm" style="margin-top:8px;width:100%" onclick="fmPickIcon('📁')">🗑️ Hapus gambar, pakai emoji</button>` : ''}
+    </div>
+
+    <div id="fmPanelEmoji" style="display:${isImg?'none':'block'}">
+      <div class="fm-emoji-grid">
+        ${FM_EMOJIS.map(e=>`<button type="button" class="fm-emoji-btn ${e===_fmSelectedIcon?'sel':''}" onclick="fmPickIcon('${e}')">${e}</button>`).join('')}
+      </div>
+      <input class="form-input" placeholder="Atau ketik emoji sendiri..." maxlength="4" style="margin-top:8px"
+        oninput="if(this.value.trim())fmPickIcon(this.value.trim())">
+    </div>`;
+}
+
+function fmSwitchTab(tab) {
+  document.getElementById('fmPanelUpload').style.display = tab==='upload'?'block':'none';
+  document.getElementById('fmPanelEmoji').style.display  = tab==='emoji'?'block':'none';
+  document.getElementById('fmTabUpload').style.cssText  += tab==='upload'?';border-color:var(--accent);color:var(--accent)':';border-color:var(--border);color:var(--muted)';
+  document.getElementById('fmTabEmoji').style.cssText   += tab==='emoji'?';border-color:var(--accent);color:var(--accent)':';border-color:var(--border);color:var(--muted)';
+}
+
+function fmPickIcon(val) {
+  _fmSelectedIcon = val;
+  const preview = document.getElementById('fmIconPreview');
+  if (preview) preview.innerHTML = fmIconEl(val, '48px');
+  document.querySelectorAll('.fm-emoji-btn').forEach(b => b.classList.toggle('sel', b.textContent===val));
+}
+
+function fmIconUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 2*1024*1024) { toast('❌ Gambar max 2MB','error'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    fmPickIcon(e.target.result); // store as base64 data URL
+    fmSwitchTab('upload');
+  };
+  reader.readAsDataURL(file);
+}
+
+function fmIconDrop(e) {
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  if (!file || !file.type.startsWith('image/')) { toast('❌ Harus file gambar','error'); return; }
+  if (file.size > 2*1024*1024) { toast('❌ Gambar max 2MB','error'); return; }
+  const reader = new FileReader();
+  reader.onload = ev => { fmPickIcon(ev.target.result); fmSwitchTab('upload'); };
+  reader.readAsDataURL(file);
+}
+
+function createFolder() {
+  _fmSelectedIcon = '📁';
+  document.getElementById('modalTitle').textContent = '📁 Buat Folder Baru';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="form-group" style="margin-bottom:14px">
+      <div class="form-label">Nama Folder</div>
+      <input class="form-input" id="fm_folderName" placeholder="Contoh: Proposal Kolektiva Q1">
+    </div>
+    <div class="form-group">
+      <div class="form-label">Icon Folder</div>
+      ${fmIconPicker('📁')}
+    </div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="submitCreateFolder()">Buat</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  setTimeout(() => document.getElementById('fm_folderName')?.focus(), 80);
+}
+
+async function submitCreateFolder() {
+  if (!dirHandle) { toast('⚠️ Pilih folder dulu','error'); return; }
+  const name = gv('fm_folderName').trim();
+  if (!name) { toast('⚠️ Nama folder tidak boleh kosong','error'); return; }
+  const exists = db.folders.some(f => f.name===name && (f.parentId||null)===(currentFolderId||null));
+  if (exists) { toast('⚠️ Folder ini sudah ada','error'); return; }
+  db.folders.push({ id:Date.now(), name, icon:_fmSelectedIcon||'📁', parentId:currentFolderId||null, date:todayStr() });
+  await saveDB('folders');
+  closeModal();
+  toast(`✅ Folder "${name}" dibuat!`,'success');
+  render();
+}
+
+function openFolderEdit(id) {
+  const folder = db.folders.find(f=>f.id===id);
+  if (!folder) return;
+  _fmSelectedIcon = folder.icon || '📁';
+  document.getElementById('modalTitle').textContent = '✏️ Edit Folder';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="form-group" style="margin-bottom:14px">
+      <div class="form-label">Nama Folder</div>
+      <input class="form-input" id="fm_editName" value="${esc(folder.name)}">
+    </div>
+    <div class="form-group">
+      <div class="form-label">Icon Folder</div>
+      ${fmIconPicker(folder.icon||'📁')}
+    </div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="submitFolderEdit(${id})">Simpan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  setTimeout(() => { const el=document.getElementById('fm_editName'); if(el){el.focus();el.select();} }, 80);
+}
+
+async function submitFolderEdit(id) {
+  const name = gv('fm_editName').trim();
+  if (!name) { toast('⚠️ Nama tidak boleh kosong','error'); return; }
+  const folder = db.folders.find(f=>f.id===id);
+  if (folder) { folder.name=name; folder.icon=_fmSelectedIcon||'📁'; await saveDB('folders'); }
+  closeModal(); toast('✅ Folder diupdate!','success'); render();
+}
+
+
+// ── File upload handlers ───────────────────────────────────────────────────
+async function handleFmFileInput(e, isFolder) {
+  const files = Array.from(e.target.files);
+  e.target.value = '';
+  if (!files.length) return;
+
+  if (isFolder && files.length > 0) {
+    // Group by their relative folder path and create nested folders
+    await processFolderUpload(files);
+  } else {
+    await processFmFiles(files, currentFolderId);
+  }
+}
+
+function handleFmDrop(e) {
+  e.preventDefault();
+  document.getElementById('fmDropOverlay').classList.remove('active');
+  const files = Array.from(e.dataTransfer.files);
+  if (files.length) processFmFiles(files, currentFolderId);
+}
+
+async function processFolderUpload(files) {
+  if (!dirHandle) { toast('⚠️ Pilih folder dulu','error'); return; }
+  // Map relative paths to folder IDs
+  const folderIdMap = {}; // relativePath → folderId
+
+  for (const file of files) {
+    const relPath = file.webkitRelativePath || file.name;
+    const parts = relPath.split('/');
+    // parts[0] = root folder name, parts[1..n-1] = subfolders, parts[last] = filename
+
+    let parentId = currentFolderId;
+
+    // Create/find folder hierarchy (skip last part = filename)
+    for (let i = 0; i < parts.length - 1; i++) {
+      const key = parts.slice(0, i+1).join('/');
+      if (folderIdMap[key] !== undefined) {
+        parentId = folderIdMap[key];
+        continue;
+      }
+      // find or create
+      let existing = db.folders.find(f => f.name === parts[i] && (f.parentId||null) === (parentId||null));
+      if (!existing) {
+        existing = { id: Date.now() + Math.random(), name: parts[i], parentId: parentId||null, date: todayStr() };
+        db.folders.push(existing);
+      }
+      folderIdMap[key] = existing.id;
+      parentId = existing.id;
+    }
+
+    // Upload the actual file into the deepest folder
+    if (file.size <= MAX_FILE) {
+      try {
+        const stored = await writeFileSSD(file);
+        db.dokumen.unshift({
+          id: Date.now() + Math.random(),
+          origName: parts[parts.length-1],
+          stored, size: file.size,
+          ext: file.name.split('.').pop().toLowerCase(),
+          folderId: parentId||null, date: todayStr(), notes:''
+        });
+      } catch(e) { toast(`❌ Gagal upload ${file.name}`,'error'); }
+    }
+  }
+
+  await saveDB('folders');
+  await saveDB('dokumen');
+  toast(`✅ Folder berhasil diupload!`, 'success');
+  render();
+}
+
+async function processFmFiles(files, folderId) {
+  if (!dirHandle) { toast('⚠️ Pilih folder dulu','error'); return; }
+  let count = 0;
+  for (const file of files) {
+    if (file.size > MAX_FILE) { toast(`❌ ${file.name} > 20MB`,'error'); continue; }
+    try {
+      const stored = await writeFileSSD(file);
+      db.dokumen.unshift({
+        id: Date.now() + Math.random(),
+        origName: file.name, stored, size: file.size,
+        ext: file.name.split('.').pop().toLowerCase(),
+        folderId: folderId||null, date: todayStr(), notes:''
+      });
+      count++;
+    } catch(e) { toast(`❌ Gagal upload ${file.name}`,'error'); }
+  }
+  if (count) {
+    await saveDB('dokumen');
+    toast(`✅ ${count} file diupload!`, 'success');
+    render();
+  }
+}
+
+// ─── KEUANGAN ────────────────────────────────────────────────
+// ─── KEUANGAN MODULE ─────────────────────────────────────────
+
+const KEU_BRANDS = ['kolektiva','dikopi','imagineer'];
+const KEU_BRAND_LABEL = { kolektiva:'🛍️ Kolektiva', dikopi:'☕ Dikopi', imagineer:'🚀 Imagineer' };
+const KEU_BRAND_COLOR = { kolektiva:'var(--kolektiva)', dikopi:'#f5a623', imagineer:'var(--imagineer)' };
+
+const KEU_KATEGORI = {
+  revenue: ['Pembayaran DP','Pelunasan Order','Penjualan Langsung','Pendapatan Lainnya'],
+  capital:  ['Suntikan Dana Owner','Tambahan Modal'],
+  hpp:     ['Biaya Produksi/Vendor','Bahan Baku','Packaging','Ongkir/Pengiriman'],
+  expense: ['Biaya Admin & Dokumen','Iklan & Marketing','Software & Tools','Gaji/Honorarium','Utilitas (Listrik, Air)','Sewa','Biaya Admin Shopee','Lain-lain'],
+  owner:   ['Ambil Uang Pribadi','Distribusi Laba'],
+  asset:   ['Pembelian Aset'],
+};
+
+// Map kategori → transaction_class
+const KAT_CLASS = {
+  'Pembayaran DP':'revenue','Pelunasan Order':'revenue','Penjualan Langsung':'revenue','Pendapatan Lainnya':'revenue',
+  'Suntikan Dana Owner':'capital_injection','Tambahan Modal':'capital_injection',
+  'Biaya Produksi/Vendor':'hpp','Bahan Baku':'hpp','Packaging':'hpp','Ongkir/Pengiriman':'hpp',
+  'Biaya Admin & Dokumen':'operational','Iklan & Marketing':'operational','Software & Tools':'operational',
+  'Gaji/Honorarium':'operational','Utilitas (Listrik, Air)':'operational','Sewa':'operational',
+  'Biaya Admin Shopee':'operational','Lain-lain':'operational',
+  'Ambil Uang Pribadi':'owner_draw','Distribusi Laba':'profit_distribution',
+  'Pembelian Aset':'asset_purchase',
+  'Mutasi':'transfer',
+};
+// Dikopi HPP items
+['Biji Kopi','Susu','Gula','Sirup','Cup & Lid','Sedotan','Kantong Plastik','Es Batu','Lain-lain HPP'].forEach(k=>KAT_CLASS[k]='hpp');
+
+function getTxnClass(t) {
+  if (t.transaction_class) return t.transaction_class; // use stored value if present
+  if (t.tipe==='mutasi') return 'transfer';
+  return KAT_CLASS[t.kategori] || (t.tipe==='masuk' ? 'revenue' : 'operational');
+}
+
+function keuKatGroup(kat) {
+  const dikopiHPP = ['Biji Kopi','Susu','Gula','Sirup','Cup & Lid','Sedotan','Kantong Plastik','Es Batu','Lain-lain HPP'];
+  if (KEU_KATEGORI.revenue.includes(kat)) return 'revenue';
+  if (KEU_KATEGORI.hpp.includes(kat) || dikopiHPP.includes(kat)) return 'hpp';
+  if (KEU_KATEGORI.capital.includes(kat))  return 'capital';
+  if (KEU_KATEGORI.owner.includes(kat))    return 'owner';
+  if (KEU_KATEGORI.asset.includes(kat))    return 'asset';
+  return 'expense';
+}
+
+function keuBrandTxns(brand, year=null, month=null) {
+  return (db.keu[brand]||[]).filter(t => {
+    if (!t.tanggal) return false;
+    if (year  && !t.tanggal.startsWith(year))  return false;
+    if (month && !t.tanggal.startsWith(month)) return false;
+    return true;
+  });
+}
+
+function keuCalc(txns) {
+  let revenue=0, hpp=0, expense=0, capital=0, owner=0, asset=0;
+  txns.forEach(t => {
+    const tc = getTxnClass(t);
+    const n  = Number(t.nominal)||0;
+    if (t.tipe==='mutasi') return;
+    if (tc==='revenue')           revenue  += n;
+    else if (tc==='hpp')          hpp      += n;
+    else if (tc==='capital_injection') capital += n;
+    else if (tc==='owner_draw' || tc==='profit_distribution') owner += n;
+    else if (tc==='asset_purchase') asset  += n;
+    else                          expense  += n;
+  });
+  const grossProfit = revenue - hpp;
+  const netProfit   = grossProfit - expense; // capital, owner, asset EXCLUDED dari profit
+  return { revenue, hpp, expense, capital, owner, asset, grossProfit, netProfit };
+}
+
+let keuBukuBrand = 'kolektiva';
+let keuBukuPeriode = new Date().toISOString().substring(0,7); // YYYY-MM
+let keuBulananPeriode = new Date().toISOString().substring(0,7);
+let keuTahunanYear = String(new Date().getFullYear());
+let keuDashPeriode = 'bulan'; // bulan | tahun
+
+// ── 1. DASHBOARD ──────────────────────────────────────────────
+function renderKeuDashboard() {
+  document.getElementById('addBtn').classList.add('hidden');
+
+  const now = new Date();
+  const thisMonth = now.toISOString().substring(0,7);
+  const thisYear  = String(now.getFullYear());
+  const isMonth   = keuDashPeriode === 'bulan';
+  const periode   = isMonth ? thisMonth : thisYear;
+
+  const brandData = KEU_BRANDS.map(b => {
+    const txns = isMonth ? keuBrandTxns(b,null,periode) : keuBrandTxns(b,periode);
+    return { brand:b, ...keuCalc(txns) };
+  });
+
+  const pt = { revenue:0,hpp:0,expense:0,capital:0,owner:0,asset:0,grossProfit:0,netProfit:0 };
+  brandData.forEach(d=>{pt.revenue+=d.revenue;pt.hpp+=d.hpp;pt.expense+=d.expense;pt.capital+=(d.capital||0);pt.owner+=(d.owner||0);pt.asset+=(d.asset||0);pt.grossProfit+=d.grossProfit;pt.netProfit+=d.netProfit;});
+  const pph = Math.round(pt.revenue * 0.005);
+
+  const maxRev = Math.max(...brandData.map(d=>d.revenue),1);
+
+  const brandCards = brandData.map(d=>`
+    <div class="keu-brand-section">
+      <div class="keu-brand-header">
+        <div class="keu-brand-name" style="color:${KEU_BRAND_COLOR[d.brand]}">${KEU_BRAND_LABEL[d.brand]}</div>
+        <span style="font-size:11px;font-family:'DM Mono',monospace;color:${d.netProfit>=0?'#4cc9a0':'var(--red)'}">Net ${fmtRp(d.netProfit)}</span>
+      </div>
+      <div class="keu-summary-grid" style="padding:12px 16px">
+        <div class="keu-card"><div class="keu-label">Revenue</div><div class="keu-val keu-green" style="font-size:14px">${fmtRp(d.revenue)}</div></div>
+        <div class="keu-card"><div class="keu-label">HPP</div><div class="keu-val keu-muted" style="font-size:14px">${fmtRp(d.hpp)}</div></div>
+        <div class="keu-card"><div class="keu-label">Gross Profit</div><div class="keu-val ${d.grossProfit>=0?'keu-green':'keu-red'}" style="font-size:14px">${fmtRp(d.grossProfit)}</div></div>
+        <div class="keu-card"><div class="keu-label">Expense</div><div class="keu-val keu-red" style="font-size:14px">${fmtRp(d.expense)}</div></div>
+      </div>
+    </div>`).join('');
+
+  const ptCards = `
+    <div class="keu-pt-card">
+      <div class="keu-pt-title">🏢 PT Pratani Kreatif Group — Konsolidasi</div>
+      <div class="keu-summary-grid">
+        <div class="keu-card"><div class="keu-label">Total Revenue</div><div class="keu-val keu-green">${fmtRp(pt.revenue)}</div></div>
+        <div class="keu-card"><div class="keu-label">Total HPP</div><div class="keu-val keu-muted">${fmtRp(pt.hpp)}</div></div>
+        <div class="keu-card"><div class="keu-label">Gross Profit</div><div class="keu-val ${pt.grossProfit>=0?'keu-green':'keu-red'}">${fmtRp(pt.grossProfit)}</div></div>
+        <div class="keu-card"><div class="keu-label">Total Expense</div><div class="keu-val keu-red">${fmtRp(pt.expense)}</div></div>
+        <div class="keu-card"><div class="keu-label">Net Profit</div><div class="keu-val ${pt.netProfit>=0?'keu-green':'keu-red'}">${fmtRp(pt.netProfit)}</div></div>
+        <div class="keu-card"><div class="keu-label">Est. PPh (0.5%)</div><div class="keu-val" style="color:#f5a623">${fmtRp(pph)}</div></div>
+      </div>
+      <div class="keu-pph-note">⚖️ Estimasi PPh Final berdasarkan PP 55/2022 — 0.5% dari total bruto revenue</div>
+    </div>`;
+
+  const bars = brandData.map(d=>`
+    <div class="keu-bar-item">
+      <div class="keu-bar-label" style="color:${KEU_BRAND_COLOR[d.brand]}">${KEU_BRAND_LABEL[d.brand].split(' ')[1]}</div>
+      <div class="keu-bar-track">
+        <div class="keu-bar-fill" style="width:${maxRev>0?Math.round(d.revenue/maxRev*100):0}%;background:${KEU_BRAND_COLOR[d.brand]}"></div>
+      </div>
+      <div class="keu-bar-val">${fmtRp(d.revenue)}</div>
+    </div>`).join('');
+
+  // ── Owner & Aset cards (Dikopi only, bulan ini) ──────────────
+  const dikopiTxns   = keuBrandTxns('dikopi', null, thisMonth);
+  const totalPrive   = dikopiTxns.filter(t=>getTxnClass(t)==='owner_draw').reduce((s,t)=>s+Number(t.nominal),0);
+  const totalDistrib = dikopiTxns.filter(t=>getTxnClass(t)==='profit_distribution').reduce((s,t)=>s+Number(t.nominal),0);
+  const totalModal   = dikopiTxns.filter(t=>getTxnClass(t)==='capital_injection').reduce((s,t)=>s+Number(t.nominal),0);
+  const nilaiAset    = (db.aset||[]).reduce((s,a)=>s+Number(a.nominal||0),0);
+  const dikopiCalc   = keuCalc(dikopiTxns);
+
+  const ownerCards = `
+    <div class="card" style="margin-bottom:16px;padding:14px 16px">
+      <div style="font-size:11px;font-family:'DM Mono',monospace;text-transform:uppercase;color:var(--muted);margin-bottom:12px">👤 Owner & Aset — Dikopi (${getBulanLabel(thisMonth)})</div>
+      <div class="keu-summary-grid">
+        <div class="keu-card" style="border-color:rgba(139,111,255,0.3)"><div class="keu-label">Modal Owner (bulan ini)</div><div class="keu-val" style="color:#8b6fff;font-size:16px">${fmtRp(totalModal)}</div></div>
+        <div class="keu-card" style="border-color:rgba(255,159,67,0.3)"><div class="keu-label">Prive Bulan Ini</div><div class="keu-val" style="color:#ff9f43;font-size:16px">${fmtRp(totalPrive)}</div></div>
+        <div class="keu-card" style="border-color:rgba(192,57,43,0.3)"><div class="keu-label">Distribusi Laba</div><div class="keu-val" style="color:#e74c3c;font-size:16px">${fmtRp(totalDistrib)}</div></div>
+        <div class="keu-card" style="border-color:rgba(139,111,255,0.3)"><div class="keu-label">Nilai Aset Aktif</div><div class="keu-val" style="color:#8b6fff;font-size:16px">${fmtRp(nilaiAset)}</div></div>
+      </div>
+    </div>`;
+
+  // ── Rekonsiliasi Profit vs Kas ────────────────────────────────
+  const profitBulan = dikopiCalc.netProfit;
+  const selisih     = profitBulan - totalPrive - totalDistrib - dikopiCalc.asset;
+  const rekonWidget = `
+    <div class="card" style="margin-bottom:16px;padding:14px 16px">
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">🔍 Kenapa Profit dan Uang Berbeda?</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:14px">Rekonsiliasi Profit vs Perubahan Kas — Dikopi ${getBulanLabel(thisMonth)}</div>
+      <div style="display:flex;flex-direction:column;gap:6px;font-size:12px">
+        <div style="display:flex;justify-content:space-between;padding:7px 10px;background:rgba(76,201,160,0.06);border-radius:8px;border-left:3px solid #4cc9a0">
+          <span style="color:var(--text2)">Net Profit (Penjualan − HPP − Ops)</span>
+          <span style="font-family:'DM Mono',monospace;color:#4cc9a0;font-weight:600">${fmtRp(profitBulan)}</span>
+        </div>
+        ${totalPrive ? `<div style="display:flex;justify-content:space-between;padding:7px 10px;background:rgba(255,159,67,0.06);border-radius:8px;border-left:3px solid #ff9f43">
+          <span style="color:var(--text2)">− Prive (Ambil Uang Pribadi)</span>
+          <span style="font-family:'DM Mono',monospace;color:#ff9f43;font-weight:600">−${fmtRp(totalPrive)}</span>
+        </div>` : ''}
+        ${dikopiCalc.asset ? `<div style="display:flex;justify-content:space-between;padding:7px 10px;background:rgba(139,111,255,0.06);border-radius:8px;border-left:3px solid #8b6fff">
+          <span style="color:var(--text2)">− Pembelian Aset</span>
+          <span style="font-family:'DM Mono',monospace;color:#8b6fff;font-weight:600">−${fmtRp(dikopiCalc.asset)}</span>
+        </div>` : ''}
+        ${totalDistrib ? `<div style="display:flex;justify-content:space-between;padding:7px 10px;background:rgba(192,57,43,0.06);border-radius:8px;border-left:3px solid #c0392b">
+          <span style="color:var(--text2)">− Distribusi Laba</span>
+          <span style="font-family:'DM Mono',monospace;color:#e74c3c;font-weight:600">−${fmtRp(totalDistrib)}</span>
+        </div>` : ''}
+        <div style="display:flex;justify-content:space-between;padding:9px 10px;background:var(--surface2);border-radius:8px;border:1px solid var(--border2);margin-top:4px">
+          <span style="font-weight:600;color:var(--text)">Kas yang Tersisa dari Profit</span>
+          <span style="font-family:'DM Mono',monospace;font-weight:700;font-size:14px;color:${selisih>=0?'#4cc9a0':'var(--red)'}">${fmtRp(selisih)}</span>
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:10px;font-family:'DM Mono',monospace;line-height:1.7">
+        Profit ≠ Kas karena ada uang keluar yang bukan biaya operasional (prive, aset, distribusi laba).<br>
+        Ini normal dan sehat — profit tetap valid sebagai ukuran kinerja bisnis.
+      </div>
+    </div>`;
+
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:12px;color:var(--muted)">Periode: <strong style="color:var(--text)">${isMonth?getBulanLabel(thisMonth):thisYear}</strong></div>
+      <div style="display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+        <button onclick="keuDashPeriode='bulan';render()" style="padding:5px 14px;font-size:11px;font-weight:600;cursor:pointer;border:none;font-family:'Poppins',sans-serif;transition:all 0.15s;background:${isMonth?'var(--accent)':'none'};color:${isMonth?'#fff':'var(--muted)'}">Bulan Ini</button>
+        <button onclick="keuDashPeriode='tahun';render()" style="padding:5px 14px;font-size:11px;font-weight:600;cursor:pointer;border:none;border-left:1px solid var(--border);font-family:'Poppins',sans-serif;transition:all 0.15s;background:${!isMonth?'var(--accent)':'none'};color:${!isMonth?'#fff':'var(--muted)'}">Tahun Ini</button>
+      </div>
+    </div>
+    <div style="margin-bottom:16px">
+      <div class="strategy-section-title">📊 Revenue per Brand</div>
+      <div class="keu-bar-wrap">${bars}</div>
+    </div>
+    ${ptCards}
+    ${ownerCards}
+    ${rekonWidget}
+    <div class="strategy-section-title" style="margin-top:20px">Per Brand</div>
+    ${brandCards}`;
+}
+
+// ── 2. BUKU KAS ───────────────────────────────────────────────
+function renderKeuBuku() {
+  document.getElementById('addBtn').classList.remove('hidden');
+  document.getElementById('addBtn').onclick = () => openAddTransaksi();
+
+  const brandTabs = KEU_BRANDS.map(b=>`<button class="filter-btn ${b===keuBukuBrand?'active':''}" onclick="keuBukuBrand='${b}';render()">${KEU_BRAND_LABEL[b]}</button>`).join('');
+  const allMonths = new Set((db.keu[keuBukuBrand]||[]).map(t=>t.tanggal?.substring(0,7)).filter(Boolean));
+  if(!allMonths.has(keuBukuPeriode)) allMonths.add(keuBukuPeriode);
+  const monthOpts = [...allMonths].sort().reverse().map(m=>`<option value="${m}" ${m===keuBukuPeriode?'selected':''}>${getBulanLabel(m)}</option>`).join('');
+
+  const topbar = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div class="filter-row" style="margin-bottom:0">${brandTabs}</div>
+      ${keuBukuBrand !== 'dikopi' ? `<div style="display:flex;align-items:center;gap:8px">
+        <select class="form-select" style="font-size:12px;padding:6px 10px;width:auto" onchange="keuBukuPeriode=this.value;render()">${monthOpts}</select>
+        <button class="btn btn-primary btn-sm" onclick="openAddTransaksi()">+ Transaksi</button>
+      </div>` : `<div style="display:flex;align-items:center;gap:8px">
+        <select class="form-select" style="font-size:12px;padding:6px 10px;width:auto" onchange="keuBukuPeriode=this.value;render()">${monthOpts}</select>
+      </div>`}
+    </div>`;
+
+  // ── MODE KHUSUS DIKOPI ─────────────────────────────────────
+  if (keuBukuBrand === 'dikopi') {
+    return topbar + renderDikopiBuku();
+  }
+
+  // ── MODE STANDAR (Kolektiva, Studio) ──────────────────────
+  const txns = [...(db.keu[keuBukuBrand]||[])].filter(t=>t.tanggal?.startsWith(keuBukuPeriode)).sort((a,b)=>a.tanggal.localeCompare(b.tanggal));
+  const calc = keuCalc(txns);
+  let saldo = 0;
+
+  const rows = txns.map((t,i) => {
+    const g = keuKatGroup(t.kategori);
+    const n = Number(t.nominal)||0;
+    const masuk  = t.tipe==='masuk' ? n : 0;
+    const keluar = t.tipe==='keluar' ? n : 0;
+    saldo += masuk - keluar;
+    const notaBtn = t.nota ? `<button class="tbl-action-btn" onclick="previewNota('${keuBukuBrand}',${t.id})" title="Lihat Nota">👁</button>` : '';
+    const { hasEdit, createdStr, updatedStr } = txnTimestampMeta(t);
+    const clockTitle = hasEdit
+      ? `Diinput: ${createdStr}&#10;Terakhir diedit: ${updatedStr}`
+      : `Diinput: ${createdStr}`;
+    const editedBadge = hasEdit
+      ? `<span style="font-size:9px;padding:1px 5px;border-radius:99px;background:rgba(255,156,0,0.12);color:#ffb347;font-family:'DM Mono',monospace;margin-left:5px">edited</span>`
+      : '';
+    const tsSubtext = `<div style="font-size:9px;color:var(--muted);margin-top:2px;font-family:'DM Mono',monospace">${t.created_at ? new Date(t.created_at).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}) : ''}${hasEdit?` · ✏️ ${new Date(t.updated_at).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})}`:''}</div>`;
+    return `<tr>
+      <td style="color:var(--muted);font-family:'DM Mono',monospace">${i+1}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px;white-space:nowrap">${fmtTanggal(t.tanggal)}${tsSubtext}</td>
+      <td style="max-width:220px">${esc(t.deskripsi)}${editedBadge}</td>
+      <td><span class="keu-cat-pill keu-cat-${g}">${esc(t.kategori)}</span></td>
+      <td class="keu-masuk">${masuk?fmtRp(masuk):'—'}</td>
+      <td class="keu-keluar">${keluar?fmtRp(keluar):'—'}</td>
+      <td class="${saldo>=0?'keu-saldo-pos':'keu-saldo-neg'}">${fmtRp(saldo)}</td>
+      <td><div style="display:flex;gap:2px">
+        ${notaBtn}
+        <button class="tbl-action-btn" style="color:${hasEdit?'#ffb347':'var(--muted)'}" onclick="openTxnHistory('${keuBukuBrand}',${t.id})" title="${clockTitle}">🕐</button>
+        <button class="tbl-action-btn tbl-edit" onclick="openEditTransaksi('${keuBukuBrand}',${t.id})">✏️</button>
+        <button class="tbl-action-btn tbl-del" onclick="deleteTransaksi('${keuBukuBrand}',${t.id})">🗑️</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+
+  return topbar + (txns.length ? `
+    <div style="overflow-x:auto;border-radius:10px;border:1px solid var(--border)">
+      <table class="keu-buku-table">
+        <thead><tr>
+          <th style="width:30px">No</th><th>Tanggal</th><th>Deskripsi</th><th>Kategori</th>
+          <th>Masuk (Rp)</th><th>Keluar (Rp)</th><th>Saldo</th><th style="width:80px">Aksi</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="keu-summary-strip">
+      <div class="keu-strip-item"><div class="keu-strip-label">Total Masuk</div><div class="keu-strip-val keu-green">${fmtRp(calc.revenue)}</div></div>
+      <div class="keu-strip-item"><div class="keu-strip-label">HPP</div><div class="keu-strip-val" style="color:#f5a623">${fmtRp(calc.hpp)}</div></div>
+      <div class="keu-strip-item"><div class="keu-strip-label">Expense</div><div class="keu-strip-val keu-red">${fmtRp(calc.expense)}</div></div>
+      <div class="keu-strip-item"><div class="keu-strip-label">Net Profit</div><div class="keu-strip-val ${calc.netProfit>=0?'keu-green':'keu-red'}">${fmtRp(calc.netProfit)}</div></div>
+    </div>` : `<div class="empty"><div class="empty-icon">📒</div>Belum ada transaksi<br><button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="openAddTransaksi()">+ Tambah Transaksi</button></div>`);
+}
+
+// ── DIKOPI BUKU KAS — mode kasir harian ──────────────────────
+function renderDikopiBuku() {
+  const allTxns = [...(db.keu['dikopi']||[])].filter(t=>t.tanggal?.startsWith(keuBukuPeriode)).sort((a,b)=>a.tanggal.localeCompare(b.tanggal));
+  const meta = db.keu._meta || {};
+  const saldoCashAwal = Number(meta[`dikopi_cash_${keuBukuPeriode}`]||0);
+  const saldoRekAwal  = Number(meta[`dikopi_rek_${keuBukuPeriode}`]||0);
+  const hasSetup = saldoCashAwal || saldoRekAwal || meta[`dikopi_setup_${keuBukuPeriode}`];
+
+  // Running totals per sumber
+  let cash=saldoCashAwal, rek=saldoRekAwal, shopee=0;
+  allTxns.forEach(t=>{
+    const n = Number(t.nominal)||0;
+    const src = t.sumber||'cash'; // cash | rekening | shopee
+    if(t.tipe==='mutasi') {
+      // mutasi: dari src ke dst
+      if(src==='cash')      { cash-=n; rek+=n; }
+      else if(src==='rek2shopee') { rek-=n; shopee+=n; }
+      else if(src==='shopee2rek') { shopee-=n; rek+=n; }
+      else                  { rek-=n; cash+=n; }
+    } else if(t.tipe==='masuk') {
+      if(src==='cash')      cash+=n;
+      else if(src==='shopee') shopee+=n;
+      else                  rek+=n;
+    } else { // keluar
+      if(src==='cash')      cash-=n;
+      else if(src==='shopee') shopee-=n;
+      else                  rek-=n;
+    }
+  });
+
+  // Calc summary
+  const txnOnly = allTxns.filter(t=>t.tipe!=='mutasi');
+  const totalPenjualan = txnOnly.filter(t=>getTxnClass(t)==='revenue').reduce((s,t)=>s+Number(t.nominal),0);
+  const totalHPP       = txnOnly.filter(t=>getTxnClass(t)==='hpp').reduce((s,t)=>s+Number(t.nominal),0);
+  const totalOps       = txnOnly.filter(t=>getTxnClass(t)==='operational').reduce((s,t)=>s+Number(t.nominal),0);
+
+  // Setup banner
+  const saldoSetup = !hasSetup ? `
+    <div style="background:rgba(245,166,35,0.1);border:1px solid rgba(245,166,35,0.3);border-radius:12px;padding:16px 18px;margin-bottom:16px">
+      <div style="font-weight:700;font-size:13px;margin-bottom:12px">💵 Setup Saldo Awal ${getBulanLabel(keuBukuPeriode)}</div>
+      <div class="form-row" style="margin-bottom:10px">
+        <div class="form-group">
+          <div class="form-label">🪙 Cash di Laci (Rp)</div>
+          <input class="form-input" id="ds_cash" type="text" inputmode="numeric" placeholder="0" oninput="hppFmtInput(this)">
+        </div>
+        <div class="form-group">
+          <div class="form-label">🏦 Saldo Rekening (Rp)</div>
+          <input class="form-input" id="ds_rek" type="text" inputmode="numeric" placeholder="0" oninput="hppFmtInput(this)">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="saveDikopiSaldoAwal()">Simpan Saldo Awal</button>
+    </div>` : `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:11px;color:var(--muted);font-family:'DM Mono',monospace">
+      Saldo awal: 🪙 Cash ${fmtRp(saldoCashAwal)} · 🏦 Rekening ${fmtRp(saldoRekAwal)}
+      <button class="btn btn-ghost btn-sm" onclick="editDikopiSaldoAwal()">✏️ Ubah</button>
+    </div>`;
+
+  // Saldo cards
+  const total = cash+rek;
+  const cards = `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+      <div class="keu-card" style="border-color:rgba(76,201,160,0.3)">
+        <div class="keu-label">🪙 Cash di Laci</div>
+        <div class="keu-val ${cash>=0?'keu-green':'keu-red'}" style="font-size:18px">${fmtRp(cash)}</div>
+      </div>
+      <div class="keu-card" style="border-color:rgba(77,158,247,0.3)">
+        <div class="keu-label">🏦 Saldo Rekening</div>
+        <div class="keu-val ${rek>=0?'':'keu-red'}" style="font-size:18px;color:var(--accent)">${fmtRp(rek)}</div>
+      </div>
+      <div class="keu-card" style="border:2px solid ${total>=0?'rgba(76,201,160,0.4)':'rgba(212,96,58,0.4)'}">
+        <div class="keu-label">💰 Total Aset Liquid</div>
+        <div class="keu-val ${total>=0?'keu-green':'keu-red'}" style="font-size:18px">${fmtRp(total)}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <div class="keu-card" style="border-color:rgba(255,121,0,0.35);background:rgba(255,121,0,0.05)">
+        <div class="keu-label" style="color:#ff7900">🛒 Shopee Wallet <span style="font-size:9px;background:rgba(255,121,0,0.15);padding:1px 6px;border-radius:99px;margin-left:4px">Pending Cair</span></div>
+        <div class="keu-val" style="font-size:18px;color:#ff7900">${fmtRp(shopee)}</div>
+      </div>
+      <div class="keu-card" style="border-color:rgba(139,111,255,0.3)">
+        <div class="keu-label">🏦 Total Aset (inc. Shopee)</div>
+        <div class="keu-val" style="font-size:18px;color:#8b6fff">${fmtRp(total+shopee)}</div>
+      </div>
+    </div>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;margin-bottom:14px;display:flex;gap:16px;flex-wrap:wrap;font-size:11px;font-family:'DM Mono',monospace">
+      <span>☕ Penjualan: <strong style="color:#4cc9a0">${fmtRp(totalPenjualan)}</strong></span>
+      <span>📦 HPP: <strong style="color:#f5a623">−${fmtRp(totalHPP)}</strong></span>
+      <span>💸 Ops: <strong style="color:var(--red)">−${fmtRp(totalOps)}</strong></span>
+      <span style="border-left:1px solid var(--border);padding-left:16px">Net: <strong style="color:${totalPenjualan-totalHPP-totalOps>=0?'#4cc9a0':'var(--red)'}">${fmtRp(totalPenjualan-totalHPP-totalOps)}</strong></span>
+    </div>`;
+
+  // Quick actions
+  const quickActions = `
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <button class="btn btn-sm" style="background:#4cc9a0;border-color:#4cc9a0;color:#080c14;font-weight:600" onclick="openDikopiPenjualan()">☕ + Penjualan</button>
+      <button class="btn btn-ghost btn-sm" style="border-color:#f5a623;color:#f5a623" onclick="openDikopiPengeluaran('hpp')">📦 + HPP</button>
+      <button class="btn btn-ghost btn-sm" style="border-color:var(--red);color:var(--red)" onclick="openDikopiPengeluaran('ops')">💸 + Pengeluaran</button>
+      <button class="btn btn-ghost btn-sm" style="border-color:var(--accent);color:var(--accent)" onclick="openDikopiMutasi()">🔄 Mutasi Cash ↔ Rek</button>
+      <button class="btn btn-ghost btn-sm" style="border-color:#ff7900;color:#ff7900" onclick="openDikopiCairShopee()">💸 Cairkan Shopee</button>
+      <button class="btn btn-ghost btn-sm" style="border-color:#9b82f5;color:#9b82f5" onclick="openDikopiSuntikan()">💉 + Suntikan Dana</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-sm" style="border-color:#ff9f43;color:#ff9f43;position:relative" onclick="openDikopiPrive()" title="Mengurangi uang usaha, tidak mengurangi profit.">💸 Ambil Uang Pribadi</button>
+      <button class="btn btn-ghost btn-sm" style="border-color:#8b6fff;color:#8b6fff;position:relative" onclick="openDikopiBeliAset()" title="Mengurangi uang usaha dan menambah aset, tidak mengurangi profit.">📦 Pembelian Aset</button>
+      <button class="btn btn-ghost btn-sm" style="border-color:#c0392b;color:#c0392b;position:relative" onclick="openDikopiDistribusiLaba()" title="Pembagian keuntungan kepada pemilik. Tidak mempengaruhi profit bulan berjalan.">💰 Distribusi Laba</button>
+    </div>`;
+
+  // Business day grouping — transaksi sebelum jam 05:00 masuk ke hari sebelumnya
+  function businessDay(t) {
+    if (!t.created_at) return t.tanggal; // fallback ke tanggal tersimpan
+    const dt = new Date(t.created_at);
+    if (dt.getHours() < DIKOPI_CUTOFF_HOUR) {
+      const prev = new Date(dt.getTime() - 24*60*60*1000);
+      return prev.toISOString().split('T')[0];
+    }
+    return dt.toISOString().split('T')[0];
+  }
+
+  // Day blocks
+  const byDate = {};
+  allTxns.forEach(t=>{ const d=businessDay(t); if(!byDate[d])byDate[d]=[]; byDate[d].push(t); });
+
+  const dayBlocks = Object.keys(byDate).sort().reverse().map(date=>{
+    const dayTxns = byDate[date];
+    const dPenjualan = dayTxns.filter(t=>getTxnClass(t)==='revenue').reduce((s,t)=>s+Number(t.nominal),0);
+    const dHPP       = dayTxns.filter(t=>getTxnClass(t)==='hpp').reduce((s,t)=>s+Number(t.nominal),0);
+    const dOps       = dayTxns.filter(t=>getTxnClass(t)==='operational').reduce((s,t)=>s+Number(t.nominal),0);
+    const dMutasi    = dayTxns.filter(t=>t.tipe==='mutasi');
+    const dNet       = dPenjualan - dHPP - dOps;
+
+    const rows = dayTxns.map(t=>{
+      const n=Number(t.nominal)||0;
+      const src=t.sumber||'cash';
+      const srcIcon = src==='cash'?'🪙':src==='shopee'?'🛒':'🏦';
+      let color, badge, prefix;
+      if(t.tipe==='mutasi'){
+        color='var(--accent)'; badge='MUTASI'; prefix='↔';
+        let mutasiDesc = esc(t.deskripsi||'Mutasi');
+        let mutasiColor = 'var(--accent)';
+        let mutasiBg = 'rgba(77,158,247,0.1)';
+        if(t.sumber==='shopee2rek') { badge='CAIR'; mutasiColor='#ff7900'; mutasiBg='rgba(255,121,0,0.1)'; }
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+          <span style="font-size:9px;padding:2px 7px;border-radius:99px;background:${mutasiBg};color:${mutasiColor};font-family:'DM Mono',monospace;font-weight:700">${badge}</span>
+          <span style="font-size:12px;color:var(--text2);flex:1">${t.sumber==='shopee2rek'?'🛒→🏦':t.sumber==='rek2shopee'?'🏦→🛒':'🪙↔🏦'} ${mutasiDesc}</span>
+          <span style="font-family:'DM Mono',monospace;font-size:12px;color:${mutasiColor}">↔ ${fmtRp(n)}</span>
+          <div style="display:flex;gap:2px">
+            <button class="tbl-action-btn tbl-del" onclick="deleteTransaksi('dikopi',${t.id})">🗑️</button>
+          </div>
+        </div>`;
+      }
+      const tc = getTxnClass(t);
+      const isHPP      = tc==='hpp';
+      const isSuntikan = tc==='capital_injection';
+      const isModal    = t.kategori==='Tambahan Modal';
+      const isPenjualan= tc==='revenue';
+      const isShopee   = src==='shopee' && t.tipe==='masuk';
+      const isPrive    = tc==='owner_draw';
+      const isLaba     = tc==='profit_distribution';
+      const isAset     = tc==='asset_purchase';
+      color = isPrive?'#ff9f43':isLaba?'#c0392b':isAset?'#8b6fff':isSuntikan?'#8b6fff':isModal?'#8b6fff':isShopee?'#ff7900':isPenjualan?'#4cc9a0':isHPP?'#f5a623':'var(--red)';
+      badge = isPrive?'PRIVE':isLaba?'LABA':isAset?'ASET':isSuntikan?'DANA':isModal?'MODAL':isShopee?'SHOPEE':isPenjualan?'JUAL':isHPP?'HPP':'OPS';
+      prefix = t.tipe==='masuk'?'+':'−';
+      const badgeBg = isPrive?'rgba(255,159,67,0.1)':isLaba?'rgba(192,57,43,0.1)':isAset?'rgba(139,111,255,0.1)':isSuntikan||isModal?'rgba(139,111,255,0.1)':isShopee?'rgba(255,121,0,0.1)':isPenjualan?'rgba(76,201,160,0.1)':isHPP?'rgba(245,166,35,0.1)':'rgba(212,96,58,0.1)';
+      const { hasEdit: dkHasEdit, createdStr: dkCreated, updatedStr: dkUpdated } = txnTimestampMeta(t);
+      const dkClockTitle = dkHasEdit
+        ? `Diinput: ${dkCreated}&#10;Terakhir diedit: ${dkUpdated}`
+        : `Diinput: ${dkCreated}`;
+      const dkEditedBadge = dkHasEdit
+        ? `<span style="font-size:9px;padding:1px 5px;border-radius:99px;background:rgba(255,156,0,0.12);color:#ffb347;font-family:'DM Mono',monospace;margin-left:4px">edited</span>`
+        : '';
+      const dkTimeStr = t.created_at ? new Date(t.created_at).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}) : '';
+      const dkEditTimeStr = dkHasEdit ? ` · ✏️ ${new Date(t.updated_at).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})}` : '';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:9px;padding:2px 7px;border-radius:99px;background:${badgeBg};color:${color};font-family:'DM Mono',monospace;font-weight:700">${badge}</span>
+        <span style="font-size:10px">${srcIcon}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;color:var(--text2)">${esc(t.deskripsi||t.kategori)}${dkEditedBadge}</div>
+          ${dkTimeStr?`<div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:1px">${dkTimeStr}${dkEditTimeStr}</div>`:''}
+        </div>
+        <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:${color}">${prefix}${fmtRp(n)}</span>
+        <div style="display:flex;gap:2px">
+          ${t.nota?`<button class="tbl-action-btn" onclick="previewNota('dikopi',${t.id})">👁</button>`:''}
+          <button class="tbl-action-btn" style="color:${dkHasEdit?'#ffb347':'var(--muted)'}" onclick="openTxnHistory('dikopi',${t.id})" title="${dkClockTitle}">🕐</button>
+          <button class="tbl-action-btn tbl-edit" onclick="openEditTransaksi('dikopi',${t.id})">✏️</button>
+          <button class="tbl-action-btn tbl-del" onclick="deleteTransaksi('dikopi',${t.id})">🗑️</button>
+        </div>
+      </div>`;
+    }).join('');
+
+    const d = new Date(date+'T00:00:00');
+    const dayLabel = d.toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long'});
+    return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface3);border-bottom:1px solid var(--border);flex-wrap:wrap;gap:6px">
+        <span style="font-weight:700;font-size:13px">${dayLabel}</span>
+        <div style="display:flex;gap:10px;font-size:11px;font-family:'DM Mono',monospace;flex-wrap:wrap">
+          ${dPenjualan?`<span style="color:#4cc9a0">+${fmtRp(dPenjualan)}</span>`:''}
+          ${dHPP?`<span style="color:#f5a623">−${fmtRp(dHPP)}</span>`:''}
+          ${dOps?`<span style="color:var(--red)">−${fmtRp(dOps)}</span>`:''}
+          ${dMutasi.length?`<span style="color:var(--accent)">↔ mutasi</span>`:''}
+          <span style="color:${dNet>=0?'#4cc9a0':'var(--red)'};font-weight:700;border-left:1px solid var(--border);padding-left:10px">= ${fmtRp(dNet)}</span>
+        </div>
+      </div>
+      <div style="padding:4px 14px">${rows}</div>
+    </div>`;
+  }).join('');
+
+  const emptyState = !allTxns.length ? `<div class="empty"><div class="empty-icon">☕</div>Belum ada transaksi Dikopi di ${getBulanLabel(keuBukuPeriode)}</div>` : '';
+
+  return saldoSetup + cards + quickActions + (dayBlocks || emptyState);
+}
+
+// ── DIKOPI SALDO AWAL ─────────────────────────────────────────
+async function saveDikopiSaldoAwal() {
+  if(!dirHandle){toast('⚠️ Pilih folder dulu','error');return;}
+  const cash = parseFloat((document.getElementById('ds_cash')?.value||'0').replace(/\./g,''))||0;
+  const rek  = parseFloat((document.getElementById('ds_rek')?.value||'0').replace(/\./g,''))||0;
+  if(!db.keu._meta) db.keu._meta={};
+  db.keu._meta[`dikopi_cash_${keuBukuPeriode}`]  = cash;
+  db.keu._meta[`dikopi_rek_${keuBukuPeriode}`]   = rek;
+  db.keu._meta[`dikopi_setup_${keuBukuPeriode}`] = true;
+  await saveKeu();
+  toast('✅ Saldo awal disimpan!','success');
+  render();
+}
+
+function editDikopiSaldoAwal() {
+  const meta = db.keu._meta||{};
+  const cash = Number(meta[`dikopi_cash_${keuBukuPeriode}`]||0);
+  const rek  = Number(meta[`dikopi_rek_${keuBukuPeriode}`]||0);
+  document.getElementById('modalTitle').textContent = '💵 Ubah Saldo Awal';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">🪙 Cash di Laci (Rp)</div>
+        <input class="form-input" id="es_cash" type="text" inputmode="numeric" value="${cash?Number(cash).toLocaleString('id-ID'):''}" placeholder="0" oninput="hppFmtInput(this)">
+      </div>
+      <div class="form-group">
+        <div class="form-label">🏦 Saldo Rekening (Rp)</div>
+        <input class="form-input" id="es_rek" type="text" inputmode="numeric" value="${rek?Number(rek).toLocaleString('id-ID'):''}" placeholder="0" oninput="hppFmtInput(this)">
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">Cash = uang tunai di laci · Rekening = saldo di bank/dompet digital</div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="submitEditSaldoAwal()">💾 Simpan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('es_cash')?.focus(),80);
+}
+
+async function submitEditSaldoAwal() {
+  if(!dirHandle){toast('⚠️ Pilih folder dulu','error');return;}
+  if(!db.keu._meta) db.keu._meta={};
+  db.keu._meta[`dikopi_cash_${keuBukuPeriode}`]  = parseFloat((document.getElementById('es_cash')?.value||'0').replace(/\./g,''))||0;
+  db.keu._meta[`dikopi_rek_${keuBukuPeriode}`]   = parseFloat((document.getElementById('es_rek')?.value||'0').replace(/\./g,''))||0;
+  db.keu._meta[`dikopi_setup_${keuBukuPeriode}`] = true;
+  await saveKeu();
+  closeModal(); toast('✅ Saldo awal diperbarui!','success'); render();
+}
+
+// ── DIKOPI FORM PENJUALAN ─────────────────────────────────────
+let _penjualanItems = [];
+
+function openDikopiPenjualan() {
+  _penjualanItems = [];
+  const resepOptions = (db.resep||[]).map(r => {
+    const hpp = hitungHPPResep(r);
+    return `<option value="${r.id}" data-hj="${r.hargaJual||0}" data-hpp="${hpp.toFixed(0)}">${esc(r.nama)} — ${fmtRp(r.hargaJual||0)}</option>`;
+  }).join('');
+  document.getElementById('modalTitle').textContent = '☕ Catat Penjualan Dikopi';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Tanggal</div>
+        <input class="form-input" id="dkp_tanggal" placeholder="DD/MM/YYYY" maxlength="10" oninput="autoSlashDate(this)" value="${toDisplayDate(todayStr())}">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Metode Pembayaran</div>
+        <select class="form-select" id="dkp_sumber">
+          <option value="cash">🪙 Tunai → Cash</option>
+          <option value="rekening">🏦 QRIS / Transfer → Rekening</option>
+          <option value="shopee">🛒 Shopee → Shopee Wallet</option>
+        </select>
+      </div>
+    </div>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px">
+      <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:var(--text2)">📋 Input per Menu <span style="font-weight:400;color:var(--muted)">(opsional — untuk kalkulasi HPP & margin otomatis)</span></div>
+      <div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-end;flex-wrap:wrap">
+        <div class="form-group" style="flex:2;margin-bottom:0;min-width:150px">
+          <div class="form-label">Menu</div>
+          <select class="form-select" id="dkp_resep_pick">
+            <option value="">-- Pilih menu --</option>
+            ${resepOptions}
+          </select>
+        </div>
+        <div class="form-group" style="flex:0 0 70px;margin-bottom:0">
+          <div class="form-label">Qty</div>
+          <input class="form-input" id="dkp_item_qty" type="number" min="1" value="1">
+        </div>
+        <button class="btn btn-ghost btn-sm" style="flex-shrink:0;height:36px" onclick="addPenjualanItem()">+ Add</button>
+      </div>
+      <div id="dkp_items_list"><div style="font-size:11px;color:var(--muted)">Belum ada item. Input item untuk kalkulasi margin otomatis.</div></div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Total Penjualan (Rp) *</div>
+      <input class="form-input" id="dkp_nominal" type="text" inputmode="numeric" placeholder="0" oninput="hppFmtInput(this)">
+    </div>
+    <div class="form-group">
+      <div class="form-label">Keterangan <span style="color:var(--muted);font-size:10px">(opsional)</span></div>
+      <input class="form-input" id="dkp_desk" placeholder="Penjualan hari ini, event, dll...">
+    </div>
+    <div class="form-group">
+      <div class="form-label">Upload Nota <span style="color:var(--muted);font-size:10px">(opsional)</span></div>
+      <input type="file" id="dkp_nota" accept="image/*,.pdf" style="font-size:12px" onchange="keuPreviewNota(this)">
+      <div id="kt_nota_preview" style="margin-top:8px"></div>
+    </div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" style="background:#4cc9a0;border-color:#4cc9a0;color:#080c14" onclick="submitDikopiPenjualan()">💾 Simpan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('dkp_nominal')?.focus(),80);
+}
+
+function addPenjualanItem() {
+  const sel = document.getElementById('dkp_resep_pick');
+  const qty = parseInt(document.getElementById('dkp_item_qty')?.value)||1;
+  if (!sel || !sel.value) { toast('⚠️ Pilih menu dulu','error'); return; }
+  const opt = sel.options[sel.selectedIndex];
+  const resepId = parseInt(sel.value);
+  const hargaJual = parseFloat(opt.dataset.hj)||0;
+  const hppSnapshot = parseFloat(opt.dataset.hpp)||0;
+  const nama = opt.text.split(' — ')[0];
+  const existing = _penjualanItems.find(x=>x.resepId===resepId);
+  if (existing) existing.qty += qty;
+  else _penjualanItems.push({ resepId, nama, hargaJual, hppSnapshot, qty });
+  rerenderPenjualanItems();
+}
+
+function removePenjualanItem(resepId) {
+  _penjualanItems = _penjualanItems.filter(x=>x.resepId!==resepId);
+  rerenderPenjualanItems();
+}
+
+function rerenderPenjualanItems() {
+  const el = document.getElementById('dkp_items_list');
+  if (!el) return;
+  if (!_penjualanItems.length) {
+    el.innerHTML = '<div style="font-size:11px;color:var(--muted)">Belum ada item. Input item untuk kalkulasi margin otomatis.</div>';
+    return;
+  }
+  const totalOmzet = _penjualanItems.reduce((s,i)=>s+i.hargaJual*i.qty,0);
+  const totalHPP   = _penjualanItems.reduce((s,i)=>s+i.hppSnapshot*i.qty,0);
+  const margin     = totalOmzet - totalHPP;
+  const rows = _penjualanItems.map(i =>
+    `<tr style="border-top:1px solid var(--border)">
+      <td style="padding:5px 8px;font-weight:600;font-size:12px">${esc(i.nama)}</td>
+      <td style="padding:5px 8px;text-align:center;font-family:'DM Mono',monospace;font-size:12px">×${i.qty}</td>
+      <td style="padding:5px 8px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;color:#4cc9a0">${fmtRp(i.hargaJual*i.qty)}</td>
+      <td style="padding:5px 8px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;color:var(--muted)">${fmtRp(i.hppSnapshot*i.qty)}</td>
+      <td style="padding:2px 4px"><button onclick="removePenjualanItem(${i.resepId})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;line-height:1">×</button></td>
+    </tr>`
+  ).join('');
+  el.innerHTML = `
+    <div style="border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:8px">
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:var(--surface3)">
+          <th style="padding:5px 8px;text-align:left;font-size:10px;color:var(--muted)">Menu</th>
+          <th style="padding:5px 8px;text-align:center;font-size:10px;color:var(--muted)">Qty</th>
+          <th style="padding:5px 8px;text-align:right;font-size:10px;color:var(--muted)">Subtotal</th>
+          <th style="padding:5px 8px;text-align:right;font-size:10px;color:var(--muted)">HPP</th>
+          <th style="width:24px"></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div style="display:flex;gap:16px;font-size:11px;font-family:'DM Mono',monospace;background:var(--surface3);border-radius:6px;padding:7px 10px">
+      <span>Omzet: <strong style="color:#4cc9a0">${fmtRp(totalOmzet)}</strong></span>
+      <span>HPP: <strong style="color:#f5a623">${fmtRp(totalHPP)}</strong></span>
+      <span>Margin: <strong style="color:${margin>=0?'#4cc9a0':'var(--red)'}">${fmtRp(margin)}</strong></span>
+    </div>`;
+  const nomEl = document.getElementById('dkp_nominal');
+  if (nomEl) { const v = String(totalOmzet); nomEl.value=v; hppFmtInput(nomEl); }
+}
+
+async function submitDikopiPenjualan() {
+  if(!dirHandle){toast('⚠️ Pilih folder dulu','error');return;}
+  const nominal = parseFloat((gv('dkp_nominal')||'0').replace(/\./g,''))||0;
+  if(!nominal){toast('⚠️ Nominal tidak boleh 0','error');return;}
+  const prev = document.getElementById('kt_nota_preview');
+  const savedItems = _penjualanItems.length
+    ? _penjualanItems.map(i=>({resepId:i.resepId,nama:i.nama,hargaJual:i.hargaJual,hppSnapshot:i.hppSnapshot,qty:i.qty}))
+    : null;
+  const item = {
+    id:Date.now(), tanggal:toStorageDate(gv('dkp_tanggal')),
+    deskripsi:gv('dkp_desk')||'Penjualan', kategori:'Penjualan Langsung',
+    tipe:'masuk', sumber:gv('dkp_sumber')||'cash', nominal,
+    items: savedItems,
+    nota:prev?.dataset?.nota||null, nota_type:prev?.dataset?.notaType||null,
+    created_at:new Date().toISOString()
+  };
+  if(!db.keu.dikopi) db.keu.dikopi=[];
+  db.keu.dikopi.push(item);
+  keuBukuPeriode = item.tanggal.substring(0,7);
+  _penjualanItems = [];
+  await saveKeu();
+  closeModal(); toast('✅ Penjualan dicatat!','success'); render();
+}
+
+// ── DIKOPI FORM PENGELUARAN ───────────────────────────────────
+const DIKOPI_HPP_ITEMS = ['Biji Kopi','Susu','Gula','Sirup','Cup & Lid','Sedotan','Kantong Plastik','Es Batu','Lain-lain HPP'];
+const DIKOPI_OPS_ITEMS = ['Gaji/Honorarium','Listrik','Gas','Air','Sewa','Biaya Admin','Iklan & Marketing','Transportasi','Lain-lain'];
+
+function openDikopiPengeluaran(jenis='hpp') {
+  const isHPP = jenis==='hpp';
+  const items = isHPP ? DIKOPI_HPP_ITEMS : DIKOPI_OPS_ITEMS;
+  document.getElementById('modalTitle').textContent = isHPP ? '📦 Catat HPP / Pembelian Bahan' : '💸 Catat Pengeluaran Operasional';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Tanggal</div>
+        <input class="form-input" id="dke_tanggal" placeholder="DD/MM/YYYY" maxlength="10" oninput="autoSlashDate(this)" value="${toDisplayDate(todayStr())}">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Bayar Dari</div>
+        <select class="form-select" id="dke_sumber">
+          <option value="cash">🪙 Cash</option>
+          <option value="rekening">🏦 Rekening / Transfer</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">${isHPP?'Item':'Kategori'}</div>
+        <select class="form-select" id="dke_kategori">
+          ${items.map(k=>`<option value="${k}">${k}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Keterangan / Detail *</div>
+      <input class="form-input" id="dke_desk" placeholder="${isHPP?'Beli biji kopi 1kg @ 80rb...':'Gaji karyawan bulan Mei...'}">
+    </div>
+    <div class="form-group">
+      <div class="form-label">Nominal (Rp) *</div>
+      <input class="form-input" id="dke_nominal" type="text" inputmode="numeric" placeholder="0" oninput="hppFmtInput(this)">
+    </div>
+    <div class="form-group">
+      <div class="form-label">Upload Nota <span style="color:var(--muted);font-size:10px">(opsional)</span></div>
+      <input type="file" id="dke_nota_file" accept="image/*,.pdf" style="font-size:12px" onchange="keuPreviewNota(this)">
+      <div id="kt_nota_preview" style="margin-top:8px"></div>
+    </div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" style="${isHPP?'background:#f5a623;border-color:#f5a623;color:#080c14':'background:var(--red);border-color:var(--red)'}" onclick="submitDikopiPengeluaran('${jenis}')">💾 Simpan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('dke_desk')?.focus(),80);
+}
+
+async function submitDikopiPengeluaran(jenis) {
+  if(!dirHandle){toast('⚠️ Pilih folder dulu','error');return;}
+  const nominal = parseFloat((gv('dke_nominal')||'0').replace(/\./g,''))||0;
+  const desk = gv('dke_desk').trim();
+  if(!nominal){toast('⚠️ Nominal tidak boleh 0','error');return;}
+  if(!desk){toast('⚠️ Keterangan tidak boleh kosong','error');return;}
+  const prev = document.getElementById('kt_nota_preview');
+  const item = {
+    id:Date.now(), tanggal:toStorageDate(gv('dke_tanggal')),
+    deskripsi:desk, kategori:gv('dke_kategori'),
+    tipe:'keluar', sumber:gv('dke_sumber')||'cash', nominal,
+    nota:prev?.dataset?.nota||null, nota_type:prev?.dataset?.notaType||null,
+    created_at:new Date().toISOString()
+  };
+  if(!db.keu.dikopi) db.keu.dikopi=[];
+  db.keu.dikopi.push(item);
+  keuBukuBrand='dikopi';
+  keuBukuPeriode = item.tanggal.substring(0,7);
+  await saveKeu();
+  closeModal();
+  toast(`✅ ${jenis==='hpp'?'HPP':'Pengeluaran'} dicatat!`,'success');
+  render();
+}
+
+// ── DIKOPI MUTASI CASH ↔ REKENING ────────────────────────────
+function openDikopiMutasi() {
+  document.getElementById('modalTitle').textContent = '🔄 Mutasi Dana';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="font-size:12px;color:var(--muted);background:var(--surface2);border-radius:8px;padding:10px 14px;margin-bottom:14px;line-height:1.7">
+      Mutasi memindahkan uang antar Cash dan Rekening <strong>tanpa mempengaruhi total aset</strong>.<br>
+      <span style="color:var(--accent)">Contoh: setor hasil QRIS ke rekening, atau ambil uang tunai dari ATM.</span>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Tanggal</div>
+        <input class="form-input" id="dkm_tanggal" placeholder="DD/MM/YYYY" maxlength="10" oninput="autoSlashDate(this)" value="${toDisplayDate(todayStr())}">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Arah Mutasi</div>
+        <select class="form-select" id="dkm_dari">
+          <option value="cash">🪙 Cash → 🏦 Rekening</option>
+          <option value="rekening">🏦 Rekening → 🪙 Cash</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Nominal (Rp) *</div>
+      <input class="form-input" id="dkm_nominal" type="text" inputmode="numeric" placeholder="0" oninput="hppFmtInput(this)">
+    </div>
+    <div class="form-group">
+      <div class="form-label">Keterangan <span style="color:var(--muted);font-size:10px">(opsional)</span></div>
+      <input class="form-input" id="dkm_desk" placeholder="Setor QRIS hari ini, ambil cash untuk belanja bahan...">
+    </div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="submitDikopiMutasi()">🔄 Catat Mutasi</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('dkm_nominal')?.focus(),80);
+}
+
+async function submitDikopiMutasi() {
+  if(!dirHandle){toast('⚠️ Pilih folder dulu','error');return;}
+  const nominal = parseFloat((gv('dkm_nominal')||'0').replace(/\./g,''))||0;
+  if(!nominal){toast('⚠️ Nominal tidak boleh 0','error');return;}
+  const dari = gv('dkm_dari');
+  const item = {
+    id:Date.now(), tanggal:toStorageDate(gv('dkm_tanggal')),
+    deskripsi:gv('dkm_desk')||(dari==='cash'?'Setor Cash ke Rekening':'Ambil dari Rekening ke Cash'),
+    kategori:'Mutasi', tipe:'mutasi', sumber:dari, nominal,
+    nota:null, nota_type:null, created_at:new Date().toISOString()
+  };
+  if(!db.keu.dikopi) db.keu.dikopi=[];
+  db.keu.dikopi.push(item);
+  keuBukuPeriode = item.tanggal.substring(0,7);
+  await saveKeu();
+  closeModal();
+  toast('✅ Mutasi dicatat!','success');
+  render();
+}
+
+function openDikopiCairShopee() {
+  const today = toDisplayDate(todayStr());
+  document.getElementById('modalTitle').textContent = '💸 Cairkan Shopee → Rekening';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="font-size:12px;color:#ff7900;background:rgba(255,121,0,0.06);border:1px solid rgba(255,121,0,0.25);border-radius:8px;padding:10px 14px;margin-bottom:14px;line-height:1.8">
+      Isi nominal <strong>pemasukan kotor</strong> dari Shopee (sebelum dipotong admin).<br>
+      Otomatis buat 2 entri: <strong>biaya admin keluar Shopee</strong> + <strong>net masuk Rekening</strong>.
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Tanggal Cair</div>
+        <input class="form-input" id="dcs_tanggal" placeholder="DD/MM/YYYY" maxlength="10" value="${today}" oninput="autoSlashDate(this)">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Total dari Shopee (Rp) *</div>
+        <input class="form-input" id="dcs_nominal" type="text" inputmode="numeric" placeholder="40.000" oninput="hppFmtInput(this);dcsUpdateNet()">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Potongan Admin Shopee (Rp)</div>
+        <input class="form-input" id="dcs_admin" type="text" inputmode="numeric" placeholder="0" oninput="hppFmtInput(this);dcsUpdateNet()">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Yang Masuk Rekening (auto)</div>
+        <input class="form-input" id="dcs_net" readonly style="opacity:0.7;cursor:default;color:#4cc9a0;font-weight:700" placeholder="Rp 0" value="Rp 0">
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Keterangan</div>
+      <input class="form-input" id="dcs_ket" placeholder="Withdrawal Shopee ke BRI..." value="Withdrawal Shopee">
+    </div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" style="background:#ff7900;border-color:#ff7900" onclick="submitDikopiCairShopee()">💸 Cairkan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('dcs_nominal')?.focus(),80);
+}
+
+function dcsUpdateNet() {
+  const gross = parseFloat((document.getElementById('dcs_nominal')?.value||'0').replace(/\./g,''))||0;
+  const admin = parseFloat((document.getElementById('dcs_admin')?.value||'0').replace(/\./g,''))||0;
+  const net = Math.max(gross - admin, 0);
+  const el = document.getElementById('dcs_net');
+  if(el) el.value = 'Rp ' + net.toLocaleString('id-ID');
+}
+
+async function submitDikopiCairShopee() {
+  if(!dirHandle){toast('⚠️ Pilih folder dulu','error');return;}
+  const gross  = parseFloat((gv('dcs_nominal')||'0').replace(/\./g,''))||0;
+  const admin  = parseFloat((gv('dcs_admin')||'0').replace(/\./g,''))||0;
+  const net    = gross - admin;
+  if(!gross){toast('⚠️ Nominal tidak boleh 0','error');return;}
+  if(net < 0){toast('⚠️ Potongan admin melebihi total','error');return;}
+  const tanggal = toStorageDate(gv('dcs_tanggal'));
+  const ket     = gv('dcs_ket')||'Withdrawal Shopee';
+  const ts      = Date.now();
+  if(!db.keu.dikopi) db.keu.dikopi=[];
+
+  // Entry 1: biaya admin Shopee (keluar dari shopee wallet sebagai expense)
+  if(admin > 0) {
+    db.keu.dikopi.push({
+      id: ts, tanggal,
+      deskripsi: 'Biaya Admin Shopee — '+ket,
+      kategori: 'Biaya Admin & Dokumen',
+      tipe: 'keluar', sumber: 'shopee',
+      nominal: admin,
+      nota: null, nota_type: null,
+      created_at: new Date().toISOString()
+    });
+  }
+
+  // Entry 2: mutasi shopee → rekening (net yang cair)
+  db.keu.dikopi.push({
+    id: ts+1, tanggal,
+    deskripsi: ket + (admin>0 ? ` (net setelah admin Rp${admin.toLocaleString('id-ID')})` : ''),
+    kategori: 'Mutasi',
+    tipe: 'mutasi', sumber: 'shopee2rek',
+    nominal: net,
+    nota: null, nota_type: null,
+    created_at: new Date().toISOString()
+  });
+
+  keuBukuPeriode = tanggal.substring(0,7);
+  await saveKeu();
+  closeModal();
+
+  const msg = admin > 0
+    ? `✅ Shopee dicairkan! Masuk rekening ${fmtRp(net)} · Admin ${fmtRp(admin)}`
+    : `✅ Shopee dicairkan ke Rekening!`;
+  toast(msg, 'success');
+  render();
+}
+
+// ── DIKOPI AMBIL UANG PRIBADI (PRIVE) ────────────────────────
+function openDikopiPrive() {
+  const today = toDisplayDate(todayStr());
+  document.getElementById('modalTitle').textContent = '💸 Ambil Uang Pribadi (Prive)';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="background:rgba(255,159,67,0.08);border:1px solid rgba(255,159,67,0.3);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#ff9f43;line-height:1.7">
+      💡 <strong>Prive</strong> — Mengurangi uang usaha, <strong>tidak mengurangi profit</strong>.<br>
+      Ini bukan biaya operasional. Profit bisnis tetap terhitung penuh.
+    </div>
+    <div class="form-row">
+      <div class="form-group"><div class="form-label">Tanggal</div><input class="form-input" id="dpv_tgl" placeholder="DD/MM/YYYY" maxlength="10" value="${today}" oninput="autoSlashDate(this)"></div>
+      <div class="form-group"><div class="form-label">Nominal (Rp) *</div><input class="form-input" id="dpv_nom" type="text" inputmode="numeric" placeholder="0" oninput="hppFmtInput(this)"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><div class="form-label">Sumber Dana</div>
+        <select class="form-select" id="dpv_src"><option value="cash">🪙 Cash</option><option value="rekening">🏦 Rekening</option></select>
+      </div>
+      <div class="form-group"><div class="form-label">Keterangan</div><input class="form-input" id="dpv_ket" placeholder="Ambil untuk kebutuhan pribadi..."></div>
+    </div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" style="background:#ff9f43;border-color:#ff9f43;color:#080c14" onclick="submitDikopiPrive()">💾 Simpan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('dpv_nom')?.focus(),80);
+}
+async function submitDikopiPrive() {
+  if(!dirHandle){toast('⚠️ Pilih folder dulu','error');return;}
+  const nom = parseFloat((gv('dpv_nom')||'0').replace(/\./g,''))||0;
+  if(!nom){toast('⚠️ Nominal tidak boleh 0','error');return;}
+  const t = {
+    id:Date.now(), tanggal:toStorageDate(gv('dpv_tgl')),
+    deskripsi: gv('dpv_ket')||'Ambil Uang Pribadi',
+    kategori:'Ambil Uang Pribadi', transaction_class:'owner_draw',
+    tipe:'keluar', sumber:gv('dpv_src')||'cash', nominal:nom,
+    nota:null, nota_type:null, created_at:new Date().toISOString()
+  };
+  if(!db.keu.dikopi) db.keu.dikopi=[];
+  db.keu.dikopi.push(t);
+  await saveKeu(); closeModal(); toast('✅ Prive dicatat!','success'); render();
+}
+
+// ── DIKOPI PEMBELIAN ASET ─────────────────────────────────────
+function openDikopiBeliAset() {
+  const today = toDisplayDate(todayStr());
+  document.getElementById('modalTitle').textContent = '📦 Pembelian Aset';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="background:rgba(139,111,255,0.08);border:1px solid rgba(139,111,255,0.3);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#8b6fff;line-height:1.7">
+      💡 <strong>Pembelian Aset</strong> — Mengurangi uang usaha dan menambah aset, <strong>tidak mengurangi profit</strong>.<br>
+      Aset akan otomatis tercatat di modul Aset.
+    </div>
+    <div class="form-row">
+      <div class="form-group"><div class="form-label">Tanggal</div><input class="form-input" id="das_tgl" placeholder="DD/MM/YYYY" maxlength="10" value="${today}" oninput="autoSlashDate(this)"></div>
+      <div class="form-group"><div class="form-label">Nominal (Rp) *</div><input class="form-input" id="das_nom" type="text" inputmode="numeric" placeholder="0" oninput="hppFmtInput(this)"></div>
+    </div>
+    <div class="form-group"><div class="form-label">Nama Aset *</div><input class="form-input" id="das_nama" placeholder="Mesin Grinder, Laptop, Meja Kasir..."></div>
+    <div class="form-row">
+      <div class="form-group"><div class="form-label">Sumber Dana</div>
+        <select class="form-select" id="das_src"><option value="cash">🪙 Cash</option><option value="rekening">🏦 Rekening</option></select>
+      </div>
+      <div class="form-group"><div class="form-label">Keterangan</div><input class="form-input" id="das_ket" placeholder="Untuk operasional..."></div>
+    </div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" style="background:#8b6fff;border-color:#8b6fff" onclick="submitDikopiBeliAset()">💾 Simpan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('das_nama')?.focus(),80);
+}
+async function submitDikopiBeliAset() {
+  if(!dirHandle){toast('⚠️ Pilih folder dulu','error');return;}
+  const nom  = parseFloat((gv('das_nom')||'0').replace(/\./g,''))||0;
+  const nama = gv('das_nama').trim();
+  if(!nom){toast('⚠️ Nominal tidak boleh 0','error');return;}
+  if(!nama){toast('⚠️ Nama aset tidak boleh kosong','error');return;}
+  const ts = Date.now();
+  const tanggal = toStorageDate(gv('das_tgl'));
+  const src = gv('das_src')||'cash';
+  // Buat transaksi keluar
+  if(!db.keu.dikopi) db.keu.dikopi=[];
+  db.keu.dikopi.push({
+    id:ts, tanggal, deskripsi:'Beli Aset: '+nama,
+    kategori:'Pembelian Aset', transaction_class:'asset_purchase',
+    tipe:'keluar', sumber:src, nominal:nom,
+    nota:null, nota_type:null, created_at:new Date().toISOString()
+  });
+  // Buat record aset otomatis
+  if(!db.aset) db.aset=[];
+  db.aset.push({ id:ts+1, nama, tanggal, nominal:nom, sumber:src, keterangan:gv('das_ket')||'' });
+  await saveKeu(); await saveDB('aset');
+  closeModal(); toast('✅ Aset dicatat + transaksi tersimpan!','success'); render();
+}
+
+// ── DIKOPI DISTRIBUSI LABA ────────────────────────────────────
+function openDikopiDistribusiLaba() {
+  const today = toDisplayDate(todayStr());
+  document.getElementById('modalTitle').textContent = '💰 Distribusi Laba';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="background:rgba(192,57,43,0.08);border:1px solid rgba(192,57,43,0.3);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#e74c3c;line-height:1.7">
+      💡 <strong>Distribusi Laba</strong> — Pembagian keuntungan kepada pemilik.<br>
+      <strong>Tidak mempengaruhi profit bulan berjalan.</strong>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><div class="form-label">Tanggal</div><input class="form-input" id="ddl_tgl" placeholder="DD/MM/YYYY" maxlength="10" value="${today}" oninput="autoSlashDate(this)"></div>
+      <div class="form-group"><div class="form-label">Nominal (Rp) *</div><input class="form-input" id="ddl_nom" type="text" inputmode="numeric" placeholder="0" oninput="hppFmtInput(this)"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><div class="form-label">Sumber Dana</div>
+        <select class="form-select" id="ddl_src"><option value="rekening">🏦 Rekening</option><option value="cash">🪙 Cash</option></select>
+      </div>
+      <div class="form-group"><div class="form-label">Keterangan</div><input class="form-input" id="ddl_ket" placeholder="Distribusi laba Q1 2026..."></div>
+    </div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" style="background:#c0392b;border-color:#c0392b" onclick="submitDikopiDistribusiLaba()">💾 Simpan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('ddl_nom')?.focus(),80);
+}
+async function submitDikopiDistribusiLaba() {
+  if(!dirHandle){toast('⚠️ Pilih folder dulu','error');return;}
+  const nom = parseFloat((gv('ddl_nom')||'0').replace(/\./g,''))||0;
+  if(!nom){toast('⚠️ Nominal tidak boleh 0','error');return;}
+  const t = {
+    id:Date.now(), tanggal:toStorageDate(gv('ddl_tgl')),
+    deskripsi: gv('ddl_ket')||'Distribusi Laba',
+    kategori:'Distribusi Laba', transaction_class:'profit_distribution',
+    tipe:'keluar', sumber:gv('ddl_src')||'rekening', nominal:nom,
+    nota:null, nota_type:null, created_at:new Date().toISOString()
+  };
+  if(!db.keu.dikopi) db.keu.dikopi=[];
+  db.keu.dikopi.push(t);
+  await saveKeu(); closeModal(); toast('✅ Distribusi Laba dicatat!','success'); render();
+}
+
+// ── DIKOPI SUNTIKAN DANA ──────────────────────────────────────
+function openDikopiSuntikan() {
+  document.getElementById('modalTitle').textContent = '💉 Suntikan Dana';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="font-size:12px;color:var(--muted);background:rgba(155,130,245,0.06);border:1px solid rgba(155,130,245,0.2);border-radius:8px;padding:10px 14px;margin-bottom:14px;line-height:1.8">
+      Dana dari luar (owner/investor) masuk ke kas Dikopi.<br>
+      <span style="color:#9b82f5">Pilih tipe: <strong>Tambahan Modal</strong> (tidak perlu dikembalikan) atau <strong>Hutang ke Owner</strong> (perlu dicatat di tab Hutang juga).</span>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Tanggal</div>
+        <input class="form-input" id="ds_tanggal" placeholder="DD/MM/YYYY" maxlength="10" oninput="autoSlashDate(this)" value="${toDisplayDate(todayStr())}">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Masuk Ke</div>
+        <select class="form-select" id="ds_tujuan">
+          <option value="cash">🪙 Cash di Laci</option>
+          <option value="rekening">🏦 Rekening</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Tipe Suntikan</div>
+      <select class="form-select" id="ds_kategori">
+        <option value="Suntikan Dana Owner">💉 Suntikan Dana Owner (modal, tidak dikembalikan)</option>
+        <option value="Tambahan Modal">💰 Tambahan Modal (ekuitas)</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Nominal (Rp) *</div>
+      <input class="form-input" id="ds_nominal" type="text" inputmode="numeric" placeholder="0" oninput="hppFmtInput(this)">
+    </div>
+    <div class="form-group">
+      <div class="form-label">Keterangan <span style="color:var(--muted);font-size:10px">(opsional)</span></div>
+      <input class="form-input" id="ds_ket" placeholder="Beli bahan baku, modal awal bulan, dll...">
+    </div>
+    <div style="font-size:11px;color:#9b82f5;margin-top:4px;font-family:'DM Mono',monospace">
+      ⚠️ Kalau ini hutang, jangan lupa catat juga di tab Hutang & Cicilan.
+    </div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" style="background:linear-gradient(135deg,#9b82f5,#7c5cfc);border-color:#9b82f5;box-shadow:0 3px 14px rgba(155,130,245,0.3)" onclick="submitDikopiSuntikan()">💉 Catat Suntikan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('ds_nominal')?.focus(),80);
+}
+
+async function submitDikopiSuntikan() {
+  if(!dirHandle){toast('⚠️ Pilih folder dulu','error');return;}
+  const nominal = parseFloat((gv('ds_nominal')||'0').replace(/\./g,''))||0;
+  if(!nominal){toast('⚠️ Nominal tidak boleh 0','error');return;}
+  const item = {
+    id:Date.now(), tanggal:toStorageDate(gv('ds_tanggal')),
+    deskripsi:gv('ds_ket')||gv('ds_kategori'),
+    kategori:gv('ds_kategori'),
+    tipe:'masuk', sumber:gv('ds_tujuan')||'cash', nominal,
+    nota:null, nota_type:null, created_at:new Date().toISOString()
+  };
+  if(!db.keu.dikopi) db.keu.dikopi=[];
+  db.keu.dikopi.push(item);
+  keuBukuPeriode = item.tanggal.substring(0,7);
+  await saveKeu();
+  closeModal();
+  toast('✅ Suntikan dana dicatat!','success');
+  render();
+}
+
+
+function renderKeuBulanan() {
+  document.getElementById('addBtn').classList.add('hidden');
+
+  const allMonths = new Set();
+  KEU_BRANDS.forEach(b=>(db.keu[b]||[]).forEach(t=>{if(t.tanggal)allMonths.add(t.tanggal.substring(0,7));}));
+  if(!allMonths.has(keuBulananPeriode)) allMonths.add(keuBulananPeriode);
+  const monthOpts = [...allMonths].sort().reverse().map(m=>`<option value="${m}" ${m===keuBulananPeriode?'selected':''}>${getBulanLabel(m)}</option>`).join('');
+
+  const brandRows = KEU_BRANDS.map(b=>{
+    const txns = keuBrandTxns(b,null,keuBulananPeriode);
+    const c = keuCalc(txns);
+    return `<tr>
+      <td style="color:${KEU_BRAND_COLOR[b]};font-weight:600">${KEU_BRAND_LABEL[b]}</td>
+      <td>${fmtRp(c.revenue)}</td>
+      <td>${fmtRp(c.hpp)}</td>
+      <td class="${c.grossProfit>=0?'keu-green':''}" style="color:${c.grossProfit<0?'var(--red)':''}">${fmtRp(c.grossProfit)}</td>
+      <td>${fmtRp(c.expense)}</td>
+      <td style="font-weight:700;color:${c.netProfit>=0?'#4cc9a0':'var(--red)'}">${fmtRp(c.netProfit)}</td>
+    </tr>`;
+  }).join('');
+
+  const pt={revenue:0,hpp:0,expense:0,capital:0,owner:0,asset:0,grossProfit:0,netProfit:0};
+  KEU_BRANDS.forEach(b=>{const c=keuCalc(keuBrandTxns(b,null,keuBulananPeriode));pt.revenue+=c.revenue;pt.hpp+=c.hpp;pt.expense+=c.expense;pt.capital+=(c.capital||0);pt.owner+=(c.owner||0);pt.asset+=(c.asset||0);pt.grossProfit+=c.grossProfit;pt.netProfit+=c.netProfit;});
+  const pph = Math.round(pt.revenue*0.005);
+
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+      <select class="form-select" style="font-size:12px;padding:6px 10px;width:auto" onchange="keuBulananPeriode=this.value;render()">${monthOpts}</select>
+      <button class="btn btn-primary btn-sm" onclick="downloadPDFBulanan()">⬇ Download PDF</button>
+    </div>
+    <div style="overflow-x:auto;border-radius:10px;border:1px solid var(--border);margin-bottom:14px">
+      <table class="keu-rekap-table">
+        <thead><tr>
+          <th>Brand</th><th>Revenue</th><th>HPP</th><th>Gross Profit</th><th>Expense</th><th>Net Profit</th>
+        </tr></thead>
+        <tbody>
+          ${brandRows}
+          <tr class="total-row">
+            <td>🏢 PT Total</td>
+            <td>${fmtRp(pt.revenue)}</td>
+            <td>${fmtRp(pt.hpp)}</td>
+            <td style="color:${pt.grossProfit>=0?'#4cc9a0':'var(--red)'}">${fmtRp(pt.grossProfit)}</td>
+            <td>${fmtRp(pt.expense)}</td>
+            <td style="color:${pt.netProfit>=0?'#4cc9a0':'var(--red)'}">${fmtRp(pt.netProfit)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="keu-pph-note">⚖️ Estimasi PPh Final (PP 55/2022): <strong>${fmtRp(pph)}</strong> — 0.5% × Revenue PT ${fmtRp(pt.revenue)}</div>`;
+}
+
+// ── 4. REKAP TAHUNAN ─────────────────────────────────────────
+function renderKeuTahunan() {
+  document.getElementById('addBtn').classList.add('hidden');
+
+  const allYears = new Set();
+  KEU_BRANDS.forEach(b=>(db.keu[b]||[]).forEach(t=>{if(t.tanggal)allYears.add(t.tanggal.substring(0,4));}));
+  if(!allYears.has(keuTahunanYear)) allYears.add(keuTahunanYear);
+  const yearOpts = [...allYears].sort().reverse().map(y=>`<option value="${y}" ${y===keuTahunanYear?'selected':''}>${y}</option>`).join('');
+
+  const months = Array.from({length:12},(_,i)=>String(i+1).padStart(2,'0')).map(m=>`${keuTahunanYear}-${m}`);
+  const BULAN_SHORT = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+
+  const ptYearly={revenue:0,hpp:0,expense:0,capital:0,owner:0,asset:0,grossProfit:0,netProfit:0};
+
+  const brandSections = KEU_BRANDS.map(b=>{
+    const totals={revenue:0,hpp:0,expense:0,capital:0,owner:0,asset:0,grossProfit:0,netProfit:0};
+    const rows = months.map((m,i)=>{
+      const c=keuCalc(keuBrandTxns(b,null,m));
+      totals.revenue+=c.revenue;totals.hpp+=c.hpp;totals.expense+=c.expense;totals.capital+=(c.capital||0);totals.owner+=(c.owner||0);totals.asset+=(c.asset||0);totals.grossProfit+=c.grossProfit;totals.netProfit+=c.netProfit;
+      const hasData=c.revenue||c.hpp||c.expense;
+      return hasData ? `<tr>
+        <td style="color:var(--muted)">${BULAN_SHORT[i]}</td>
+        <td>${c.revenue?fmtRp(c.revenue):'—'}</td>
+        <td>${c.hpp?fmtRp(c.hpp):'—'}</td>
+        <td style="color:${c.grossProfit>=0?'#4cc9a0':'var(--red)'}">${c.grossProfit?fmtRp(c.grossProfit):'—'}</td>
+        <td>${c.expense?fmtRp(c.expense):'—'}</td>
+        <td style="font-weight:600;color:${c.netProfit>=0?'#4cc9a0':'var(--red)'}">${c.netProfit?fmtRp(c.netProfit):'—'}</td>
+      </tr>`:''}).join('');
+    ptYearly.revenue+=totals.revenue;ptYearly.hpp+=totals.hpp;ptYearly.expense+=totals.expense;ptYearly.capital+=(totals.capital||0);ptYearly.owner+=(totals.owner||0);ptYearly.asset+=(totals.asset||0);ptYearly.grossProfit+=totals.grossProfit;ptYearly.netProfit+=totals.netProfit;
+    return `<div style="margin-bottom:16px">
+      <div style="font-weight:700;color:${KEU_BRAND_COLOR[b]};margin-bottom:8px">${KEU_BRAND_LABEL[b]}</div>
+      <div style="overflow-x:auto;border-radius:10px;border:1px solid var(--border)">
+        <table class="keu-rekap-table">
+          <thead><tr><th>Bulan</th><th>Revenue</th><th>HPP</th><th>Gross Profit</th><th>Expense</th><th>Net Profit</th></tr></thead>
+          <tbody>
+            ${rows||`<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:16px">Belum ada data ${keuTahunanYear}</td></tr>`}
+            <tr class="total-row">
+              <td>Total</td>
+              <td>${fmtRp(totals.revenue)}</td><td>${fmtRp(totals.hpp)}</td>
+              <td style="color:${totals.grossProfit>=0?'#4cc9a0':'var(--red)'}">${fmtRp(totals.grossProfit)}</td>
+              <td>${fmtRp(totals.expense)}</td>
+              <td style="color:${totals.netProfit>=0?'#4cc9a0':'var(--red)'}">${fmtRp(totals.netProfit)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+
+  const pph=Math.round(ptYearly.revenue*0.005);
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+      <select class="form-select" style="font-size:12px;padding:6px 10px;width:auto" onchange="keuTahunanYear=this.value;render()">${yearOpts}</select>
+      <button class="btn btn-primary btn-sm" onclick="downloadPDFTahunan()">⬇ Download PDF</button>
+    </div>
+    ${brandSections}
+    <div class="keu-pt-card">
+      <div class="keu-pt-title">🏢 Konsolidasi PT — ${keuTahunanYear}</div>
+      <div class="keu-summary-grid">
+        <div class="keu-card"><div class="keu-label">Revenue</div><div class="keu-val keu-green">${fmtRp(ptYearly.revenue)}</div></div>
+        <div class="keu-card"><div class="keu-label">HPP</div><div class="keu-val keu-muted">${fmtRp(ptYearly.hpp)}</div></div>
+        <div class="keu-card"><div class="keu-label">Gross Profit</div><div class="keu-val ${ptYearly.grossProfit>=0?'keu-green':'keu-red'}">${fmtRp(ptYearly.grossProfit)}</div></div>
+        <div class="keu-card"><div class="keu-label">Expense</div><div class="keu-val keu-red">${fmtRp(ptYearly.expense)}</div></div>
+        <div class="keu-card"><div class="keu-label">Net Profit</div><div class="keu-val ${ptYearly.netProfit>=0?'keu-green':'keu-red'}">${fmtRp(ptYearly.netProfit)}</div></div>
+        <div class="keu-card"><div class="keu-label">Est. PPh</div><div class="keu-val" style="color:#f5a623">${fmtRp(pph)}</div></div>
+      </div>
+      <div class="keu-pph-note">⚖️ Estimasi PPh Final (PP 55/2022): 0.5% × Revenue PT ${fmtRp(ptYearly.revenue)}</div>
+    </div>`;
+}
+
+// ── 5. DOKUMEN & NOTA ─────────────────────────────────────────
+function renderKeuNota() {
+  document.getElementById('addBtn').classList.add('hidden');
+  const allNotas = [];
+  KEU_BRANDS.forEach(b=>{
+    (db.keu[b]||[]).filter(t=>t.nota).forEach(t=>allNotas.push({...t,brand:b}));
+  });
+  allNotas.sort((a,b)=>b.tanggal?.localeCompare(a.tanggal||'')||0);
+
+  if(!allNotas.length) return `<div class="empty"><div class="empty-icon">🗂️</div>Belum ada nota yang diupload<br><span style="font-size:12px">Upload nota saat menambah transaksi</span></div>`;
+
+  const cards = allNotas.map(t=>{
+    const isImg = t.nota_type?.startsWith('image');
+    const thumb = isImg
+      ? `<img src="${t.nota}" style="width:100%;height:100px;object-fit:cover">`
+      : `<div class="keu-nota-thumb">📄</div>`;
+    return `<div class="keu-nota-card" onclick="previewNota('${t.brand}',${t.id})">
+      ${thumb}
+      <div class="keu-nota-info">
+        <div class="keu-nota-desc">${esc(t.deskripsi)}</div>
+        <div class="keu-nota-meta">${KEU_BRAND_LABEL[t.brand].split(' ')[1]} · ${fmtTanggal(t.tanggal)}</div>
+        <div class="keu-nota-meta" style="color:${t.tipe==='masuk'?'#4cc9a0':'var(--red)'}">${t.tipe==='masuk'?'+':'−'}${fmtRp(t.nominal)}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+    <div style="font-size:13px;color:var(--muted);margin-bottom:14px">${allNotas.length} nota tersimpan</div>
+    <div class="keu-nota-grid">${cards}</div>`;
+}
+
+// ── TRANSAKSI MODAL ────────────────────────────────────────────
+function keuKatSelect(id) {
+  return `<select class="form-select" id="${id}">
+    <optgroup label="📥 Revenue">
+      ${KEU_KATEGORI.revenue.map(k=>`<option>${k}</option>`).join('')}
+    </optgroup>
+    <optgroup label="💉 Modal / Suntikan">
+      ${KEU_KATEGORI.capital.map(k=>`<option>${k}</option>`).join('')}
+    </optgroup>
+    <optgroup label="📦 HPP">
+      ${KEU_KATEGORI.hpp.map(k=>`<option>${k}</option>`).join('')}
+    </optgroup>
+    <optgroup label="💸 Operasional">
+      ${KEU_KATEGORI.expense.map(k=>`<option>${k}</option>`).join('')}
+    </optgroup>
+    <optgroup label="👤 Owner">
+      ${KEU_KATEGORI.owner.map(k=>`<option>${k}</option>`).join('')}
+    </optgroup>
+    <optgroup label="🏭 Aset">
+      ${KEU_KATEGORI.asset.map(k=>`<option>${k}</option>`).join('')}
+    </optgroup>
+  </select>`;
+}
+
+function openAddTransaksi(brand) {
+  const b = brand || keuBukuBrand;
+  document.getElementById('modalTitle').textContent = '+ Tambah Transaksi';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Brand</div>
+        <select class="form-select" id="kt_brand">
+          ${KEU_BRANDS.map(x=>`<option value="${x}" ${x===b?'selected':''}>${KEU_BRAND_LABEL[x]}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <div class="form-label">Tanggal</div>
+        <input class="form-input" id="kt_tanggal" placeholder="DD/MM/YYYY" maxlength="10" oninput="autoSlashDate(this)" value="${toDisplayDate(todayStr())}">
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Deskripsi *</div>
+      <input class="form-input" id="kt_deskripsi" placeholder="DP Order Lanyard UIN, Beli bahan baku kopi...">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Kategori</div>
+        ${keuKatSelect('kt_kategori')}
+      </div>
+      <div class="form-group">
+        <div class="form-label">Tipe</div>
+        <select class="form-select" id="kt_tipe">
+          <option value="masuk">💚 Masuk (Revenue)</option>
+          <option value="keluar">❤️ Keluar (Biaya)</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Nominal (Rp) *</div>
+      <input class="form-input" id="kt_nominal" type="text" inputmode="numeric" placeholder="0" oninput="hppFmtInput(this)">
+    </div>
+    <div class="form-group">
+      <div class="form-label">Upload Nota <span style="color:var(--muted);font-size:10px">(opsional, max 2MB)</span></div>
+      <input type="file" id="kt_nota_file" accept="image/*,.pdf" style="font-size:12px;color:var(--text2)" onchange="keuPreviewNota(this)">
+      <div id="kt_nota_preview" style="margin-top:8px"></div>
+    </div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="submitAddTransaksi()">💾 Simpan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('kt_deskripsi')?.focus(),80);
+}
+
+function keuPreviewNota(input) {
+  const file = input.files[0];
+  const prev = document.getElementById('kt_nota_preview');
+  if (!file || !prev) return;
+  if (file.size > 2*1024*1024) { toast('❌ File max 2MB','error'); input.value=''; return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const isImg = file.type.startsWith('image');
+    prev.innerHTML = isImg
+      ? `<img src="${e.target.result}" style="max-height:120px;border-radius:6px;border:1px solid var(--border)">`
+      : `<div style="font-size:12px;color:var(--accent)">📄 ${esc(file.name)}</div>`;
+    prev.dataset.nota     = e.target.result;
+    prev.dataset.notaType = file.type;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function submitAddTransaksi() {
+  if (!dirHandle) { toast('⚠️ Pilih folder dulu','error'); return; }
+  const deskripsi = gv('kt_deskripsi').trim();
+  const nominal   = parseFloat((gv('kt_nominal')||'0').replace(/\./g,''))||0;
+  if (!deskripsi) { toast('⚠️ Deskripsi tidak boleh kosong','error'); return; }
+  if (!nominal)   { toast('⚠️ Nominal tidak boleh 0','error'); return; }
+  const brand   = gv('kt_brand');
+  const prev    = document.getElementById('kt_nota_preview');
+  const item = {
+    id: Date.now(),
+    tanggal:    toStorageDate(gv('kt_tanggal')),
+    deskripsi, kategori: gv('kt_kategori'),
+    tipe:       gv('kt_tipe'),
+    nominal,
+    nota:       prev?.dataset?.nota || null,
+    nota_type:  prev?.dataset?.notaType || null,
+    created_at: new Date().toISOString()
+  };
+  if (!db.keu[brand]) db.keu[brand]=[];
+  db.keu[brand].push(item);
+  db.keu[brand].sort((a,b)=>a.tanggal.localeCompare(b.tanggal));
+  await saveKeu();
+  closeModal();
+  keuBukuBrand  = brand;
+  keuBukuPeriode = item.tanggal.substring(0,7);
+  toast('✅ Transaksi disimpan!','success');
+  render();
+}
+
+function openEditTransaksi(brand, id) {
+  const t = (db.keu[brand]||[]).find(x=>x.id===id);
+  if (!t) return;
+  const isDikopi = brand === 'dikopi';
+  const curSumber = t.sumber || 'cash';
+  document.getElementById('modalTitle').textContent = '✏️ Edit Transaksi';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Tanggal</div>
+        <input class="form-input" id="et_tanggal" placeholder="DD/MM/YYYY" maxlength="10" oninput="autoSlashDate(this)" value="${toDisplayDate(t.tanggal)}">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Tipe</div>
+        <select class="form-select" id="et_tipe">
+          <option value="masuk" ${t.tipe==='masuk'?'selected':''}>💚 Masuk</option>
+          <option value="keluar" ${t.tipe==='keluar'?'selected':''}>❤️ Keluar</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Deskripsi</div>
+      <input class="form-input" id="et_deskripsi" value="${esc(t.deskripsi)}">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Metode Pembayaran</div>
+        <select class="form-select" id="et_sumber">
+          <option value="cash" ${curSumber==='cash'?'selected':''}>🪙 Tunai / Cash</option>
+          <option value="rekening" ${curSumber==='rekening'?'selected':''}>🏦 Transfer / QRIS → Rekening</option>
+          ${isDikopi?`<option value="shopee" ${curSumber==='shopee'?'selected':''}>🛒 Shopee Wallet</option>`:''}
+        </select>
+      </div>
+      <div class="form-group">
+        <div class="form-label">Nominal (Rp)</div>
+        <input class="form-input" id="et_nominal" type="text" inputmode="numeric" value="${t.nominal?Number(t.nominal).toLocaleString('id-ID'):''}" oninput="hppFmtInput(this)">
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Kategori</div>
+      ${keuKatSelect('et_kategori')}
+    </div>`;
+  // set selected kategori
+  setTimeout(()=>{ const el=document.getElementById('et_kategori'); if(el) el.value=t.kategori||''; },50);
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="saveEditTransaksi('${brand}',${id})">💾 Simpan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+}
+
+async function saveEditTransaksi(brand, id) {
+  const t = (db.keu[brand]||[]).find(x=>x.id===id);
+  if (!t) return;
+
+  // ── Snapshot sebelum edit ──────────────────────────────────
+  if(!db.history) db.history = [];
+  db.history.push({
+    id:       Date.now(),
+    brand,
+    txnId:    t.id,
+    editedAt: new Date().toISOString(),
+    snapshot: JSON.parse(JSON.stringify(t)) // deep copy
+  });
+  await saveDB('history');
+
+  // ── Apply edits ────────────────────────────────────────────
+  t.tanggal   = toStorageDate(gv('et_tanggal'));
+  t.tipe      = gv('et_tipe');
+  t.deskripsi = gv('et_deskripsi').trim();
+  t.kategori  = gv('et_kategori');
+  t.transaction_class = KAT_CLASS[t.kategori] || getTxnClass(t);
+  t.sumber    = gv('et_sumber') || t.sumber || 'cash';
+  t.nominal   = parseFloat((gv('et_nominal')||'0').replace(/\./g,''))||0;
+  t.updated_at = new Date().toISOString();
+  await saveKeu();
+  closeModal(); toast('✅ Transaksi diperbarui!','success'); render();
+}
+
+function openTxnHistory(brand, txnId) {
+  const entries = (db.history||[])
+    .filter(h => h.brand === brand && h.txnId === txnId)
+    .sort((a,b) => b.editedAt.localeCompare(a.editedAt));
+
+  const current = (db.keu[brand]||[]).find(x=>x.id===txnId);
+
+  document.getElementById('modalTitle').textContent = '🕐 Riwayat Edit Transaksi';
+  document.getElementById('modalBody').innerHTML = entries.length ? `
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px">${entries.length} riwayat · otomatis terhapus setelah 7 hari</div>
+    <div style="display:flex;flex-direction:column;gap:10px;max-height:420px;overflow-y:auto;padding-right:4px">
+      ${entries.map((h,i) => {
+        const s = h.snapshot;
+        const isLatest = i===0;
+        const editDate = new Date(h.editedAt);
+        const dateStr = editDate.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
+        const timeStr = editDate.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+        const srcLabel = s.sumber==='shopee'?'🛒 Shopee':s.sumber==='rekening'?'🏦 Rekening':'🪙 Cash';
+        return `<div style="border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--surface2);${isLatest?'border-color:var(--border2)':''}">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div>
+              <span style="font-size:11px;font-family:'DM Mono',monospace;color:var(--muted)">${dateStr} · ${timeStr}</span>
+              ${isLatest?`<span style="margin-left:8px;font-size:9px;background:rgba(46,156,255,0.15);color:var(--accent);padding:1px 7px;border-radius:99px;font-family:'DM Mono',monospace">TERAKHIR DIEDIT</span>`:''}
+            </div>
+            <button class="btn btn-ghost btn-sm" style="color:#4cc9a0;border-color:#4cc9a0;font-size:11px" onclick="restoreTxnSnapshot('${brand}',${txnId},${h.id})">↩ Restore</button>
+          </div>
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:11px">
+            <span style="color:var(--muted)">Tanggal</span><span>${fmtTanggal(s.tanggal)}</span>
+            <span style="color:var(--muted)">Deskripsi</span><span style="color:var(--text)">${esc(s.deskripsi||'—')}</span>
+            <span style="color:var(--muted)">Tipe</span><span>${s.tipe==='masuk'?'💚 Masuk':'❤️ Keluar'}</span>
+            <span style="color:var(--muted)">Metode</span><span>${srcLabel}</span>
+            <span style="color:var(--muted)">Kategori</span><span>${esc(s.kategori||'—')}</span>
+            <span style="color:var(--muted)">Nominal</span><span style="font-family:'DM Mono',monospace;font-weight:600;color:${s.tipe==='masuk'?'#4cc9a0':'var(--red)'}">${s.tipe==='masuk'?'+':'−'}${fmtRp(s.nominal)}</span>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>` :
+    `<div style="text-align:center;padding:32px;color:var(--muted)">Belum ada riwayat edit untuk transaksi ini</div>`;
+
+  document.getElementById('modalActions').innerHTML = `<button class="btn btn-ghost" onclick="closeModal()">Tutup</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+}
+
+async function restoreTxnSnapshot(brand, txnId, historyId) {
+  const entry = (db.history||[]).find(h => h.id === historyId);
+  if (!entry) { toast('⚠️ Snapshot tidak ditemukan','error'); return; }
+  const t = (db.keu[brand]||[]).find(x=>x.id===txnId);
+  if (!t) { toast('⚠️ Transaksi tidak ditemukan','error'); return; }
+
+  // Snapshot kondisi saat ini sebelum di-restore
+  db.history.push({
+    id: Date.now(), brand, txnId: t.id,
+    editedAt: new Date().toISOString(),
+    snapshot: JSON.parse(JSON.stringify(t))
+  });
+
+  // Restore
+  Object.assign(t, entry.snapshot);
+  await saveKeu();
+  await saveDB('history');
+  closeModal();
+  toast('↩ Transaksi berhasil di-restore ke versi sebelumnya!','success');
+  render();
+}
+
+async function deleteTransaksi(brand, id) {
+  db.keu[brand] = (db.keu[brand]||[]).filter(t=>t.id!==id);
+  await saveKeu();
+  toast('🗑️ Transaksi dihapus','success'); render();
+}
+
+function previewNota(brand, id) {
+  const t = (db.keu[brand]||[]).find(x=>x.id===id);
+  if (!t?.nota) return;
+  const isImg = t.nota_type?.startsWith('image');
+  document.getElementById('modalTitle').textContent = `📎 Nota — ${esc(t.deskripsi)}`;
+  document.getElementById('modalBody').innerHTML = isImg
+    ? `<img src="${t.nota}" style="width:100%;border-radius:8px;max-height:500px;object-fit:contain">`
+    : `<div style="text-align:center;padding:20px"><div style="font-size:48px;margin-bottom:12px">📄</div><div style="color:var(--text2)">File PDF — tidak bisa dipreview langsung</div></div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Tutup</button>
+    <button class="btn btn-primary" onclick="downloadNota('${brand}',${id})">⬇ Download</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+}
+
+function downloadNota(brand, id) {
+  const t = (db.keu[brand]||[]).find(x=>x.id===id);
+  if (!t?.nota) return;
+  const a = document.createElement('a');
+  a.href = t.nota; a.download = `nota_${t.deskripsi?.substring(0,20).replace(/\s/g,'_')}.${t.nota_type?.split('/')[1]||'jpg'}`;
+  a.click();
+}
+
+// ── PDF GENERATION ─────────────────────────────────────────────
+async function downloadPDFBulanan() {
+  const { jsPDF } = window.jspdf || {};
+  if (!jsPDF) { toast('❌ jsPDF belum dimuat','error'); return; }
+  toast('⏳ Membuat PDF...','success');
+  const doc = new jsPDF();
+  const label = getBulanLabel(keuBulananPeriode);
+  let y = 20;
+
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(16); doc.text('PT Pratani Kreatif Group',14,y); y+=8;
+  doc.setFontSize(12); doc.text(`Rekap Keuangan — ${label}`,14,y); y+=6;
+  doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(120);
+  doc.text(`Generated by PrataniHQ · ${new Date().toLocaleDateString('id-ID')}`,14,y); y+=10;
+  doc.setTextColor(0);
+
+  // per brand table
+  const headers = ['Brand','Revenue','HPP','Gross Profit','Expense','Net Profit'];
+  const ptTot={revenue:0,hpp:0,expense:0,grossProfit:0,netProfit:0};
+  const rows = KEU_BRANDS.map(b=>{
+    const c=keuCalc(keuBrandTxns(b,null,keuBulananPeriode));
+    ptTot.revenue+=c.revenue;ptTot.hpp+=c.hpp;ptTot.expense+=c.expense;ptTot.grossProfit+=c.grossProfit;ptTot.netProfit+=c.netProfit;
+    return [KEU_BRAND_LABEL[b].split(' ')[1],fmtRp(c.revenue),fmtRp(c.hpp),fmtRp(c.grossProfit),fmtRp(c.expense),fmtRp(c.netProfit)];
+  });
+  rows.push(['PT Total',fmtRp(ptTot.revenue),fmtRp(ptTot.hpp),fmtRp(ptTot.grossProfit),fmtRp(ptTot.expense),fmtRp(ptTot.netProfit)]);
+
+  const colW=[30,32,32,33,30,33]; const rowH=8;
+  doc.setFillColor(40,60,100); doc.setTextColor(255);
+  doc.setFont('helvetica','bold'); doc.setFontSize(8);
+  let x=14;
+  headers.forEach((h,i)=>{ doc.rect(x,y,colW[i],rowH,'F'); doc.text(h,x+2,y+5.5); x+=colW[i]; });
+  y+=rowH;
+  doc.setFont('helvetica','normal'); doc.setTextColor(0);
+  rows.forEach((row,ri)=>{
+    x=14;
+    doc.setFillColor(ri%2===0?250:240,ri%2===0?250:240,ri%2===0?250:240);
+    row.forEach((cell,i)=>{ doc.rect(x,y,colW[i],rowH,'F'); doc.setFontSize(7); doc.text(String(cell),x+2,y+5.5); x+=colW[i]; });
+    y+=rowH;
+  });
+  y+=6;
+  doc.setFontSize(9); doc.setFont('helvetica','italic'); doc.setTextColor(120);
+  doc.text(`Estimasi PPh Final PP 55/2022: ${fmtRp(Math.round(ptTot.revenue*0.005))} (0.5% dari Revenue)`,14,y);
+
+  doc.save(`Rekap_${keuBulananPeriode}.pdf`);
+  toast('✅ PDF berhasil diunduh!','success');
+}
+
+async function downloadPDFTahunan() {
+  const { jsPDF } = window.jspdf || {};
+  if (!jsPDF) { toast('❌ jsPDF belum dimuat','error'); return; }
+  toast('⏳ Membuat PDF...','success');
+  const doc = new jsPDF('landscape');
+  let y=20;
+  doc.setFont('helvetica','bold'); doc.setFontSize(16);
+  doc.text('PT Pratani Kreatif Group',14,y); y+=8;
+  doc.setFontSize(12); doc.text(`Rekap Keuangan Tahunan — ${keuTahunanYear}`,14,y); y+=6;
+  doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(120);
+  doc.text(`Generated by PrataniHQ · ${new Date().toLocaleDateString('id-ID')}`,14,y); y+=10;
+  doc.setTextColor(0);
+
+  const BULAN_SHORT=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  const months=Array.from({length:12},(_,i)=>`${keuTahunanYear}-${String(i+1).padStart(2,'0')}`);
+  const ptY={revenue:0,hpp:0,expense:0,grossProfit:0,netProfit:0};
+
+  KEU_BRANDS.forEach(b=>{
+    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(50,100,200);
+    doc.text(KEU_BRAND_LABEL[b],14,y); y+=6; doc.setTextColor(0);
+    const headers=['Bulan','Revenue','HPP','Gross Profit','Expense','Net Profit'];
+    const colW=[25,40,35,40,35,40]; const rowH=7;
+    doc.setFillColor(40,60,100); doc.setTextColor(255); doc.setFont('helvetica','bold'); doc.setFontSize(7);
+    let x=14; headers.forEach((h,i)=>{ doc.rect(x,y,colW[i],rowH,'F'); doc.text(h,x+2,y+4.5); x+=colW[i]; });
+    y+=rowH; doc.setFont('helvetica','normal'); doc.setTextColor(0);
+    let tot={revenue:0,hpp:0,expense:0,grossProfit:0,netProfit:0};
+    months.forEach((m,mi)=>{
+      const c=keuCalc(keuBrandTxns(b,null,m));
+      if(!c.revenue&&!c.hpp&&!c.expense) return;
+      tot.revenue+=c.revenue;tot.hpp+=c.hpp;tot.expense+=c.expense;tot.grossProfit+=c.grossProfit;tot.netProfit+=c.netProfit;
+      x=14; doc.setFillColor(250,250,250);
+      [BULAN_SHORT[mi],fmtRp(c.revenue),fmtRp(c.hpp),fmtRp(c.grossProfit),fmtRp(c.expense),fmtRp(c.netProfit)].forEach((cell,i)=>{ doc.rect(x,y,colW[i],rowH,'F'); doc.setFontSize(6.5); doc.text(cell,x+2,y+4.5); x+=colW[i]; });
+      y+=rowH;
+    });
+    x=14; doc.setFillColor(220,230,245); doc.setFont('helvetica','bold');
+    ['Total',fmtRp(tot.revenue),fmtRp(tot.hpp),fmtRp(tot.grossProfit),fmtRp(tot.expense),fmtRp(tot.netProfit)].forEach((cell,i)=>{ doc.rect(x,y,colW[i],rowH,'F'); doc.setFontSize(6.5); doc.text(cell,x+2,y+4.5); x+=colW[i]; });
+    y+=rowH+8;
+    ptY.revenue+=tot.revenue;ptY.hpp+=tot.hpp;ptY.expense+=tot.expense;ptY.grossProfit+=tot.grossProfit;ptY.netProfit+=tot.netProfit;
+    if(y>170){doc.addPage('landscape');y=20;}
+  });
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(0,80,160);
+  doc.text(`Konsolidasi PT — ${keuTahunanYear}`,14,y); y+=6; doc.setTextColor(0);
+  doc.setFontSize(9); doc.setFont('helvetica','normal');
+  [`Revenue: ${fmtRp(ptY.revenue)}`,`HPP: ${fmtRp(ptY.hpp)}`,`Gross Profit: ${fmtRp(ptY.grossProfit)}`,`Expense: ${fmtRp(ptY.expense)}`,`Net Profit: ${fmtRp(ptY.netProfit)}`,`Est. PPh 0.5%: ${fmtRp(Math.round(ptY.revenue*0.005))}`].forEach(l=>{doc.text(l,14,y);y+=6;});
+
+  doc.save(`Rekap_Tahunan_${keuTahunanYear}.pdf`);
+  toast('✅ PDF berhasil diunduh!','success');
+}
+
+
+
+// ─── KONTAK ──────────────────────────────────────────────────
+function renderKontak() {
+  document.getElementById('addBtn').classList.remove('hidden');
+  const list = [...db.kontak].sort((a,b)=>a.nama.localeCompare(b.nama));
+
+  const cards = list.map(k=>`
+    <div class="kontak-card">
+      <div class="kontak-avatar">${k.nama.charAt(0).toUpperCase()}</div>
+      <div style="flex:1">
+        <div class="kontak-name">${esc(k.nama)}</div>
+        <div class="kontak-role">${esc(k.peran||'—')} · ${esc(k.brand?BRAND_LABEL[k.brand]:'Umum')}</div>
+        ${k.hp?`<div class="kontak-hp">📱 ${esc(k.hp)}</div>`:''}
+        ${k.email?`<div class="item-sub" style="margin-top:2px">✉️ ${esc(k.email)}</div>`:''}
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="deleteItem('kontak',${k.id})">✕</button>
+    </div>
+  `).join('');
+
+  return `
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    ${cards || `<div class="empty" style="grid-column:1/-1"><div class="empty-icon">👥</div>Belum ada kontak</div>`}
+  </div>`;
+}
+
+// ─── HPP CALCULATOR ──────────────────────────────────────────
+const HPP_MARGINS = {
+  kolektiva: {
+    kompetitif: { min:20, max:28 },
+    standar:    { min:30, max:40 },
+    premium:    { min:45, max:60 },
+  },
+  dikopi: {
+    kompetitif: { min:50, max:60 },
+    standar:    { min:65, max:72 },
+    premium:    { min:75, max:80 },
+  },
+  imagineer:    null,
+  pondokbunga:  null,
+};
+
+let hppBrand    = 'dikopi';
+let hppExtraUnit= [];
+let hppExtraProj= [];
+let hppExtraId  = 100;
+let hppPriceMode = 'margin'; // 'margin' | 'markup'
+let hppProdukId  = null; // set when launched from Produk Kolektiva
+
+function fmtRpHPP(n) {
+  if (!n && n!==0) return '—';
+  return 'Rp ' + Math.round(n).toLocaleString('id-ID');
+}
+
+function hppFmtInput(el) {
+  const raw = el.value.replace(/\D/g,'');
+  el.value = raw ? Number(raw).toLocaleString('id-ID') : '';
+}
+
+function hppSetMode(mode) {
+  hppPriceMode = mode;
+  ['margin','markup'].forEach(m => {
+    const btn = document.getElementById(`hpp_mode_${m}`);
+    if (!btn) return;
+    if (m === mode) {
+      btn.style.background = 'var(--accent)'; btn.style.color = '#fff';
+    } else {
+      btn.style.background = 'none'; btn.style.color = 'var(--muted)';
+    }
+  });
+  const exp = document.getElementById('hpp_mode_explainer');
+  if (exp) {
+    exp.innerHTML = mode === 'margin'
+      ? `<strong style="color:var(--accent)">Margin-based</strong> aktif —
+         <span>Harga Jual = HPP ÷ (1 − margin%)</span><br>
+         <span style="font-size:10px">Contoh: HPP 10.000, margin 30% → Rp 14.286 — margin lebih besar dari markup yang sama</span>`
+      : `<strong style="color:var(--accent)">Markup-based</strong> aktif —
+         <span>Harga Jual = HPP × (1 + markup%)</span><br>
+         <span style="font-size:10px">Contoh: HPP 10.000, markup 30% → Rp 13.000 — markup selalu lebih kecil dari margin yang sama</span>`;
+  }
+  hppCalc();
+}
+
+function hppCalc() {
+  const get = id => {
+    const el = document.getElementById(id);
+    if (!el) return 0;
+    return parseFloat(el.value.replace(/\./g,'').replace(/,/g,'.') || '0') || 0;
+  };
+
+  // Per-produk (per unit langsung)
+  const bahan    = get('hpp_bahan');
+  const kemasan  = get('hpp_kemasan');
+  let extraUnit  = 0;
+  hppExtraUnit.forEach(e => { extraUnit += get(`hpp_eu_${e.id}`); });
+  const totalPerUnit = bahan + kemasan + extraUnit;
+
+  // Per-projek (dibagi qty)
+  const ongkir   = get('hpp_ongkir');
+  const desain   = get('hpp_desain');
+  const marketing= get('hpp_marketing');
+  const cashback = get('hpp_cashback');
+  let extraProj  = 0;
+  hppExtraProj.forEach(e => { extraProj += get(`hpp_ep_${e.id}`); });
+  const totalPerProj = ongkir + desain + marketing + cashback + extraProj;
+
+  const qty      = Math.max(1, get('hpp_qty'));
+  const pajak    = get('hpp_pajak');
+
+  const projPerUnit = totalPerProj / qty;
+  const hppPerUnit  = totalPerUnit + projPerUnit;
+  const totalModal  = totalPerUnit * qty + totalPerProj;
+
+  const elHpp   = document.getElementById('hpp_result_hpp');
+  const elUnit  = document.getElementById('hpp_strip_unit');
+  const elProj  = document.getElementById('hpp_strip_proj');
+  const elTotal = document.getElementById('hpp_strip_total');
+  if (elHpp)   elHpp.textContent   = fmtRpHPP(hppPerUnit);
+  if (elUnit)  elUnit.textContent  = fmtRpHPP(totalPerUnit);
+  if (elProj)  elProj.textContent  = projPerUnit > 0 ? `${fmtRpHPP(projPerUnit)} (÷${qty})` : '—';
+  if (elTotal) elTotal.textContent = qty > 1 ? fmtRpHPP(totalModal) : '—';
+
+  const margins   = HPP_MARGINS[hppBrand];
+  const resultsEl = document.getElementById('hpp_cards');
+  if (!resultsEl) return;
+
+  if (!margins) {
+    resultsEl.innerHTML = `<div class="hpp-no-margin">
+      <div style="font-size:20px;margin-bottom:6px">⚙️</div>
+      Standar margin untuk <strong>${BRAND_LABEL[hppBrand]}</strong> belum diset.<br>
+      <span style="font-size:11px">Akan ditambahkan di update berikutnya.</span>
+    </div>`;
+    return;
+  }
+
+  if (hppPerUnit <= 0) {
+    resultsEl.innerHTML = `<div class="hpp-empty-result"><div style="font-size:28px;margin-bottom:8px">🧮</div>Isi form modal untuk melihat rekomendasi harga</div>`;
+    return;
+  }
+
+  // ── Dua rumus, toggle ──────────────────────────────────────
+  // Margin-based : Harga Jual = HPP ÷ (1 - margin%)   → margin dihitung dari harga jual
+  // Markup-based : Harga Jual = HPP × (1 + markup%)   → markup dihitung dari HPP
+  function hargaJual(pct) {
+    const base = hppPriceMode === 'margin'
+      ? hppPerUnit / (1 - pct/100)
+      : hppPerUnit * (1 + pct/100);
+    return base * (1 + pajak/100);
+  }
+
+  // Hitung actual margin% dan markup% dari harga jual (sebelum pajak)
+  function actualMargin(hj) {
+    const hjPreTax = hj / (1 + pajak/100);
+    return ((hjPreTax - hppPerUnit) / hjPreTax * 100);
+  }
+  function actualMarkup(hj) {
+    const hjPreTax = hj / (1 + pajak/100);
+    return ((hjPreTax - hppPerUnit) / hppPerUnit * 100);
+  }
+
+  const modeLabel = hppPriceMode === 'margin' ? 'Margin-based' : 'Markup-based';
+  const modeSub   = hppPriceMode === 'margin'
+    ? '% dihitung dari harga jual'
+    : '% dihitung dari HPP';
+
+  resultsEl.innerHTML = ['kompetitif','standar','premium'].map(tier => {
+    const m    = HPP_MARGINS[hppBrand][tier];
+    const hMin = hargaJual(m.min), hMax = hargaJual(m.max), hMid = hargaJual((m.min+m.max)/2);
+
+    function priceBlock(label, hj) {
+      const profit  = hj / (1 + pajak/100) - hppPerUnit;
+      const mPct    = actualMargin(hj).toFixed(1);
+      const mkPct   = actualMarkup(hj).toFixed(1);
+      return `<div class="hpp-price-item">
+        <div class="hpp-price-sublabel">${label}</div>
+        <div class="hpp-price-val ${tier}">${fmtRpHPP(hj)}</div>
+        <div class="hpp-price-margin" style="margin-top:5px;line-height:1.8">
+          <span style="display:block;color:#4cc9a0">+${fmtRpHPP(profit)}/unit</span>
+          <span style="display:block;color:var(--accent);font-size:10px">Margin ${mPct}%</span>
+          <span style="display:block;color:var(--muted);font-size:10px">Markup ${mkPct}%</span>
+        </div>
+      </div>`;
+    }
+
+    return `<div class="hpp-result-card ${tier}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:6px">
+        <div class="hpp-card-tier ${tier}">${tier.charAt(0).toUpperCase()+tier.slice(1)}</div>
+        <div style="display:flex;align-items:center;gap:5px">
+          <span style="font-size:9px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;padding:2px 7px;border-radius:99px;background:rgba(77,158,247,0.12);color:var(--accent)">${modeLabel}</span>
+          ${pajak>0?`<span style="font-size:9px;font-family:'DM Mono',monospace;color:var(--muted)">+PPN ${pajak}%</span>`:''}
+        </div>
+      </div>
+      <div class="hpp-card-range" style="margin-bottom:12px">
+        Range ${m.min}%–${m.max}% · <span style="color:var(--muted);font-size:10px">${modeSub}</span>
+      </div>
+      <div class="hpp-card-prices">
+        ${priceBlock('Harga Min', hMin)}
+        ${priceBlock('Harga Max', hMax)}
+        ${priceBlock('Mid Point', hMid)}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function hppAddExtra(type) {
+  const id  = hppExtraId++;
+  const arr = type==='unit' ? hppExtraUnit : hppExtraProj;
+  arr.push({ id });
+  const container = document.getElementById(`hpp_extras_${type}`);
+  if (!container) return;
+  const div = document.createElement('div');
+  div.className = 'hpp-field'; div.id = `hpp_extra_row_${type}_${id}`;
+  const inputId = type==='unit' ? `hpp_eu_${id}` : `hpp_ep_${id}`;
+  div.innerHTML = `
+    <input class="form-input hpp-field-label" placeholder="Nama biaya..." style="flex:1;font-size:12px" oninput="hppCalc()">
+    <input class="form-input hpp-field-input" id="${inputId}" type="text" inputmode="numeric" placeholder="0" oninput="hppFmtInput(this);hppCalc()">
+    <span class="hpp-field-unit">Rp</span>
+    <button class="hpp-field-remove" onclick="hppRemoveExtra('${type}',${id})">✕</button>`;
+  container.appendChild(div);
+  div.querySelector('input').focus();
+}
+
+function hppRemoveExtra(type, id) {
+  if (type==='unit') hppExtraUnit = hppExtraUnit.filter(e=>e.id!==id);
+  else               hppExtraProj = hppExtraProj.filter(e=>e.id!==id);
+  document.getElementById(`hpp_extra_row_${type}_${id}`)?.remove();
+  hppCalc();
+}
+
+function hppReset() {
+  ['hpp_bahan','hpp_kemasan','hpp_ongkir','hpp_desain','hpp_marketing','hpp_cashback'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  const p = document.getElementById('hpp_pajak'); if (p) p.value = '';
+  document.getElementById('hpp_qty').value = '1';
+  hppExtraUnit = []; hppExtraProj = [];
+  document.getElementById('hpp_extras_unit').innerHTML = '';
+  document.getElementById('hpp_extras_proj').innerHTML = '';
+  hppCalc();
+}
+
+function renderHPP() {
+  document.getElementById('addBtn').classList.add('hidden');
+
+  // Banner kalau launched dari Produk Kolektiva
+  const p = hppProdukId ? db.produk.find(x=>x.id===hppProdukId) : null;
+  const produkBanner = p ? `
+    <div style="background:linear-gradient(90deg,rgba(139,111,255,0.12),rgba(46,156,255,0.08));border:1px solid rgba(139,111,255,0.3);border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-size:12px;color:#8b6fff;font-weight:600;margin-bottom:2px">📊 Menghitung HPP untuk produk Kolektiva</div>
+        <div style="font-size:11px;color:var(--text2)">${esc(p.nama)} · MOQ ${p.moq||1} pcs · Harga dasar ${fmtRp(p.hargaDasar||0)}</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="hppProdukId=null;render()">Batalkan</button>
+        <button class="btn btn-primary btn-sm" style="background:#8b6fff;border-color:#8b6fff" onclick="saveHppToProduk()">💾 Simpan ke Produk</button>
+      </div>
+    </div>` : '';
+
+  const brandTabs = BRANDS.map(b=>`
+    <button class="filter-btn ${b===hppBrand?'active':''}" onclick="hppBrand='${b}';hppCalc()">${BRAND_LABEL[b]}</button>
+  `).join('');
+
+  const rpField = (id, label) => `
+    <div class="hpp-field">
+      <label class="hpp-field-label" for="${id}">${label}</label>
+      <input class="form-input hpp-field-input" id="${id}" type="text" inputmode="numeric" placeholder="0" oninput="hppFmtInput(this);hppCalc()">
+      <span class="hpp-field-unit">Rp</span>
+      <span style="width:18px"></span>
+    </div>`;
+
+  return `
+    ${produkBanner}
+    <div class="filter-row" style="margin-bottom:16px">${brandTabs}</div>
+    <div class="hpp-layout">
+
+      <div style="display:flex;flex-direction:column;gap:14px">
+
+        <div class="hpp-form-card">
+          <div class="hpp-form-title">
+            🧱 Biaya Per Produk
+            <span style="font-size:10px;color:var(--muted);font-weight:400;font-family:'DM Mono',monospace">— per 1 unit</span>
+          </div>
+          ${rpField('hpp_bahan',   'Bahan Baku Pokok')}
+          ${rpField('hpp_kemasan', 'Kemasan')}
+          <div id="hpp_extras_unit"></div>
+          <button class="hpp-field-add" onclick="hppAddExtra('unit')">+ Tambah Komponen Lain</button>
+        </div>
+
+        <div class="hpp-form-card">
+          <div class="hpp-form-title">
+            📦 Biaya Per Projek
+            <span style="font-size:10px;color:var(--muted);font-weight:400;font-family:'DM Mono',monospace">— dibagi jumlah unit</span>
+          </div>
+          ${rpField('hpp_ongkir',    'Ongkir')}
+          ${rpField('hpp_desain',    'Desain')}
+          ${rpField('hpp_marketing', 'Marketing')}
+          ${rpField('hpp_cashback',  'Cashback')}
+          <div id="hpp_extras_proj"></div>
+          <button class="hpp-field-add" onclick="hppAddExtra('proj')">+ Tambah Komponen Lain</button>
+
+          <div class="hpp-divider"></div>
+
+          <div class="hpp-field">
+            <label class="hpp-field-label" for="hpp_qty" style="font-weight:600">
+              Jumlah Produksi
+              <span style="font-size:10px;color:var(--muted);font-weight:400"> — untuk membagi biaya projek</span>
+            </label>
+            <input class="form-input hpp-field-input" id="hpp_qty" type="number" min="1" placeholder="1" value="1" oninput="hppCalc()">
+            <span class="hpp-field-unit">pcs</span>
+            <span style="width:18px"></span>
+          </div>
+
+          <div class="hpp-field">
+            <label class="hpp-field-label" for="hpp_pajak" style="color:var(--muted)">Pajak / PPN <span style="font-size:10px">(opsional)</span></label>
+            <input class="form-input hpp-field-input" id="hpp_pajak" type="number" min="0" max="100" placeholder="0" oninput="hppCalc()">
+            <span class="hpp-field-unit">%</span>
+            <span style="width:18px"></span>
+          </div>
+          <div class="hpp-tax-note">Pajak dihitung di atas harga jual</div>
+        </div>
+
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 18px">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+            <div>
+              <div style="font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:4px">Biaya/unit</div>
+              <div style="font-size:13px;font-weight:600;font-family:'DM Mono',monospace" id="hpp_strip_unit">—</div>
+            </div>
+            <div>
+              <div style="font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:4px">Projek/unit</div>
+              <div style="font-size:13px;font-weight:600;font-family:'DM Mono',monospace" id="hpp_strip_proj">—</div>
+            </div>
+            <div>
+              <div style="font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:4px">Total Modal</div>
+              <div style="font-size:13px;font-weight:600;font-family:'DM Mono',monospace" id="hpp_strip_total">—</div>
+            </div>
+          </div>
+          <div class="hpp-total-row" style="padding-top:8px;border-top:1px solid var(--border)">
+            <span class="hpp-total-label">💰 HPP per Unit</span>
+            <span class="hpp-total-val" id="hpp_result_hpp">Rp 0</span>
+          </div>
+          <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:10px" onclick="hppReset()">🔄 Reset Form</button>
+        </div>
+      </div>
+
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+          <div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px">
+            🏷️ Rekomendasi Harga Jual
+            <span style="font-size:11px;color:var(--muted);font-weight:400">— ${BRAND_LABEL[hppBrand]}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;color:var(--muted)">Mode:</span>
+            <div style="display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+              <button id="hpp_mode_margin" onclick="hppSetMode('margin')"
+                style="padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:'Poppins',sans-serif;border:none;background:var(--accent);color:#fff;border-color:var(--accent)">
+                Margin
+              </button>
+              <button id="hpp_mode_markup" onclick="hppSetMode('markup')"
+                style="padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:'Poppins',sans-serif;border:none;background:none;color:var(--muted);border-left:1px solid var(--border)">
+                Markup
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- mode explainer pill -->
+        <div id="hpp_mode_explainer" style="font-size:11px;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:12px;line-height:1.7">
+          <strong style="color:var(--accent)">Margin-based</strong> aktif —
+          <span>Harga Jual = HPP ÷ (1 − margin%)</span><br>
+          <span style="font-size:10px">Contoh: HPP 10.000, margin 30% → Rp 14.286 (bukan Rp 13.000)</span>
+        </div>
+        <div class="hpp-results" id="hpp_cards">
+          <div class="hpp-empty-result">
+            <div style="font-size:28px;margin-bottom:8px">🧮</div>
+            Isi form modal untuk melihat rekomendasi harga
+          </div>
+        </div>
+
+        <!-- EMBEDDED CALCULATOR -->
+        <div style="margin-top:16px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;overflow:hidden">
+          <div style="padding:10px 16px;border-bottom:1px solid var(--border);font-size:11px;font-family:'DM Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em">
+            🔢 Kalkulator
+          </div>
+          <div style="padding:14px 16px">
+            <div id="calc_display" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:10px;text-align:right;font-family:'DM Mono',monospace;min-height:52px">
+              <div id="calc_expr" style="font-size:11px;color:var(--muted);min-height:16px;word-break:break-all"></div>
+              <div id="calc_val" style="font-size:22px;font-weight:700;color:var(--text)">0</div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+              ${[
+                ['C','±','%','÷'],
+                ['7','8','9','×'],
+                ['4','5','6','−'],
+                ['1','2','3','+'],
+                ['0','.','⌫','='],
+              ].map(row => row.map(k => {
+                const isOp  = ['÷','×','−','+'].includes(k);
+                const isEq  = k === '=';
+                const isCls = k === 'C';
+                const style = isEq  ? 'background:var(--accent);color:#fff;font-weight:700' :
+                              isOp  ? 'background:rgba(77,158,247,0.12);color:var(--accent)' :
+                              isCls ? 'background:rgba(212,96,58,0.1);color:var(--red)' :
+                              'background:var(--surface);color:var(--text)';
+                return `<button onclick="calcKey('${k}')" style="border:1px solid var(--border);border-radius:8px;padding:11px 6px;font-size:14px;font-weight:600;cursor:pointer;font-family:'DM Mono',monospace;transition:all 0.12s;${style}" onmouseover="this.style.opacity='.75'" onmouseout="this.style.opacity='1'">${k}</button>`;
+              }).join('')).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>`;
+}
+
+// ─── EMBEDDED CALCULATOR ─────────────────────────────────────
+let _calcExpr = '';
+let _calcNew   = true;
+
+function calcKey(k) {
+  const valEl  = document.getElementById('calc_val');
+  const exprEl = document.getElementById('calc_expr');
+  if (!valEl) return;
+
+  const cur = valEl.textContent;
+
+  if (k === 'C') {
+    _calcExpr = ''; _calcNew = true;
+    valEl.textContent = '0'; exprEl.textContent = '';
+    return;
+  }
+
+  if (k === '⌫') {
+    if (_calcNew) return;
+    const next = cur.slice(0, -1);
+    valEl.textContent = next || '0';
+    if (!next) _calcNew = true;
+    return;
+  }
+
+  if (k === '±') {
+    if (cur === '0') return;
+    valEl.textContent = cur.startsWith('-') ? cur.slice(1) : '-' + cur;
+    return;
+  }
+
+  if (k === '%') {
+    const n = parseFloat(cur.replace(/\./g,'').replace(',','.'));
+    valEl.textContent = calcFmt(n / 100);
+    _calcNew = true;
+    return;
+  }
+
+  const ops = { '÷':'/', '×':'*', '−':'-', '+':'+' };
+
+  if (ops[k]) {
+    _calcExpr = calcRawVal(cur) + ' ' + ops[k];
+    exprEl.textContent = cur + ' ' + k;
+    _calcNew = true;
+    return;
+  }
+
+  if (k === '=') {
+    if (!_calcExpr) return;
+    try {
+      const expr = _calcExpr + ' ' + calcRawVal(cur);
+      const result = Function('"use strict";return (' + expr + ')')();
+      exprEl.textContent = exprEl.textContent + ' ' + cur + ' =';
+      valEl.textContent = calcFmt(result);
+      _calcExpr = '';
+      _calcNew = true;
+    } catch { valEl.textContent = 'Error'; _calcExpr = ''; _calcNew = true; }
+    return;
+  }
+
+  // digit or dot
+  if (_calcNew) { valEl.textContent = k === '.' ? '0.' : k; _calcNew = false; }
+  else {
+    if (k === '.' && cur.includes('.')) return;
+    valEl.textContent = cur === '0' && k !== '.' ? k : cur + k;
+  }
+}
+
+function calcRawVal(displayed) {
+  return displayed.replace(/\./g,'').replace(',','.').replace(/[^0-9.\-]/g,'') || '0';
+}
+
+function calcFmt(n) {
+  if (!isFinite(n)) return 'Error';
+  // show up to 8 significant digits, strip trailing zeros
+  const s = parseFloat(n.toPrecision(10)).toString();
+  return s;
+}
+
+// ─── TO-DO LIST ──────────────────────────────────────────────
+let tdlBrand = 'kolektiva';
+let tdlSheet = 0; // active sheet index within current set
+
+const STATUS_CYCLE = {
+  'belum':    { next:'progress', cls:'tdl-status-progress', label:'🔄 Progress' },
+  'progress': { next:'done',     cls:'tdl-status-done',     label:'✅ Done'     },
+  'done':     { next:'belum',    cls:'tdl-status-belum',    label:'⬜ Belum'    },
+};
+
+function tdlParseStatus(raw='') {
+  const s = raw.toLowerCase();
+  if (s.includes('done') || s.includes('✅') || s.includes('selesai')) return 'done';
+  if (s.includes('progress') || s.includes('🔄') || s.includes('dalam')) return 'progress';
+  return 'belum';
+}
+
+function tdlStatusClass(s) {
+  return s==='done'?'tdl-status-done':s==='progress'?'tdl-status-progress':'tdl-status-belum';
+}
+function tdlStatusLabel(s) {
+  return s==='done'?'✅ Done':s==='progress'?'🔄 Progress':'⬜ Belum';
+}
+
+function tdlPrioClass(raw='') {
+  const s = raw.toLowerCase();
+  if (s.includes('urgent') || s.includes('🔴')) return 'tdl-prio-urgent';
+  if (s.includes('tinggi') || s.includes('🟠') || s.includes('high')) return 'tdl-prio-tinggi';
+  return 'tdl-prio-normal';
+}
+
+async function tdlUpdateStatus(setId, sheetIdx, rowId) {
+  const set = db.todolist.find(x=>x.id===setId);
+  if (!set) return;
+  const sheet = set.sheets[sheetIdx];
+  const row = sheet.rows.find(r=>r.id===rowId);
+  if (!row) return;
+  const cur = row._status || tdlParseStatus(row.cells[sheet.statusCol]||'');
+  const next = STATUS_CYCLE[cur]?.next || 'belum';
+  row._status = next;
+  await saveDB('todolist');
+  // re-render just the status button in place for snappiness
+  const btn = document.getElementById(`tdlbtn_${setId}_${sheetIdx}_${rowId}`);
+  if (btn) {
+    btn.className = `tdl-status-btn ${tdlStatusClass(next)}`;
+    btn.textContent = tdlStatusLabel(next);
+  }
+  // check if all done → show archive banner
+  tdlCheckAllDone(setId);
+}
+
+function tdlCheckAllDone(setId) {
+  const set = db.todolist.find(x=>x.id===setId);
+  if (!set) return;
+  const statusSheets = set.sheets.filter(s=>s.statusCol>=0);
+  if (!statusSheets.length) return;
+  const allDone = statusSheets.every(s =>
+    s.rows.every(r => (r._status||tdlParseStatus(r.cells[s.statusCol]||''))==='done')
+  );
+  const banner = document.getElementById(`tdlbanner_${setId}`);
+  if (banner) banner.style.display = allDone ? 'flex' : 'none';
+}
+
+async function tdlArchive(setId) {
+  const set = db.todolist.find(x=>x.id===setId);
+  if (!set) return;
+  set.archived = true;
+  set.archivedAt = new Date().toISOString().split('T')[0];
+  await saveDB('todolist');
+  toast('📦 To-Do diarsipkan!', 'success');
+  render();
+}
+
+async function tdlDeleteSet(setId) {
+  db.todolist = db.todolist.filter(x=>x.id!==setId);
+  await saveDB('todolist');
+  toast('🗑️ To-Do dihapus', 'success');
+  render();
+}
+
+function renderTodolist() {
+  document.getElementById('addBtn').classList.add('hidden');
+
+  // brand tabs
+  const brandTabs = `
+    <div class="tdl-brand-tabs">
+      ${BRANDS.map(b=>`<button class="filter-btn ${b===tdlBrand?'active':''}" onclick="tdlBrand='${b}';tdlSheet=0;render()">${BRAND_LABEL[b]}</button>`).join('')}
+    </div>`;
+
+  const activeSets = db.todolist.filter(x=>x.brand===tdlBrand && !x.archived);
+  const archivedSets = db.todolist.filter(x=>x.brand===tdlBrand && x.archived);
+
+  // upload zone (always visible when no active set)
+  const uploadZone = `
+    <div class="tdl-upload-zone" onclick="document.getElementById('tdlImportInput').click()">
+      <div class="tdl-upload-zone-icon">📋</div>
+      <div class="tdl-upload-zone-text">Upload To-Do JSON untuk <strong>${BRAND_LABEL[tdlBrand]}</strong></div>
+      <div class="tdl-upload-zone-sub">Format JSON hasil convert dari Excel · Lihat template di bawah</div>
+    </div>
+    <input type="file" id="tdlImportInput" accept=".json" class="hidden" onchange="tdlImportJSON(this)">`;
+
+  // render active set (hanya 1 aktif per brand)
+  let activeHtml = '';
+  if (activeSets.length > 0) {
+    const set = activeSets[0];
+    const sheets = set.sheets || [];
+    const curSheet = Math.min(tdlSheet, sheets.length-1);
+    const sheet = sheets[curSheet];
+
+    // per-sheet progress
+    function sheetProgress(s) {
+      if (s.statusCol < 0) return null;
+      const total = s.rows.length;
+      if (!total) return null;
+      const done = s.rows.filter(r=>(r._status||tdlParseStatus(r.cells[s.statusCol]||''))==='done').length;
+      return { done, total, pct: Math.round(done/total*100) };
+    }
+
+    const allStatusSheets = sheets.filter(s=>s.statusCol>=0);
+    const totalTasks = allStatusSheets.reduce((a,s)=>a+s.rows.length,0);
+    const doneTasks  = allStatusSheets.reduce((a,s)=>a+s.rows.filter(r=>(r._status||tdlParseStatus(r.cells[s.statusCol]||''))==='done').length,0);
+    const allDone = totalTasks>0 && doneTasks===totalTasks;
+
+    // sheet tabs
+    const sheetTabs = sheets.map((s,i)=>{
+      const prog = sheetProgress(s);
+      const badge = prog ? ` (${prog.done}/${prog.total})` : '';
+      return `<div class="tdl-sheet-tab ${i===curSheet?'active':''}" onclick="tdlSheet=${i};render()">${esc(s.title||s.name||'Sheet '+(i+1))}${badge}</div>`;
+    }).join('');
+
+    // overall progress bar
+    const overallPct = totalTasks>0?Math.round(doneTasks/totalTasks*100):0;
+
+    // archive banner
+    const archiveBanner = `
+      <div class="tdl-archive-banner" id="tdlbanner_${set.id}" style="display:${allDone?'flex':'none'}">
+        <span style="font-size:24px">🎉</span>
+        <div class="flex-1">
+          <div class="tdl-archive-text">Semua task selesai!</div>
+          <div class="tdl-archive-sub">Arsipkan to-do ini dan upload yang baru</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="tdlArchive(${set.id})">📦 Arsipkan</button>
+      </div>`;
+
+    // render sheet table
+    let tableHtml = '';
+    if (sheet) {
+      const cols = sheet.columns || [];
+      const hasStatus = sheet.statusCol >= 0;
+
+      const headers = cols.map((c,i) => {
+        if (i === sheet.statusCol) return `<th style="width:110px">STATUS</th>`;
+        return `<th>${esc(c)}</th>`;
+      }).join('');
+
+      const prog = sheetProgress(sheet);
+
+      const rows = sheet.rows.map(row => {
+        const cells = row.cells || [];
+        const tds = cols.map((c,i) => {
+          const val = cells[i] || '';
+          const colLower = c.toLowerCase();
+
+          if (i === sheet.statusCol) {
+            const cur = row._status || tdlParseStatus(val);
+            return `<td style="width:110px">
+              <button class="tdl-status-btn ${tdlStatusClass(cur)}" id="tdlbtn_${set.id}_${curSheet}_${row.id}"
+                onclick="tdlUpdateStatus(${set.id},${curSheet},${row.id})">${tdlStatusLabel(cur)}</button>
+            </td>`;
+          }
+          if (colLower.includes('prioritas') || colLower.includes('priority')) {
+            const pc = tdlPrioClass(val);
+            return val ? `<td><span class="tdl-prio ${pc}">${esc(val)}</span></td>` : `<td>—</td>`;
+          }
+          if (colLower === '#' || colLower === 'no') {
+            return `<td class="tdl-num">${esc(val)}</td>`;
+          }
+          if (colLower.includes('detail') || colLower.includes('brief') || colLower.includes('isi') || colLower.includes('fungsi') || colLower.includes('hashtag') || colLower.includes('catatan')) {
+            return `<td class="tdl-detail">${esc(val)}</td>`;
+          }
+          return `<td>${esc(val)}</td>`;
+        }).join('');
+        return `<tr>${tds}</tr>`;
+      }).join('');
+
+      const progressHtml = prog ? `
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <div class="tdl-progress-bar" style="flex:1"><div class="tdl-progress-fill" style="width:${prog.pct}%"></div></div>
+          <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);white-space:nowrap">${prog.done}/${prog.total} · ${prog.pct}%</span>
+        </div>` : '';
+
+      tableHtml = progressHtml + `
+        <div class="tdl-table-wrap">
+          <table class="tdl-table">
+            <thead><tr>${headers}</tr></thead>
+            <tbody>${rows || '<tr><td colspan="99" style="text-align:center;color:var(--muted);padding:24px">Tidak ada data</td></tr>'}</tbody>
+          </table>
+        </div>`;
+    }
+
+    activeHtml = `
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px">
+        <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px">
+          <div style="flex:1">
+            <div style="font-weight:700;font-size:14px">${esc(set.title)}</div>
+            <div style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:2px">Upload: ${set.uploadedAt||'—'} · ${totalTasks} total task</div>
+          </div>
+          <div style="font-family:'DM Mono',monospace;font-size:12px;color:${allDone?'#4cc9a0':'var(--muted)'};font-weight:600">${overallPct}%</div>
+          <div class="tdl-progress-bar" style="width:80px"><div class="tdl-progress-fill" style="width:${overallPct}%"></div></div>
+          <button class="btn btn-ghost btn-sm" onclick="tdlDeleteSet(${set.id})" title="Hapus">🗑️</button>
+        </div>
+        ${archiveBanner}
+        <div class="tdl-sheet-tabs">${sheetTabs}</div>
+        <div style="padding:14px 18px">${tableHtml}</div>
+      </div>`;
+  }
+
+  // no active set → show upload zone
+  if (!activeSets.length) activeHtml = uploadZone;
+  else activeHtml = activeHtml + `
+    <div style="margin-bottom:14px">
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('tdlImportInput2').click()">📋 Upload To-Do Baru (Ganti)</button>
+      <input type="file" id="tdlImportInput2" accept=".json" class="hidden" onchange="tdlImportJSON(this)">
+    </div>`;
+
+  // archived sets
+  const archivedHtml = archivedSets.length ? `
+    <div style="margin-top:20px">
+      <div class="strategy-section-title">📦 Arsip</div>
+      ${archivedSets.map(s => {
+        const total = s.sheets.filter(sh=>sh.statusCol>=0).reduce((a,sh)=>a+sh.rows.length,0);
+        return `<div class="tdl-archived-item">
+          <span style="font-size:20px">📦</span>
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:13px">${esc(s.title)}</div>
+            <div style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace">Diarsipkan ${s.archivedAt||'—'} · ${total} task</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="tdlRestoreArchive(${s.id})">↩️ Pulihkan</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteItem('todolist',${s.id})">🗑️</button>
+        </div>`;
+      }).join('')}
+    </div>` : '';
+
+  return brandTabs + activeHtml + archivedHtml;
+}
+
+async function tdlImportJSON(input) {
+  if (!dirHandle) { toast('⚠️ Pilih folder dulu','error'); input.value=''; return; }
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';
+  try {
+    const raw = JSON.parse(await file.text());
+    // must have brand + sheets
+    if (!raw.sheets || !Array.isArray(raw.sheets)) { toast('❌ Format JSON tidak valid','error'); return; }
+    // override brand to active tab
+    raw.brand = tdlBrand;
+    raw.id = Date.now();
+    raw.uploadedAt = new Date().toISOString().split('T')[0];
+    raw.archived = false;
+    // assign row ids and detect status column per sheet
+    raw.sheets.forEach(sheet => {
+      sheet.rows = (sheet.rows||[]).map((r,i) => ({ ...r, id: i+1, _status: null }));
+      // detect statusCol by column name
+      const cols = (sheet.columns||[]).map(c=>c.toLowerCase());
+      sheet.statusCol = cols.findIndex(c=>c.includes('status'));
+    });
+    // remove existing active set for this brand
+    db.todolist = db.todolist.filter(x=>!(x.brand===tdlBrand && !x.archived));
+    db.todolist.push(raw);
+    await saveDB('todolist');
+    tdlSheet = 0;
+    toast('✅ To-Do berhasil diimport!','success');
+    render();
+  } catch(e) { toast('❌ Gagal baca file: '+e.message,'error'); }
+}
+
+async function tdlRestoreArchive(setId) {
+  const set = db.todolist.find(x=>x.id===setId);
+  if (!set) return;
+  // archive current active if any
+  const cur = db.todolist.find(x=>x.brand===set.brand && !x.archived && x.id!==setId);
+  if (cur) { cur.archived=true; cur.archivedAt=new Date().toISOString().split('T')[0]; }
+  set.archived = false;
+  set.archivedAt = null;
+  await saveDB('todolist');
+  toast('↩️ To-Do dipulihkan!','success');
+  render();
+}
+
+// ─── INVOICE GENERATOR ──────────────────────────────────────
+const KOLEKTIVA_LOGO = "data:image/png;base64,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AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK1qnlC3zUdcrKrWqeULfNR1yz4r1rbXJ3cu5Pw3NU9UJCPl3J+G5qnqhIX0cYVzuAJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK1qnlC3zUdcrKrWqeULfNR1yz4r1rbXJ3cu5Pw3NU9UJCPl3J+G5qnqhIX0cYVzuAJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK1qnlC3zUdcrKrWqeULfNR1yz4r1rbXJ3cu5Pw3NU9UJCPl3J+G5qnqhIX0cYVzuAJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK1qnlC3zUdcrKrWqeULfNR1yz4r1rbXJ3cu5Pw3NU9UJCPl3J+G5qnqhIX0cYVzuAJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK1qnlC3zUdcrKrWqeULfNR1yz4r1rbXJ3cu5Pw3NU9UJCPl3J+G5qnqhIX0cYVzuAJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK1qnlC3zUdcrKrWqeULfNR1yz4r1rbXJ3cu5Pw3NU9UJCPl3J+G5qnqhIX0cYVzuAJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK1qnlC3zUdcrKrWqeULfNR1yz4r1rbXJ3cu5Pw3NU9UJCPl3J+G5qnqhIX0cYVzuAJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK1qnlC3zUdcrKrWqeULfNR1yz4r1rbXJ3cu5Pw3NU9UJCPl3J+G5qnqhIX0cYVzuAJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK1qnlC3zUdcrKrWqeULfNR1yz4r1rbXJ3cu5Pw3NU9UJCPl3J+G5qnqhIX0cYVzuAJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK1qnlC3zUdcrKrWqeULfNR1yz4r1rbXJ3cu5Pw3NU9UJCPl3J+G5qnqhIX0cYVzuAJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK1qnlC3zUdcrKrWqeULfNR1yz4r1rbXJ3cu5Pw3NU9UJCPl3J+G5qnqhIX0cYVzuAJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK1qnlC3zUdcrKrWqeULfNR1yz4r1rbXJ3cu5Pw3NU9UJCPl3J+G5qnqhIX0cYVzuAJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK1qnlC3zUdcrKrWqeULfNR1yz4r1rbXJ3cu5Pw3NU9UJCPl3J+G5qnqhIX0cYVzuAJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK1qnlC3zUdcrKrWqeULfNR1yz4r1rbXJ3cu5Pw3NU9UJCPl3J+G5qnqhIX0cYVzuAJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK1qnlC3zUdcrKrWqeULfNR1yz4r1rbXJ3cu5Pw3NU9UJCPl3J+G5qnqhIX0cYVzuAJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK1qnlC3zUdcrKrWqeULfNR1yz4r1rbXJ3cu5Pw3NU9UJCPl3J+G5qnqhIX0cYVzuAJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK1qnlC3zUdcrKrWqeULfNR1yz4r1rbXJ3cu5Pw3NU9UJCPl3J+G5qnqhIX0cYVzuAJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK1qnlC3zUdcrKrWqeULfNR1yz4r1rbXJ3cu5Pw3NU9UJCPl3J+G5qnqhIX0cYVzuAJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK1qnlC3zUdcrKrWqeULfNR1yz4r1rbXJ3cu5Pw3NU9UJCPl3J+G5qnqhIX0cYVzuAJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK1qnlC3zUdcrKrWqeULfNR1yz4r1rbXJ3cu5Pw3NU9UJCPl3J+G5qnqhIX0cYVzuAJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK1qnlC3zUdcrKrWqeULfNR1yz4r1rbXJ3cu5Pw3NU9UJCPl3J+G5qnqhIX0cYVzuAJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK1qnlC3zUdcrKrWqeULfNR1yz4r1rbXJ3cu5Pw3NU9UJCPl3J+G5qnqhIX0cYVzuAJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK1qnlC3zUdcrKrWqeULfNR1yz4r1rbXJ3cu5Pw3NU9UJCPl3J+G5qnqhIX0cYVzuAJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK1qnlC3zUdcrKrWqeULfNR1yz4r1rbXJ3cu5Pw3NU9UJCPl3J+G5qnqhIX0cYVzuAJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK1qnlC3zUdcrKrWqeULfNR1yz4r1rbXJ3cu5Pw3NU9UJCPl3J+G5qnqhIX0cYVzuAJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK1qnlC3zUdcrKrWqeULfNR1yz4r1rbXJ3cu5Pw3NU9UJCPl3J+G5qnqhIX0cYVzuAJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK1qnlC3zUdcrKrWqeULfNR1yz4r1rbXJ3cu5Pw3NU9UJCPl3J+G5qnqhIX0cYVzuAJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK1qnlC3zUdcrKrWqeULfNR1yz4r1rbXJ3cu5Pw3NU9UJCPl3J+G5qnqhIX0cYVzuAJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK1qnlC3zUdcrKrWqeULfNR1yz4r1rbXJ3cu5Pw3NU9UJCPl3J+G5qnqhIX0cYVzuAJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK1qnlC3zUdcrKrWqeULfNR1yz4r1rbXJ3cu5Pw3NU9UJCPl3J+G5qnqhIX0cYVzuAJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA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";
+
+let invItems = [{qty:'',produk:'',harga:''}];
+
+function invAddItem() {
+  invItems.push({qty:'',produk:'',harga:''});
+  renderInvItems(); invPreview();
+}
+function invRemoveItem(i) {
+  invItems.splice(i,1);
+  if(!invItems.length) invItems=[{qty:'',produk:'',harga:''}];
+  renderInvItems(); invPreview();
+}
+function invReadItems() {
+  invItems = invItems.map((_,i)=>{
+    const qty    = parseFloat(document.getElementById('inv_qty_'+i)?.value)||0;
+    const produk = document.getElementById('inv_produk_'+i)?.value||'';
+    const hargaRaw = (document.getElementById('inv_harga_'+i)?.value||'0').replace(/\./g,'');
+    const harga  = parseFloat(hargaRaw)||0;
+    return {qty,produk,harga};
+  });
+}
+function renderInvItems() {
+  const tbody = document.getElementById('inv_items_tbody');
+  if(!tbody) return;
+  tbody.innerHTML = invItems.map((it,i)=>{
+    const total = (it.qty||0)*(it.harga||0);
+    return '<tr>'
+      +'<td><input class="inv-cell" id="inv_qty_'+i+'" type="number" value="'+(it.qty||'')+'" placeholder="0" style="width:56px" oninput="invReadItems();invPreview()"></td>'
+      +'<td><input class="inv-cell" id="inv_produk_'+i+'" value="'+esc(it.produk)+'" placeholder="Nama produk..." style="width:100%" oninput="invReadItems();invPreview()"></td>'
+      +'<td><input class="inv-cell" id="inv_harga_'+i+'" value="'+(it.harga?Number(it.harga).toLocaleString('id-ID'):'')+'" placeholder="0" style="width:90px;text-align:right" oninput="hppFmtInput(this);invReadItems();invPreview()"></td>'
+      +'<td style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--text2);text-align:right;white-space:nowrap;padding:0 6px">'+(total?fmtRp(total):'—')+'</td>'
+      +'<td><button class="hpp-field-remove" onclick="invRemoveItem('+i+')">✕</button></td>'
+      +'</tr>';
+  }).join('');
+}
+
+function invGetGrandTotal() {
+  return invItems.reduce((s,it)=>s+(it.qty||0)*(it.harga||0),0);
+}
+
+function invPreview() {
+  const get = id => document.getElementById(id)?.value||'';
+  const amountPaid = parseFloat((get('inv_paid')||'0').replace(/\./g,''))||0;
+  const grandTotal = invGetGrandTotal();
+  const balanceDue = grandTotal - amountPaid;
+  const gd = document.getElementById('inv_grand_display');
+  if(gd) gd.textContent = fmtRp(grandTotal);
+  const data = {
+    to:get('inv_to'), toAddr:get('inv_to_addr'),
+    date:get('inv_date'), invNo:get('inv_no'), custId:get('inv_custid'),
+    pengirim:get('inv_pengirim'), jabatan:get('inv_jabatan'),
+    ketentuan:get('inv_ketentuan'), tempo:get('inv_tempo'),
+    amountPaid, grandTotal, balanceDue
+  };
+  const frame = document.getElementById('inv_preview_frame');
+  if(frame) frame.srcdoc = buildInvoiceHTML(data);
+}
+
+function buildInvoiceHTML(d) {
+  const itemRows = invItems.map(it=>{
+    if(!it.produk && !it.qty) return '';
+    const t=(it.qty||0)*(it.harga||0);
+    return '<tr>'
+      +'<td style="padding:8px 10px;font-size:12px">'+Number(it.qty||0).toFixed(2)+'</td>'
+      +'<td style="padding:8px 10px;font-size:12px">'+esc(it.produk)+'</td>'
+      +'<td style="padding:8px 10px;font-size:12px;text-align:center">Rp</td>'
+      +'<td style="padding:8px 10px;font-size:12px;text-align:right">'+(it.harga?Number(it.harga).toLocaleString('id-ID'):'—')+'</td>'
+      +'<td style="padding:8px 10px;font-size:12px;text-align:center">Rp</td>'
+      +'<td style="padding:8px 10px;font-size:12px;text-align:right">'+(t?Number(t).toLocaleString('id-ID'):'—')+'</td>'
+      +'</tr>';
+  }).join('');
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Open Sans',Arial,sans-serif;background:#fff;color:#333;font-size:13px}
+.page{max-width:750px;margin:0 auto;padding:40px 50px;background:#fff}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}
+.header-left{display:flex;align-items:center;gap:14px}
+.logo-wrap{display:flex;align-items:center;justify-content:center;width:72px;height:72px}
+.logo-wrap img{width:72px;height:72px;object-fit:contain;border-radius:10px}
+.brand-name{font-size:22px;font-weight:700;color:#1E2D4E;letter-spacing:-0.02em}
+.brand-sub{font-size:11px;color:#C4623A;font-weight:600;margin-top:2px}
+.inv-label{font-size:42px;font-weight:700;color:#1E2D4E;letter-spacing:0.08em}
+hr{border:none;border-top:1px solid #e0dbd3;margin:8px 0 20px}
+.to-date{display:flex;justify-content:space-between;margin-bottom:24px}
+.to-block{font-size:12px;line-height:1.8}
+.to-label{font-weight:700;color:#1E2D4E;font-size:10px;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:2px}
+.date-table{font-size:12px;border-collapse:collapse}
+.date-table td{padding:2px 0}
+.date-table td:first-child{color:#666;padding-right:8px;white-space:nowrap}
+.date-table td:last-child{font-weight:600;color:#1E2D4E;white-space:nowrap}
+.sec-table{width:100%;border-collapse:collapse;margin-bottom:16px}
+.sec-table th{background:#1E2D4E;color:#F5F0E8;font-size:11px;font-weight:600;padding:9px 12px;text-align:left;letter-spacing:0.02em}
+.sec-table td{padding:8px 12px;font-size:12px;border-bottom:1px solid #ede8e0}
+.item-table th{background:#C4623A;color:#fff;font-size:11px;font-weight:600;padding:9px 12px;letter-spacing:0.02em}
+.item-table td{border-bottom:1px solid #ede8e0}
+.totals{margin-left:auto;width:260px;margin-top:4px}
+.tot-row{display:flex;justify-content:space-between;padding:5px 0;font-size:12px;border-bottom:1px solid #ede8e0}
+.tot-balance{font-weight:700;font-size:13px;color:#C4623A;border:none;padding-top:8px;display:flex;justify-content:space-between}
+.footer{text-align:center;margin-top:36px;font-size:11px;color:#888;border-top:1px solid #e0dbd3;padding-top:14px;line-height:2}
+.footer strong{color:#1E2D4E}
+@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}} @page{margin:0;size:A4}
+</style></head><body><div class="page">
+<div class="header">
+  <div class="header-left">
+    <div class="logo-wrap"><img src="${KOLEKTIVA_LOGO}"></div>
+    <div><div class="brand-name">KOLEKTIVA</div><div class="brand-sub">by PT Pratani Kreatif Group</div></div>
+  </div>
+  <div class="inv-label">INVOICE</div>
+</div>
+<hr>
+<div class="to-date">
+  <div class="to-block">
+    <div class="to-label">To:</div>
+    <div style="font-weight:600;color:#1E2D4E">${d.to||'—'}</div>
+    <div style="color:#555;white-space:pre-line">${d.toAddr||''}</div>
+  </div>
+  <div>
+    <table class="date-table">
+      <tr><td>Date:</td><td>${d.date||'—'}</td></tr>
+      <tr><td>Invoice:</td><td>${d.invNo||'—'}</td></tr>
+      <tr><td>Customer ID:</td><td>${d.custId||'—'}</td></tr>
+    </table>
+  </div>
+</div>
+<table class="sec-table" style="margin-bottom:20px">
+  <tr><th>Pengirim</th><th>Jabatan</th><th>Ketentuan</th><th>Tempo</th></tr>
+  <tr><td>${d.pengirim||'—'}</td><td>${d.jabatan||'—'}</td><td>${d.ketentuan||'—'}</td><td>${d.tempo||'—'}</td></tr>
+</table>
+<table class="sec-table item-table">
+  <tr><th style="width:80px">Jumlah</th><th>Produk</th><th style="width:50px;text-align:center">Harga</th><th style="width:90px;text-align:right"></th><th style="width:50px;text-align:center">Total</th><th style="width:90px;text-align:right"></th></tr>
+  ${itemRows}
+  <tr><td colspan="6" style="padding:10px"></td></tr>
+</table>
+<div class="totals">
+  <div class="tot-row"><span>Grand Total</span><span>Rp ${Number(d.grandTotal||0).toLocaleString('id-ID')}</span></div>
+  <div class="tot-row"><span>Amount Paid</span><span>Rp ${Number(d.amountPaid||0).toLocaleString('id-ID')}</span></div>
+  <div class="tot-balance"><span>Balance Due</span><span>Rp ${Number(d.balanceDue||0).toLocaleString('id-ID')}</span></div>
+</div>
+<div class="footer">
+  <div>Make all checks payable to <strong>KOLEKTIVA</strong></div>
+  <div>Thank you for your business!</div>
+  <div>PT Pratani Kreatif Group | 0851-7210-7815 | pratani.creative@gmail.com</div>
+</div>
+</div></body></html>`;
+}
+
+function renderGenInvoice() {
+  document.getElementById('addBtn').classList.add('hidden');
+  invItems = [{qty:'',produk:'',harga:''}];
+  const today = new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});
+
+  setTimeout(()=>{ renderInvItems(); invPreview(); },60);
+
+  return `<div class="inv-layout">
+    <div>
+      <div class="inv-form-card" style="margin-bottom:14px">
+        <div class="inv-form-title">📋 Data Invoice</div>
+        <div class="form-row">
+          <div class="form-group" style="flex:2"><div class="form-label">To (Client / Organisasi) *</div><input class="form-input" id="inv_to" placeholder="Aditya Uki Nugroho" oninput="invPreview()"></div>
+          <div class="form-group"><div class="form-label">Customer ID</div><input class="form-input" id="inv_custid" placeholder="PPKH-25" oninput="invPreview()"></div>
+        </div>
+        <div class="form-group"><div class="form-label">Alamat Client</div><textarea class="form-textarea" id="inv_to_addr" rows="3" placeholder="Jalan, Kota, Provinsi..." oninput="invPreview()"></textarea></div>
+        <div class="form-row">
+          <div class="form-group"><div class="form-label">Nomor Invoice</div><input class="form-input" id="inv_no" placeholder="INV-PRATANI-PKPH-015-X-2025" oninput="invPreview()"></div>
+          <div class="form-group"><div class="form-label">Tanggal</div><input class="form-input" id="inv_date" placeholder="12 Mei 2026" oninput="invPreview()"></div>
+        </div>
+      </div>
+      <div class="inv-form-card" style="margin-bottom:14px">
+        <div class="inv-form-title">👤 Pengirim</div>
+        <div class="form-row">
+          <div class="form-group"><div class="form-label">Nama Pengirim</div><input class="form-input" id="inv_pengirim" placeholder="Mario" oninput="invPreview()"></div>
+          <div class="form-group"><div class="form-label">Jabatan</div><input class="form-input" id="inv_jabatan" placeholder="Marketing Manager" oninput="invPreview()"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><div class="form-label">Ketentuan</div><input class="form-input" id="inv_ketentuan" placeholder="Sebelum Tempo" oninput="invPreview()"></div>
+          <div class="form-group"><div class="form-label">Tempo</div><input class="form-input" id="inv_tempo" placeholder="31 Oktober 2025" oninput="invPreview()"></div>
+        </div>
+      </div>
+      <div class="inv-form-card" style="margin-bottom:14px">
+        <div class="inv-form-title">📦 Item Produk</div>
+        <div style="overflow-x:auto"><table class="inv-items-table">
+          <thead><tr><th style="width:60px">Jumlah</th><th>Produk</th><th style="width:100px;text-align:right">Harga (Rp)</th><th style="width:100px;text-align:right">Total</th><th style="width:24px"></th></tr></thead>
+          <tbody id="inv_items_tbody"></tbody>
+        </table></div>
+        <button class="hpp-field-add" style="margin-top:6px" onclick="invAddItem()">+ Tambah Item</button>
+      </div>
+      <div class="inv-form-card">
+        <div class="inv-form-title">💰 Pembayaran</div>
+        <div class="form-row">
+          <div class="form-group"><div class="form-label">Amount Paid (Rp)</div><input class="form-input" id="inv_paid" type="text" inputmode="numeric" placeholder="0" oninput="hppFmtInput(this);invPreview()"></div>
+          <div class="form-group"><div class="form-label">Grand Total</div><div id="inv_grand_display" style="font-size:16px;font-weight:700;font-family:'DM Mono',monospace;color:#4cc9a0;padding-top:6px">Rp 0</div></div>
+        </div>
+        <button class="btn btn-primary" style="width:100%;padding:12px;margin-top:12px" onclick="invDownloadPDF()">⬇️ Download Invoice PDF</button>
+      </div>
+    </div>
+    <div class="inv-preview-wrap">
+      <div style="font-size:11px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:8px">Preview</div>
+      <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;background:#fff">
+        <iframe id="inv_preview_frame" style="width:100%;height:620px;border:none;background:#fff" sandbox="allow-same-origin"></iframe>
+      </div>
+    </div>
+  </div>`;
+}
+
+function invDownloadPDF() {
+  invReadItems();
+  const get = id => document.getElementById(id)?.value||'';
+  const grandTotal = invGetGrandTotal();
+  const amountPaid = parseFloat((get('inv_paid')||'0').replace(/\./g,''))||0;
+  const balanceDue = grandTotal - amountPaid;
+  const data = {
+    to:get('inv_to'), toAddr:get('inv_to_addr'),
+    date:get('inv_date'), invNo:get('inv_no'), custId:get('inv_custid'),
+    pengirim:get('inv_pengirim'), jabatan:get('inv_jabatan'),
+    ketentuan:get('inv_ketentuan'), tempo:get('inv_tempo'),
+    amountPaid, grandTotal, balanceDue
+  };
+  const html = buildInvoiceHTML(data);
+  const win = window.open('','_blank');
+  if(!win){ toast('❌ Pop-up diblokir browser — izinkan pop-up dulu','error'); return; }
+  win.document.write(html);
+  win.document.close();
+  win.onload = ()=>{ win.focus(); win.print(); };
+  toast('✅ Invoice siap — pilih Save as PDF di dialog print!','success');
+}
+
+// ─── GENERATOR DOKUMEN ───────────────────────────────────────
+const GEN_DOK_META = {
+  gen_invoice:    { icon:'🧾', label:'Invoice',           desc:'Tagihan resmi ke client setelah pekerjaan selesai.' },
+  gen_penawaran:  { icon:'📋', label:'Surat Penawaran',   desc:'Quotation harga & scope pekerjaan ke calon client.' },
+  gen_rab:        { icon:'📊', label:'RAB',               desc:'Rincian Anggaran Biaya — breakdown detail cost per item.' },
+  gen_mou:        { icon:'🤝', label:'MoU',               desc:'Memorandum of Understanding — kesepakatan awal proyek.' },
+  gen_bast:       { icon:'✅', label:'BAST',              desc:'Berita Acara Serah Terima — bukti penyelesaian proyek.' },
+  gen_kwitansi:   { icon:'🧾', label:'Kwitansi',          desc:'Bukti pembayaran yang sudah diterima.' },
+};
+
+function toggleGenDokMenu() {
+  const menu    = document.getElementById('navGenDokMenu');
+  const chevron = document.getElementById('navGenDokChevron');
+  const isOpen  = menu.style.display !== 'none';
+  menu.style.display    = isOpen ? 'none' : 'block';
+  chevron.style.transform = isOpen ? 'rotate(-90deg)' : 'rotate(0deg)';
+}
+
+function toggleKeuMenu() {
+  const menu    = document.getElementById('navKeuMenu');
+  const chevron = document.getElementById('navKeuChevron');
+  const isOpen  = menu.style.display !== 'none';
+  menu.style.display    = isOpen ? 'none' : 'block';
+  chevron.style.transform = isOpen ? 'rotate(-90deg)' : 'rotate(0deg)';
+}
+
+async function saveKeu() {
+  if (!dirHandle) return;
+  const fh = await dirHandle.getFileHandle('keu.json', { create:true });
+  const w  = await fh.createWritable();
+  await w.write(JSON.stringify(db.keu, null, 2));
+  await w.close();
+}
+
+function renderGenDok(page) {
+  document.getElementById('addBtn').classList.add('hidden');
+  const meta = GEN_DOK_META[page];
+
+  return `
+    <div style="max-width:560px;margin:60px auto;text-align:center;padding:0 20px">
+      <div style="font-size:56px;margin-bottom:16px">${meta.icon}</div>
+      <div style="font-size:20px;font-weight:700;margin-bottom:8px">${meta.label}</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:32px;line-height:1.7">${meta.desc}</div>
+
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:28px 32px;text-align:left;margin-bottom:24px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+          ⏳ Template belum tersedia
+        </div>
+        <div style="font-size:12.5px;color:var(--text2);line-height:1.9">
+          Halaman ini siap menunggu template dari lo.<br>
+          Begitu lo upload desain template <strong>${meta.label}</strong>-nya, gw akan:
+        </div>
+        <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">
+          ${[
+            'Remake desain jadi HTML template pixel-perfect',
+            'Bikin form input sesuai field yang ada di template',
+            'Auto-pull data client dari modul Kontak',
+            'Item list dinamis — tambah/hapus baris',
+            'Nomor dokumen auto-increment',
+            'Tombol Generate → langsung download PDF',
+          ].map(s => `<div style="display:flex;align-items:flex-start;gap:10px;font-size:12px;color:var(--text2)">
+            <span style="color:#4cc9a0;flex-shrink:0;margin-top:1px">✓</span>${s}
+          </div>`).join('')}
+        </div>
+      </div>
+
+      <div style="font-size:12px;color:var(--muted);background:rgba(77,158,247,0.06);border:1px solid rgba(77,158,247,0.15);border-radius:10px;padding:12px 16px;text-align:left;line-height:1.7">
+        💬 Upload template lo (PDF, screenshot, Word) ke chat dan bilang
+        <strong style="color:var(--accent)">"ini template ${meta.label} gw"</strong> — gw langsung implement.
+      </div>
+    </div>`;
+}
+
+// ─── GENERATOR BAST ──────────────────────────────────────────
+const KOLEKTIVA_LOGO_BAST = 'data:image/png;base64,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';
+// ─── PRODUK KOLEKTIVA ────────────────────────────────────────
+const PRODUK_KATEGORI = ['Apparel','Merch','Stationary','Lanyard & ID Card','Plakat & Award','Goodie Bag','Lainnya'];
+let produkActiveId = null;
+let produkSearch   = '';
+let produkKatOpen  = {}; // { 'Apparel': true/false }
+
+function hitungHPPProduk(p) {
+  // Use saved HPP snapshot if available
+  if (p.hppSnapshot?.totalHpp) return p.hppSnapshot.totalHpp;
+  // Fallback: hargaDasar + ongkir/MOQ + komponen
+  const hargaDasar = p.hargaDasar || 0;
+  const moq = p.moq || 1;
+  const ongkirPerPcs = (p.supplier?.ongkirKePratani || 0) / moq;
+  const komponenTotal = (p.komponenBiaya || []).reduce((s, k) => {
+    const n = k.nominal || 0;
+    return s + (k.per === 'order' ? n / moq : n);
+  }, 0);
+  return hargaDasar + ongkirPerPcs + komponenTotal;
+}
+
+function hitungHargaJualProduk(p) {
+  if (p.hargaJual) return p.hargaJual;
+  const hpp = hitungHPPProduk(p);
+  const margin = p.marginRekomendasi || 35;
+  return Math.ceil(hpp / (1 - margin / 100) / 100) * 100;
+}
+
+function renderProdukKolektiva() {
+  document.getElementById('addBtn').classList.add('hidden');
+
+  const query = produkSearch.toLowerCase().trim();
+  const GRUP = PRODUK_KATEGORI.map(k => ({
+    key: k,
+    items: (db.produk || []).filter(p => {
+      const matchKat = (p.kategori || 'Lainnya') === k;
+      if (!matchKat) return false;
+      if (!query) return true;
+      return p.nama.toLowerCase().includes(query) ||
+             (p.supplier?.nama||'').toLowerCase().includes(query) ||
+             (p.catatan||'').toLowerCase().includes(query);
+    })
+  })).filter(g => g.items.length > 0);
+
+  const totalProduk = (db.produk||[]).length;
+  const filteredTotal = GRUP.reduce((s,g)=>s+g.items.length,0);
+
+  const produkList = `
+    <!-- Search -->
+    <div style="position:relative;margin-bottom:10px">
+      <input class="form-input" id="produkSearchInput"
+        placeholder="Cari produk, supplier..."
+        value="${esc(produkSearch)}"
+        oninput="produkSearch=this.value;document.getElementById('produkList').innerHTML=renderProdukListHTML(getProdukGrup())"
+        style="padding-left:32px;font-size:12px">
+      <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px;pointer-events:none">🔍</span>
+      ${produkSearch ? `<button onclick="produkSearch='';document.getElementById('produkSearchInput').value='';document.getElementById('produkList').innerHTML=renderProdukList()"
+        style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;line-height:1">✕</button>` : ''}
+    </div>
+    ${produkSearch ? `<div style="font-size:10px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:8px">${filteredTotal} dari ${totalProduk} produk</div>` : ''}
+    <div id="produkList">${renderProdukListHTML(GRUP)}</div>`;
+
+  const allVisible = GRUP.flatMap(g=>g.items);
+  const activeP = produkActiveId ? db.produk.find(p=>p.id===produkActiveId) : (db.produk[0]||null);
+  if (activeP && !produkActiveId) produkActiveId = activeP.id;
+  const detail = activeP ? renderProdukDetailSafe(activeP) : `<div class="empty"><div class="empty-icon">🛍️</div>Pilih atau tambah produk</div>`;
+
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em">🛍️ Produk Kolektiva — Price List</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="openProdukImport()">📥 Import Excel / JSON</button>
+        <button class="btn btn-primary btn-sm" onclick="openAddProduk()">+ Produk</button>
+      </div>
+    </div>
+    <div class="resep-layout">
+      <div>
+        ${produkList}
+      </div>
+      <div id="produkDetailPanel">
+        <div style="margin-bottom:16px">${detail}</div>
+      </div>
+    </div>`;
+}
+
+function renderProdukListHTML(grupArr) {
+  if (!grupArr.length) return `<div style="font-size:12px;color:var(--muted);text-align:center;padding:20px 0">Tidak ada produk ditemukan</div>`;
+  return grupArr.map(g => {
+    const isOpen = produkKatOpen[g.key] !== false; // default open
+    return `
+      <div style="margin-bottom:6px">
+        <div onclick="produkKatOpen['${g.key}']=!produkKatOpen['${g.key}'];document.getElementById('produkList').innerHTML=renderProdukListHTML(getProdukGrup())"
+          style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;border-radius:8px;cursor:pointer;background:var(--surface2);border:1px solid var(--border);user-select:none;margin-bottom:${isOpen?'6px':'0'}">
+          <span style="font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)">${g.key} <span style="color:var(--border2)">(${g.items.length})</span></span>
+          <span style="color:var(--muted);font-size:11px;transition:transform 0.2s;display:inline-block;transform:rotate(${isOpen?'0':'180deg'})">▲</span>
+        </div>
+        ${isOpen ? g.items.map(p => {
+          const hpp = hitungHPPProduk(p);
+          const jual = hitungHargaJualProduk(p);
+          const isActive = p.id === produkActiveId;
+          return `<div class="resep-card ${isActive?'active':''}" data-pid="${p.id}" onclick="selectProduk(${p.id})" style="cursor:pointer;margin-bottom:4px">
+            <div class="resep-nama">${esc(p.nama)}</div>
+            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-top:4px">
+              <div style="font-size:15px;font-weight:700;color:var(--accent)">${fmtRp(Math.round(jual))}</div>
+              <div style="font-size:10px;color:var(--muted);font-family:'DM Mono',monospace">HPP ${fmtRp(Math.round(hpp))}</div>
+            </div>
+          </div>`;
+        }).join('') : ''}
+      </div>`;
+  }).join('');
+}
+
+function getProdukGrup() {
+  const query = produkSearch.toLowerCase().trim();
+  return PRODUK_KATEGORI.map(k => ({
+    key: k,
+    items: (db.produk||[]).filter(p => {
+      if ((p.kategori||'Lainnya') !== k) return false;
+      if (!query) return true;
+      return p.nama.toLowerCase().includes(query) ||
+             (p.supplier?.nama||'').toLowerCase().includes(query) ||
+             (p.catatan||'').toLowerCase().includes(query);
+    })
+  })).filter(g => g.items.length > 0);
+}
+
+function renderMoqTiersHTML(p) {
+  const tiers = [
+    { qty: p.moq||1, hargaDasar: p.hargaDasar||0, isBase: true },
+    ...(p.moqTiers||[])
+  ].sort((a,b)=>a.qty-b.qty);
+
+  if (tiers.length <= 1 && !(p.moqTiers||[]).length) {
+    return '<div style="font-size:12px;color:var(--muted);padding:4px 0">Hanya 1 tier (MOQ '+(p.moq||1)+' pcs) — <button class="btn btn-ghost btn-sm" style="font-size:11px;display:inline;padding:2px 8px;margin-left:4px" onclick="openEditMoqTiers('+p.id+')">Tambah tier</button></div>';
+  }
+
+  const rows = tiers.map((t,i) => {
+    const ongkirPerPcs = (p.supplier?.ongkirKePratani||0) / t.qty;
+    const komponenTotal = (p.komponenBiaya||[]).reduce((s,k)=>{
+      return s + (k.per==='order' ? (k.nominal||0)/t.qty : (k.nominal||0));
+    }, 0);
+    const tierHpp  = (t.hargaDasar||0) + ongkirPerPcs + komponenTotal;
+    const tierJual = t.hargaJual || Math.ceil(tierHpp/(1-(p.marginRekomendasi||35)/100)/100)*100;
+    const isFirst  = i===0;
+    const bg = isFirst ? 'background:rgba(46,156,255,0.05);' : '';
+    const clr = isFirst ? 'var(--accent)' : 'var(--text)';
+    const moqBadge = t.isBase ? '<span style="font-size:10px;background:rgba(46,156,255,0.15);color:var(--accent);padding:1px 6px;border-radius:99px;margin-left:4px">MOQ</span>' : '';
+    return '<tr style="border-bottom:1px solid var(--border);'+bg+'">'
+      + '<td style="padding:8px 10px;font-weight:600;color:'+clr+'">'+t.qty+' pcs'+moqBadge+'</td>'
+      + '<td style="padding:8px 10px;text-align:right;font-family:\'DM Mono\',monospace">'+fmtRp(t.hargaDasar||0)+'</td>'
+      + '<td style="padding:8px 10px;text-align:right;font-family:\'DM Mono\',monospace;color:#4cc9a0">'+fmtRp(Math.round(tierHpp))+'</td>'
+      + '<td style="padding:8px 10px;text-align:right;font-family:\'DM Mono\',monospace;color:var(--accent);font-weight:600">'+fmtRp(Math.round(tierJual))+'</td>'
+      + '<td style="padding:8px 10px;text-align:right;font-family:\'DM Mono\',monospace;color:var(--text2)">'+fmtRp(Math.round(tierJual*t.qty))+'</td>'
+      + '</tr>';
+  }).join('');
+
+  return '<div style="overflow-x:auto">'
+    + '<table style="width:100%;border-collapse:collapse;font-size:12px">'
+    + '<thead><tr style="border-bottom:1px solid var(--border);background:rgba(46,156,255,0.04)">'
+    + '<th style="padding:6px 10px;text-align:left;font-size:10px;font-family:\'DM Mono\',monospace;text-transform:uppercase;color:var(--muted);font-weight:500">Min. Qty</th>'
+    + '<th style="padding:6px 10px;text-align:right;font-size:10px;font-family:\'DM Mono\',monospace;text-transform:uppercase;color:var(--muted);font-weight:500">Harga Dasar</th>'
+    + '<th style="padding:6px 10px;text-align:right;font-size:10px;font-family:\'DM Mono\',monospace;text-transform:uppercase;color:var(--muted);font-weight:500">HPP/pcs</th>'
+    + '<th style="padding:6px 10px;text-align:right;font-size:10px;font-family:\'DM Mono\',monospace;text-transform:uppercase;color:var(--muted);font-weight:500">Harga Jual</th>'
+    + '<th style="padding:6px 10px;text-align:right;font-size:10px;font-family:\'DM Mono\',monospace;text-transform:uppercase;color:var(--muted);font-weight:500">Total MOQ</th>'
+    + '</tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+
+function renderProdukDetailSafe(p) {
+  try { return renderProdukDetail(p); }
+  catch(e) { console.error('renderProdukDetail error:',e); return '<div style="color:var(--red);padding:16px">Error rendering detail: '+e.message+'</div>'; }
+}
+
+function renderProdukDetail(p) {
+  const hpp = hitungHPPProduk(p);
+  const jual = hitungHargaJualProduk(p);
+  const margin = p.hargaJual ? Math.round((1 - hpp / p.hargaJual) * 100) : (p.marginRekomendasi || 35);
+  const profit = jual - hpp;
+
+  const komponenRows = (p.komponenBiaya || []).map((k, i) => {
+    const perPcs = k.per === 'order' ? k.nominal / (p.moq || 1) : k.nominal;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)">
+      <div style="font-size:12px;color:var(--text)">${esc(k.nama)} <span style="font-size:10px;color:var(--muted)">(${k.per === 'order' ? 'per order ÷ MOQ' : 'per pcs'})</span></div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-family:'DM Mono',monospace;font-size:12px;color:#f5a623">${fmtRp(k.nominal)}${k.per === 'order' ? '/order' : '/pcs'}</span>
+        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">= ${fmtRp(Math.round(perPcs))}/pcs</span>
+        <button class="tbl-action-btn tbl-edit" onclick="openEditKomponen(${p.id},${i})">✏️</button>
+        <button class="tbl-action-btn tbl-del" onclick="deleteKomponen(${p.id},${i})">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div>
+        <div style="font-size:16px;font-weight:700;color:var(--text)">${esc(p.nama)}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">${p.kategori||'—'}</div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-sm" style="background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600" onclick="launchHppForProduk(${p.id})">📊 Hitung HPP</button>
+        <button class="btn btn-ghost btn-sm" onclick="duplikatProduk(${p.id})">📋 Duplikat</button>
+        <button class="btn btn-ghost btn-sm" onclick="openEditProduk(${p.id})">✏️ Edit</button>
+        <button class="tbl-action-btn tbl-del" onclick="deleteProduk(${p.id})">🗑️</button>
+      </div>
+    </div>
+
+    <!-- Supplier Info -->
+    <div class="card" style="margin-bottom:12px;padding:12px 14px">
+      <div style="font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;color:var(--muted);margin-bottom:8px">🏭 Supplier</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px">
+        <div><span style="color:var(--muted)">Nama: </span><strong>${esc(p.supplier?.nama||'—')}</strong></div>
+        <div><span style="color:var(--muted)">Kontak: </span><span>${esc(p.supplier?.kontak||'—')}</span></div>
+        <div style="grid-column:span 2"><span style="color:var(--muted)">Alamat: </span><span>${esc(p.supplier?.alamat||'—')}</span></div>
+        <div><span style="color:var(--muted)">Ongkir ke Pratani: </span><span style="color:#f5a623;font-weight:600">${fmtRp(p.supplier?.ongkirKePratani||0)}</span></div>
+        <div><span style="color:var(--muted)">MOQ: </span><strong>${p.moq||'—'} pcs</strong></div>
+        <div><span style="color:var(--muted)">Harga Dasar/pcs: </span><strong style="color:var(--accent)">${fmtRp(p.hargaDasar||0)}</strong></div>
+        <div><span style="color:var(--muted)">Ongkir/pcs: </span><span>${fmtRp(Math.round((p.supplier?.ongkirKePratani||0)/(p.moq||1)))}</span></div>
+      </div>
+      ${p.catatan ? `<div style="margin-top:8px;font-size:11px;color:var(--text2);padding:6px 10px;background:var(--surface2);border-radius:6px">${esc(p.catatan)}</div>` : ''}
+    </div>
+
+    <!-- MOQ Tiers -->
+    <div class="card" style="margin-bottom:12px;padding:12px 14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;color:var(--muted)">📦 Harga per Tier Qty</div>
+        <button class="btn btn-ghost btn-sm" onclick="openEditMoqTiers(${p.id})">✏️ Edit Tier</button>
+      </div>
+      ${renderMoqTiersHTML(p)}
+    </div>
+
+    <!-- HPP Snapshot -->
+    <div class="card" style="margin-bottom:12px;padding:12px 14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;color:var(--muted)">📊 Komponen HPP — dari Kalkulator</div>
+        <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="launchHppForProduk(${p.id})">
+          <i class="ti ti-refresh" style="font-size:11px;margin-right:3px"></i>Hitung ulang
+        </button>
+      </div>
+      ${p.hppSnapshot && p.hppSnapshot.komponen ? `
+        <div style="font-size:12px;display:flex;flex-direction:column;gap:0">
+          ${p.hppSnapshot.komponen.map(k=>`
+            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
+              <span style="color:var(--text2)">${esc(k.label)}</span>
+              <span style="font-family:'DM Mono',monospace;color:${k.perProj?'var(--muted)':'var(--text)'}">${fmtRp(k.nilai)}${k.perProj?'/pcs (÷'+k.qty+'pcs)':''}</span>
+            </div>`).join('')}
+          <div style="display:flex;justify-content:space-between;padding:6px 0;font-weight:700;font-size:13px">
+            <span>Total HPP/pcs</span>
+            <span style="color:#4cc9a0">${fmtRp(Math.round(hpp))}</span>
+          </div>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:6px;font-family:'DM Mono',monospace">
+          Terakhir dihitung: ${p.hppSnapshot.tanggal||'—'} · brand: ${p.hppSnapshot.brand||'kolektiva'}
+        </div>` :
+        `<div style="font-size:12px;color:var(--muted);padding:8px 0">
+          Belum ada snapshot HPP —
+          <button class="btn btn-ghost btn-sm" style="font-size:11px;display:inline;padding:2px 8px;margin-left:4px" onclick="launchHppForProduk(${p.id})">Hitung sekarang</button>
+        </div>`}
+    </div>
+
+    <!-- HPP & Harga Jual -->
+    <div style="background:linear-gradient(135deg,rgba(46,156,255,0.08),rgba(0,212,160,0.06));border:1px solid var(--border2);border-radius:12px;padding:14px 16px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:10px">
+        <div><div style="font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;color:var(--muted);margin-bottom:4px">HPP/pcs</div><div style="font-size:20px;font-weight:700;color:#4cc9a0">${fmtRp(Math.round(hpp))}</div></div>
+        <div><div style="font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;color:var(--muted);margin-bottom:4px">Harga Jual/pcs</div><div style="font-size:20px;font-weight:700;color:var(--accent)">${fmtRp(Math.round(jual))}</div></div>
+        <div><div style="font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;color:var(--muted);margin-bottom:4px">Margin</div><div style="font-size:20px;font-weight:700;color:${margin>=35?'#4cc9a0':'#ff9f43'}">${margin}%</div></div>
+      </div>
+
+      <!-- MOQ total box -->
+      <div style="background:rgba(46,156,255,0.06);border:1px solid rgba(46,156,255,0.2);border-radius:8px;padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div style="font-size:11px;color:var(--text2)">
+          <span style="font-family:'DM Mono',monospace;color:var(--muted)">Min. order </span>
+          <strong style="color:var(--text);font-size:13px">${p.moq||1} pcs</strong>
+          <span style="color:var(--muted);margin:0 6px">×</span>
+          <strong style="color:var(--accent);font-size:13px">${fmtRp(Math.round(jual))}</strong>
+          <span style="color:var(--muted);margin:0 6px">=</span>
+          <strong style="color:#4cc9a0;font-size:15px">${fmtRp(Math.round(jual * (p.moq||1)))}</strong>
+          <span style="color:var(--muted);font-size:11px"> total (MOQ)</span>
+        </div>
+        <div style="font-size:10px;font-family:'DM Mono',monospace;color:var(--muted);text-align:right">
+          Profit MOQ: <span style="color:#4cc9a0">${fmtRp(Math.round(profit * (p.moq||1)))}</span>
+        </div>
+      </div>
+
+      <div style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:10px">
+        Profit/pcs: <span style="color:#4cc9a0;font-weight:600">${fmtRp(Math.round(profit))}</span>
+        ${p.hargaJual ? '' : ` · Margin rekomendasi: ${p.marginRekomendasi||35}% (auto)`}
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:4px">Override harga jual:</div>
+        <div style="display:flex;gap:8px">
+          <input class="form-input" id="pk_hargajual_${p.id}" type="text" inputmode="numeric"
+            value="${p.hargaJual?Number(p.hargaJual).toLocaleString('id-ID'):''}"
+            placeholder="${fmtRp(Math.round(jual))} (auto)"
+            oninput="hppFmtInput(this)" style="flex:1">
+          <button class="btn btn-primary btn-sm" onclick="saveProdukHargaJual(${p.id})">Simpan</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ── CRUD ──────────────────────────────────────────────────────
+function selectProduk(id) {
+  try {
+    produkActiveId = id;
+    document.querySelectorAll('#produkList .resep-card').forEach(el => {
+      el.classList.toggle('active', el.dataset.pid == id);
+    });
+    const rightPanel = document.getElementById('produkDetailPanel');
+    const p = db.produk.find(x=>x.id===id);
+    if (!rightPanel || !p) return;
+    const html = renderProdukDetailSafe(p);
+    rightPanel.innerHTML = '<div style="margin-bottom:16px">' + html + '</div>';
+  } catch(e) {
+    console.error('selectProduk error:', e);
+  }
+}
+
+function openEditMoqTiers(produkId) {
+  const p = db.produk.find(x=>x.id===produkId);
+  if (!p) return;
+  if (!p.moqTiers) p.moqTiers = [];
+
+  const renderTierRows = () => {
+    const tiers = p.moqTiers;
+    return tiers.map((t,i) => `
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:4px"><input class="form-input" style="font-size:12px;padding:6px 8px;width:80px;text-align:center" type="number" placeholder="qty" value="${t.qty}" oninput="tierTemp[${i}].qty=parseInt(this.value)||0"></td>
+        <td style="padding:4px"><input class="form-input" style="font-size:12px;padding:6px 8px" type="text" inputmode="numeric" placeholder="0" value="${Number(t.hargaDasar||0).toLocaleString('id-ID')}" oninput="tierTemp[${i}].hargaDasar=parseFloat(this.value.replace(/\\./g,''))||0;hppFmtInput(this)"></td>
+        <td style="padding:4px"><input class="form-input" style="font-size:12px;padding:6px 8px" type="text" inputmode="numeric" placeholder="auto" value="${t.hargaJual?Number(t.hargaJual).toLocaleString('id-ID'):''}" oninput="tierTemp[${i}].hargaJual=parseFloat(this.value.replace(/\\./g,''))||null;hppFmtInput(this)"></td>
+        <td style="padding:4px;text-align:center"><button class="tbl-action-btn tbl-del" onclick="tierTemp.splice(${i},1);document.getElementById('tierTbody').innerHTML=renderTierRowsInModal()">x</button></td>
+      </tr>`).join('');
+  };
+
+  window.tierTemp = p.moqTiers.map(t=>({...t}));
+  window.renderTierRowsInModal = () => {
+    return window.tierTemp.map((t,i)=>`
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:4px"><input class="form-input" style="font-size:12px;padding:6px 8px;width:80px;text-align:center" type="number" placeholder="qty" value="${t.qty||''}" oninput="tierTemp[${i}].qty=parseInt(this.value)||0"></td>
+        <td style="padding:4px"><input class="form-input" style="font-size:12px;padding:6px 8px" type="text" inputmode="numeric" placeholder="0" value="${t.hargaDasar?Number(t.hargaDasar).toLocaleString('id-ID'):''}" oninput="tierTemp[${i}].hargaDasar=parseFloat(this.value.replace(/\\./g,''))||0;hppFmtInput(this)"></td>
+        <td style="padding:4px"><input class="form-input" style="font-size:12px;padding:6px 8px" type="text" inputmode="numeric" placeholder="auto" value="${t.hargaJual?Number(t.hargaJual).toLocaleString('id-ID'):''}" oninput="tierTemp[${i}].hargaJual=parseFloat(this.value.replace(/\\./g,''))||null;hppFmtInput(this)"></td>
+        <td style="padding:4px;text-align:center"><button class="tbl-action-btn tbl-del" onclick="tierTemp.splice(${i},1);document.getElementById('tierTbody').innerHTML=renderTierRowsInModal()">x</button></td>
+      </tr>`).join('');
+  };
+
+  document.getElementById('modalTitle').textContent = `📦 Tier Harga — ${esc(p.nama)}`;
+  document.getElementById('modalBody').innerHTML = `
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">
+      MOQ / tier pertama sudah otomatis dari data produk (<strong>${p.moq||1} pcs @ ${fmtRp(p.hargaDasar||0)}</strong>).<br>
+      Tambahkan tier berikutnya di sini — harga jual opsional, kalau kosong dihitung dari margin rekomendasi.
+    </div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border);background:rgba(46,156,255,0.04)">
+            <th style="padding:7px 4px;font-size:10px;color:var(--muted);font-weight:500;text-align:left;font-family:'DM Mono',monospace;text-transform:uppercase">Min Qty</th>
+            <th style="padding:7px 4px;font-size:10px;color:var(--muted);font-weight:500;text-align:left;font-family:'DM Mono',monospace;text-transform:uppercase">Harga Dasar/pcs</th>
+            <th style="padding:7px 4px;font-size:10px;color:var(--muted);font-weight:500;text-align:left;font-family:'DM Mono',monospace;text-transform:uppercase">Override Harga Jual</th>
+            <th style="width:32px"></th>
+          </tr>
+        </thead>
+        <tbody id="tierTbody">${window.renderTierRowsInModal()}</tbody>
+      </table>
+    </div>
+    <button class="btn btn-ghost btn-sm" style="margin-top:8px;width:100%" onclick="tierTemp.push({qty:0,hargaDasar:0,hargaJual:null});document.getElementById('tierTbody').innerHTML=renderTierRowsInModal()">+ Tambah Tier</button>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="saveMoqTiers(${produkId})">Simpan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+}
+
+async function saveMoqTiers(produkId) {
+  const p = db.produk.find(x=>x.id===produkId);
+  if (!p) return;
+  p.moqTiers = (window.tierTemp||[]).filter(t=>t.qty>0).sort((a,b)=>a.qty-b.qty);
+  await saveDB('produk');
+  closeModal(); toast('✅ Tier harga disimpan!','success'); render();
+}
+
+async function duplikatProduk(id) {
+  const p = db.produk.find(x=>x.id===id);
+  if (!p) return;
+  const copy = JSON.parse(JSON.stringify(p));
+  copy.id        = Date.now();
+  copy.nama      = p.nama + ' (Copy)';
+  copy.createdAt = new Date().toISOString();
+  // hppSnapshot cleared — should be recalculated for the new variant
+  copy.hppSnapshot = null;
+  copy.hargaJual   = null;
+  db.produk.push(copy);
+  await saveDB('produk');
+  produkActiveId = copy.id;
+  toast(`📋 Duplikat "${esc(p.nama)}" berhasil — rename dan sesuaikan detailnya`, 'success');
+  render();
+}
+
+function openAddProduk() {
+  document.getElementById('modalTitle').textContent = '+ Produk Baru';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="form-row">
+      <div class="form-group" style="flex:2">
+        <div class="form-label">Nama Produk *</div>
+        <input class="form-input" id="pk_nama" placeholder="Tshirt, Lanyard 2 Sisi, Mug...">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Kategori</div>
+        <select class="form-select" id="pk_kat">
+          ${PRODUK_KATEGORI.map(k=>`<option>${k}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin:10px 0 8px">Supplier</div>
+    <div class="form-row">
+      <div class="form-group"><div class="form-label">Nama Supplier</div><input class="form-input" id="pk_snama" placeholder="CV Bintang Konveksi..."></div>
+      <div class="form-group"><div class="form-label">Kontak (WA/telp)</div><input class="form-input" id="pk_skontak" placeholder="08xx..."></div>
+    </div>
+    <div class="form-group"><div class="form-label">Alamat Supplier</div><input class="form-input" id="pk_salamat" placeholder="Kota / daerah..."></div>
+    <div class="form-row">
+      <div class="form-group"><div class="form-label">Ongkir ke Pratani (Rp)</div><input class="form-input" id="pk_songkir" type="text" inputmode="numeric" placeholder="0" oninput="hppFmtInput(this)"></div>
+      <div class="form-group"><div class="form-label">MOQ (pcs)</div><input class="form-input" id="pk_moq" type="number" placeholder="12"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><div class="form-label">Harga Dasar/pcs (Rp) *</div><input class="form-input" id="pk_harga" type="text" inputmode="numeric" placeholder="0" oninput="hppFmtInput(this)"></div>
+      <div class="form-group"><div class="form-label">Margin Rekomendasi (%)</div><input class="form-input" id="pk_margin" type="number" value="35"></div>
+    </div>
+    <div class="form-group"><div class="form-label">Catatan</div><textarea class="form-textarea" id="pk_catatan" placeholder="Material, spesifikasi, dll..."></textarea></div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="submitAddProduk()">Simpan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('pk_nama')?.focus(),80);
+}
+
+async function submitAddProduk() {
+  const nama = gv('pk_nama').trim();
+  if (!nama){toast('⚠️ Nama tidak boleh kosong','error');return;}
+  const item = {
+    id: Date.now(),
+    nama,
+    kategori: (document.getElementById('pk_kat')?.value)||'Lainnya',
+    supplier: {
+      nama:    gv('pk_snama'),
+      kontak:  gv('pk_skontak'),
+      alamat:  gv('pk_salamat'),
+      ongkirKePratani: parseFloat((gv('pk_songkir')||'0').replace(/\./g,''))||0,
+    },
+    moq:              parseFloat(gv('pk_moq'))||1,
+    moqTiers:         [],   // { qty, hargaDasar } — populated via tier editor
+    hargaDasar:       parseFloat((gv('pk_harga')||'0').replace(/\./g,''))||0,
+    marginRekomendasi: parseFloat(gv('pk_margin'))||35,
+    hargaJual:        null,
+    komponenBiaya:    [],
+    catatan:          gv('pk_catatan'),
+    createdAt:        new Date().toISOString()
+  };
+  db.produk.push(item);
+  await saveDB('produk');
+  produkActiveId = item.id;
+  closeModal(); toast('✅ Produk ditambahkan!','success'); render();
+}
+
+function openEditProduk(id) {
+  const p = db.produk.find(x=>x.id===id);
+  if (!p) return;
+  document.getElementById('modalTitle').textContent = '✏️ Edit Produk';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="form-row">
+      <div class="form-group" style="flex:2"><div class="form-label">Nama Produk *</div><input class="form-input" id="pk_nama" value="${esc(p.nama)}"></div>
+      <div class="form-group"><div class="form-label">Kategori</div><select class="form-select" id="pk_kat">${PRODUK_KATEGORI.map(k=>`<option ${k===p.kategori?'selected':''}>${k}</option>`).join('')}</select></div>
+    </div>
+    <div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin:10px 0 8px">Supplier</div>
+    <div class="form-row">
+      <div class="form-group"><div class="form-label">Nama Supplier</div><input class="form-input" id="pk_snama" value="${esc(p.supplier?.nama||'')}"></div>
+      <div class="form-group"><div class="form-label">Kontak</div><input class="form-input" id="pk_skontak" value="${esc(p.supplier?.kontak||'')}"></div>
+    </div>
+    <div class="form-group"><div class="form-label">Alamat Supplier</div><input class="form-input" id="pk_salamat" value="${esc(p.supplier?.alamat||'')}"></div>
+    <div class="form-row">
+      <div class="form-group"><div class="form-label">Ongkir ke Pratani (Rp)</div><input class="form-input" id="pk_songkir" type="text" inputmode="numeric" value="${Number(p.supplier?.ongkirKePratani||0).toLocaleString('id-ID')}" oninput="hppFmtInput(this)"></div>
+      <div class="form-group"><div class="form-label">MOQ</div><input class="form-input" id="pk_moq" type="number" value="${p.moq||1}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><div class="form-label">Harga Dasar/pcs (Rp)</div><input class="form-input" id="pk_harga" type="text" inputmode="numeric" value="${Number(p.hargaDasar||0).toLocaleString('id-ID')}" oninput="hppFmtInput(this)"></div>
+      <div class="form-group"><div class="form-label">Margin Rekomendasi (%)</div><input class="form-input" id="pk_margin" type="number" value="${p.marginRekomendasi||35}"></div>
+    </div>
+    <div class="form-group"><div class="form-label">Catatan</div><textarea class="form-textarea" id="pk_catatan">${esc(p.catatan||'')}</textarea></div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="saveEditProduk(${id})">Simpan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+}
+
+async function saveEditProduk(id) {
+  const p = db.produk.find(x=>x.id===id);
+  if (!p) return;
+  p.nama     = gv('pk_nama').trim();
+  p.kategori = (document.getElementById('pk_kat')?.value)||'Lainnya';
+  p.supplier = {
+    nama:    gv('pk_snama'),
+    kontak:  gv('pk_skontak'),
+    alamat:  gv('pk_salamat'),
+    ongkirKePratani: parseFloat((gv('pk_songkir')||'0').replace(/\./g,''))||0,
+  };
+  p.moq              = parseFloat(gv('pk_moq'))||1;
+  p.hargaDasar       = parseFloat((gv('pk_harga')||'0').replace(/\./g,''))||0;
+  p.marginRekomendasi = parseFloat(gv('pk_margin'))||35;
+  p.catatan          = gv('pk_catatan');
+  await saveDB('produk');
+  closeModal(); toast('✅ Produk diperbarui!','success'); render();
+}
+
+async function saveProdukHargaJual(id) {
+  const p = db.produk.find(x=>x.id===id);
+  if (!p) return;
+  const val = parseFloat((document.getElementById(`pk_hargajual_${id}`)?.value||'0').replace(/\./g,''))||0;
+  p.hargaJual = val || null;
+  await saveDB('produk');
+  toast('✅ Harga jual disimpan!','success'); render();
+}
+
+async function deleteProduk(id) {
+  if (!confirm('Hapus produk ini?')) return;
+  db.produk = db.produk.filter(x=>x.id!==id);
+  if (produkActiveId===id) produkActiveId=null;
+  await saveDB('produk');
+  toast('🗑️ Produk dihapus','success'); render();
+}
+
+// ── KOMPONEN BIAYA ────────────────────────────────────────────
+function openAddKomponen(produkId) {
+  document.getElementById('modalTitle').textContent = '+ Komponen Biaya';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="form-group"><div class="form-label">Nama Komponen *</div><input class="form-input" id="kmp_nama" placeholder="Desain, Packaging, Kardus, dll..."></div>
+    <div class="form-row">
+      <div class="form-group"><div class="form-label">Nominal (Rp)</div><input class="form-input" id="kmp_nominal" type="text" inputmode="numeric" placeholder="0" oninput="hppFmtInput(this)"></div>
+      <div class="form-group"><div class="form-label">Per</div>
+        <select class="form-select" id="kmp_per">
+          <option value="pcs">Per Pcs — langsung</option>
+          <option value="order">Per Order ÷ MOQ</option>
+        </select>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">
+      Pilih <strong>Per Order</strong> untuk biaya yang dibagi rata ke semua pcs (desain, setup, ongkir vendor).
+      Pilih <strong>Per Pcs</strong> untuk biaya yang melekat per item (packaging, label, dll).
+    </div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="submitAddKomponen(${produkId})">Simpan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('kmp_nama')?.focus(),80);
+}
+
+async function submitAddKomponen(produkId) {
+  const p = db.produk.find(x=>x.id===produkId);
+  if (!p) return;
+  const nama = gv('kmp_nama').trim();
+  if (!nama){toast('⚠️ Nama tidak boleh kosong','error');return;}
+  if (!p.komponenBiaya) p.komponenBiaya = [];
+  p.komponenBiaya.push({
+    nama,
+    nominal: parseFloat((gv('kmp_nominal')||'0').replace(/\./g,''))||0,
+    per: (document.getElementById('kmp_per')?.value)||'pcs'
+  });
+  await saveDB('produk');
+  closeModal(); toast('✅ Komponen ditambahkan!','success'); render();
+}
+
+function openEditKomponen(produkId, idx) {
+  const p = db.produk.find(x=>x.id===produkId);
+  const k = p?.komponenBiaya?.[idx];
+  if (!k) return;
+  document.getElementById('modalTitle').textContent = '✏️ Edit Komponen';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="form-group"><div class="form-label">Nama Komponen *</div><input class="form-input" id="kmp_nama" value="${esc(k.nama)}"></div>
+    <div class="form-row">
+      <div class="form-group"><div class="form-label">Nominal (Rp)</div><input class="form-input" id="kmp_nominal" type="text" inputmode="numeric" value="${Number(k.nominal||0).toLocaleString('id-ID')}" oninput="hppFmtInput(this)"></div>
+      <div class="form-group"><div class="form-label">Per</div>
+        <select class="form-select" id="kmp_per">
+          <option value="pcs" ${k.per==='pcs'?'selected':''}>Per Pcs</option>
+          <option value="order" ${k.per==='order'?'selected':''}>Per Order ÷ MOQ</option>
+        </select>
+      </div>
+    </div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="saveEditKomponen(${produkId},${idx})">Simpan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+}
+
+async function saveEditKomponen(produkId, idx) {
+  const p = db.produk.find(x=>x.id===produkId);
+  if (!p?.komponenBiaya?.[idx]) return;
+  p.komponenBiaya[idx].nama    = gv('kmp_nama').trim();
+  p.komponenBiaya[idx].nominal = parseFloat((gv('kmp_nominal')||'0').replace(/\./g,''))||0;
+  p.komponenBiaya[idx].per     = (document.getElementById('kmp_per')?.value)||'pcs';
+  await saveDB('produk');
+  closeModal(); toast('✅ Komponen diperbarui!','success'); render();
+}
+
+async function deleteKomponen(produkId, idx) {
+  const p = db.produk.find(x=>x.id===produkId);
+  if (!p) return;
+  p.komponenBiaya.splice(idx, 1);
+  await saveDB('produk');
+  toast('🗑️ Komponen dihapus','success'); render();
+}
+
+// ── BULK IMPORT ───────────────────────────────────────────────
+function openProdukImport() {
+  document.getElementById('modalTitle').textContent = '📥 Import Produk Kolektiva';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="margin-bottom:14px">
+      <div class="form-label" style="margin-bottom:8px">Upload file</div>
+      <div style="background:var(--surface2);border:1.5px dashed var(--border2);border-radius:10px;padding:20px;text-align:center;cursor:pointer" onclick="document.getElementById('produk_import_file').click()">
+        <div style="font-size:24px;margin-bottom:8px">📂</div>
+        <div style="font-size:13px;color:var(--text)">Klik untuk upload <strong>Excel (.xlsx)</strong> atau <strong>JSON</strong></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px" id="produk_import_fname">Belum ada file dipilih</div>
+      </div>
+      <input type="file" id="produk_import_file" accept=".xlsx,.json" style="display:none" onchange="produkImportFileSelected(this)">
+    </div>
+    <div style="background:var(--surface3);border-radius:8px;padding:12px;font-size:11px;color:var(--text2);line-height:1.8">
+      <strong style="color:var(--text)">Format Excel:</strong> kolom wajib:<br>
+      <code style="background:var(--surface2);padding:1px 5px;border-radius:4px">nama | kategori | supplier_nama | supplier_kontak | supplier_alamat | ongkir_ke_pratani | harga_dasar | moq | margin | catatan</code>
+      <br><br>
+      <strong style="color:var(--text)">Format JSON:</strong> array of objects dengan field yang sama, atau export dari PrataniHQ.<br><br>
+      <span style="color:#ff9f43">⚠️ Import akan <strong>menambahkan</strong> ke data yang ada, bukan replace.</span>
+    </div>
+    <div id="produk_import_preview" style="margin-top:12px"></div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" id="produk_import_btn" onclick="submitProdukImport()" disabled style="opacity:0.5">Import</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+}
+
+let produkImportData = [];
+async function produkImportFileSelected(input) {
+  const file = input.files[0];
+  if (!file) return;
+  document.getElementById('produk_import_fname').textContent = file.name;
+  produkImportData = [];
+
+  if (file.name.endsWith('.json')) {
+    const text = await file.text();
+    try {
+      const parsed = JSON.parse(text);
+      produkImportData = Array.isArray(parsed) ? parsed : [];
+    } catch(e) {
+      document.getElementById('produk_import_preview').innerHTML = `<div style="color:var(--red);font-size:12px">⚠️ JSON tidak valid: ${e.message}</div>`;
+      return;
+    }
+  } else if (file.name.endsWith('.xlsx')) {
+    // Parse xlsx with SheetJS via CDN
+    const buf = await file.arrayBuffer();
+    if (!window.XLSX) {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      document.head.appendChild(script);
+      await new Promise(r=>script.onload=r);
+    }
+    const wb = window.XLSX.read(buf, {type:'array'});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = window.XLSX.utils.sheet_to_json(ws, {defval:''});
+    produkImportData = rows.map(r => ({
+      id: Date.now() + Math.random(),
+      nama:     String(r.nama||r.Nama||'').trim(),
+      kategori: String(r.kategori||r.Kategori||'Lainnya').trim(),
+      supplier: {
+        nama:            String(r.supplier_nama||r['Supplier Nama']||'').trim(),
+        kontak:          String(r.supplier_kontak||r['Supplier Kontak']||'').trim(),
+        alamat:          String(r.supplier_alamat||r['Supplier Alamat']||'').trim(),
+        ongkirKePratani: Number(r.ongkir_ke_pratani||r['Ongkir ke Pratani']||0),
+      },
+      hargaDasar:        Number(r.harga_dasar||r['Harga Dasar']||0),
+      moq:               Number(r.moq||r.MOQ||1),
+      marginRekomendasi: Number(r.margin||r.Margin||35),
+      hargaJual:         Number(r.harga_jual||r['Harga Jual']||0)||null,
+      komponenBiaya:     [],
+      catatan:           String(r.catatan||r.Catatan||'').trim(),
+      createdAt:         new Date().toISOString()
+    })).filter(p=>p.nama);
+  }
+
+  const prev = document.getElementById('produk_import_preview');
+  if (!produkImportData.length) {
+    prev.innerHTML = `<div style="color:var(--red);font-size:12px">⚠️ Tidak ada data valid ditemukan</div>`;
+    return;
+  }
+  prev.innerHTML = `<div style="font-size:12px;color:#4cc9a0;margin-bottom:6px">✅ ${produkImportData.length} produk siap diimport</div>
+    <div style="max-height:120px;overflow-y:auto;font-size:11px;color:var(--text2)">
+      ${produkImportData.map(p=>`<div style="padding:3px 0;border-bottom:1px solid var(--border)">${esc(p.nama)} — ${esc(p.kategori)} — HPP ${fmtRp(p.hargaDasar)}</div>`).join('')}
+    </div>`;
+  const btn = document.getElementById('produk_import_btn');
+  btn.disabled = false; btn.style.opacity = '1';
+}
+
+async function submitProdukImport() {
+  if (!produkImportData.length) return;
+  // Fix IDs to be unique
+  produkImportData.forEach(p => { p.id = Date.now() + Math.floor(Math.random()*99999); });
+  db.produk.push(...produkImportData);
+  await saveDB('produk');
+  closeModal();
+  toast(`✅ ${produkImportData.length} produk berhasil diimport!`,'success');
+  produkImportData = [];
+  render();
+}
+
+
+function launchHppForProduk(produkId) {
+  const p = db.produk.find(x=>x.id===produkId);
+  if (!p) return;
+  hppProdukId = produkId;
+  hppBrand    = 'kolektiva';
+  hppExtraUnit = [];
+  hppExtraProj = [];
+  hppExtraId   = 100;
+  goto('hpp');
+  // Pre-fill fields after render
+  setTimeout(()=>{
+    const setVal = (id, val) => {
+      const el = document.getElementById(id);
+      if (!el || !val) return;
+      el.value = Number(val).toLocaleString('id-ID');
+    };
+    setVal('hpp_bahan', p.hargaDasar||0);
+    const moq = p.moq || 1;
+    const ongkir = (p.supplier?.ongkirKePratani||0);
+    setVal('hpp_ongkir', ongkir);
+    const qtyEl = document.getElementById('hpp_qty');
+    if (qtyEl) qtyEl.value = moq;
+    // Pre-fill komponen biaya — match ke default fields dulu, baru extra rows
+    const DEFAULT_UNIT_FIELDS = { 'kemasan':'hpp_kemasan' };
+    const DEFAULT_PROJ_FIELDS = { 'ongkir':'hpp_ongkir', 'desain':'hpp_desain', 'marketing':'hpp_marketing', 'cashback':'hpp_cashback' };
+
+    (p.komponenBiaya||[]).forEach(k=>{
+      const key = (k.nama||'').toLowerCase().trim();
+      if (k.per==='pcs') {
+        const defaultId = DEFAULT_UNIT_FIELDS[key];
+        if (defaultId) {
+          setVal(defaultId, k.nominal||0);
+        } else {
+          const id = hppExtraId++;
+          hppExtraUnit.push({id, label:k.nama});
+          const eu = document.getElementById('hpp_extras_unit');
+          if (eu) eu.innerHTML += `<div class="hpp-field"><label class="hpp-field-label">${esc(k.nama)}</label><input class="form-input hpp-field-input" id="hpp_eu_${id}" type="text" inputmode="numeric" placeholder="0" oninput="hppFmtInput(this);hppCalc()"><span class="hpp-field-unit">Rp</span><button class="hpp-field-del" onclick="hppRemoveExtra('unit',${id})">✕</button></div>`;
+          setVal(`hpp_eu_${id}`, k.nominal||0);
+        }
+      } else {
+        const defaultId = DEFAULT_PROJ_FIELDS[key];
+        if (defaultId) {
+          setVal(defaultId, k.nominal||0);
+        } else {
+          const id = hppExtraId++;
+          hppExtraProj.push({id, label:k.nama});
+          const ep = document.getElementById('hpp_extras_proj');
+          if (ep) ep.innerHTML += `<div class="hpp-field"><label class="hpp-field-label">${esc(k.nama)}</label><input class="form-input hpp-field-input" id="hpp_ep_${id}" type="text" inputmode="numeric" placeholder="0" oninput="hppFmtInput(this);hppCalc()"><span class="hpp-field-unit">Rp</span><button class="hpp-field-del" onclick="hppRemoveExtra('proj',${id})">✕</button></div>`;
+          setVal(`hpp_ep_${id}`, k.nominal||0);
+        }
+      }
+    });
+    hppCalc();
+    toast(`📊 Kalkulator HPP siap — hitung untuk "${esc(p.nama)}"`, 'success');
+  }, 200);
+}
+
+async function saveHppToProduk() {
+  const p = db.produk.find(x=>x.id===hppProdukId);
+  if (!p) { toast('⚠️ Produk tidak ditemukan','error'); return; }
+
+  // Collect all current field values for snapshot
+  const get = id => {
+    const el = document.getElementById(id);
+    if (!el) return 0;
+    return parseFloat(el.value.replace(/\./g,'').replace(/,/g,'.') || '0') || 0;
+  };
+  const qty = Math.max(1, get('hpp_qty'));
+  const komponen = [];
+  const bahan = get('hpp_bahan');
+  if (bahan) komponen.push({label:'Bahan Baku Pokok', nilai:bahan, perProj:false, qty:null});
+  const kemasan = get('hpp_kemasan');
+  if (kemasan) komponen.push({label:'Kemasan', nilai:kemasan, perProj:false, qty:null});
+  hppExtraUnit.forEach(e => {
+    const v = get(`hpp_eu_${e.id}`);
+    if (v) komponen.push({label:e.label||'Komponen', nilai:v, perProj:false, qty:null});
+  });
+  const ongkir = get('hpp_ongkir');
+  if (ongkir) komponen.push({label:'Ongkir', nilai:Math.round(ongkir/qty), perProj:true, qty});
+  const desain = get('hpp_desain');
+  if (desain) komponen.push({label:'Desain', nilai:Math.round(desain/qty), perProj:true, qty});
+  const marketing = get('hpp_marketing');
+  if (marketing) komponen.push({label:'Marketing', nilai:Math.round(marketing/qty), perProj:true, qty});
+  const cashback = get('hpp_cashback');
+  if (cashback) komponen.push({label:'Cashback', nilai:Math.round(cashback/qty), perProj:true, qty});
+  hppExtraProj.forEach(e => {
+    const v = get(`hpp_ep_${e.id}`);
+    if (v) komponen.push({label:e.label||'Komponen', nilai:Math.round(v/qty), perProj:true, qty});
+  });
+
+  const totalHpp = komponen.reduce((s,k)=>s+k.nilai, 0);
+  const hargaJualEl = document.getElementById('hpp_override_price');
+  const hargaJual = hargaJualEl ? parseFloat((hargaJualEl.value||'0').replace(/\./g,''))||null : null;
+
+  p.hppSnapshot = {
+    totalHpp,
+    komponen,
+    tanggal: toDisplayDate(todayStr()),
+    brand: hppBrand,
+    qty,
+  };
+  if (hargaJual) p.hargaJual = hargaJual;
+  // Sync hargaDasar, moq, dan komponenBiaya biar pre-fill benar saat hitung ulang
+  if (bahan) p.hargaDasar = bahan;
+  if (qty)   p.moq = qty;
+
+  // Rebuild komponenBiaya dari field kalkulator (exclude bahan baku & ongkir yang sudah ada di supplier)
+  const newKomponen = [];
+  const kemasan2 = get('hpp_kemasan');
+  if (kemasan2) newKomponen.push({nama:'Kemasan', nominal:kemasan2, per:'pcs'});
+  hppExtraUnit.forEach(e => {
+    const v = get(`hpp_eu_${e.id}`);
+    if (v) newKomponen.push({nama:e.label||'Komponen', nominal:v, per:'pcs'});
+  });
+  const ongkir2 = get('hpp_ongkir');
+  if (ongkir2) newKomponen.push({nama:'Ongkir', nominal:ongkir2, per:'order'});
+  const desain2 = get('hpp_desain');
+  if (desain2) newKomponen.push({nama:'Desain', nominal:desain2, per:'order'});
+  const marketing2 = get('hpp_marketing');
+  if (marketing2) newKomponen.push({nama:'Marketing', nominal:marketing2, per:'order'});
+  const cashback2 = get('hpp_cashback');
+  if (cashback2) newKomponen.push({nama:'Cashback', nominal:cashback2, per:'order'});
+  hppExtraProj.forEach(e => {
+    const v = get(`hpp_ep_${e.id}`);
+    if (v) newKomponen.push({nama:e.label||'Komponen', nominal:v, per:'order'});
+  });
+  p.komponenBiaya = newKomponen;
+
+  await saveDB('produk');
+  hppProdukId = null;
+  toast(`✅ HPP disimpan ke "${esc(p.nama)}"! Balik ke detail produk...`, 'success');
+  setTimeout(()=>{ produkActiveId = p.id; goto('produk_kolektiva'); }, 1200);
+}
+
+
+// ─── GENERATOR KWITANSI ───────────────────────────────────────
+// ─── GENERATOR MOU / PROOF OF AGREEMENT ──────────────────────
+let mouVarian = [{ varian:'', harga:'', qty:'', subtotal:0 }];
+let mouUkuran = [{label:'S',qty:''},{label:'M',qty:''},{label:'L',qty:''},{label:'XL',qty:''},{label:'2XL',qty:''},{label:'3XL',qty:''}];
+let mouAnggota = [];
+let mouSpek = [{label:'Client',val:''},{label:'Start',val:''},{label:'Material Bahan',val:''},{label:'Warna Dominan',val:''},{label:'Warna Aksen',val:''}];
+let mouDesainImg = '';
+
+function mouVarianRowsHTML() {
+  return mouVarian.map((it,i)=>`
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:4px"><input class="form-input" style="font-size:12px;padding:6px 8px" placeholder="Tshirt Biasa / Long Sleeve 2XL..." value="${esc(it.varian)}" oninput="mouVarian[${i}].varian=this.value"></td>
+      <td style="padding:4px"><input class="form-input" style="font-size:12px;padding:6px 8px;min-width:110px" type="text" inputmode="numeric" placeholder="75.000" value="${esc(it.harga)}" oninput="mouVarian[${i}].harga=this.value;hppFmtInput(this);mouCalcVarian(${i})"></td>
+      <td style="padding:4px"><input class="form-input" style="font-size:12px;padding:6px 8px;width:70px;text-align:center" type="number" placeholder="0" value="${it.qty}" oninput="mouVarian[${i}].qty=this.value;mouCalcVarian(${i})"></td>
+      <td style="padding:6px 8px;font-family:'DM Mono',monospace;font-size:12px;color:#4cc9a0;white-space:nowrap;min-width:110px" id="mouSubtotal_${i}">${it.subtotal?fmtRp(it.subtotal):'-'}</td>
+      <td style="padding:4px;text-align:center">${mouVarian.length>1?`<button class="tbl-action-btn tbl-del" onclick="mouVarian.splice(${i},1);mouRenderVarian()">x</button>`:'<span style="color:var(--muted)">-</span>'}</td>
+    </tr>`).join('');
+}
+function mouCalcVarian(i) {
+  const h = parseFloat((mouVarian[i].harga||'0').toString().replace(/\./g,''))||0;
+  const q = parseFloat(mouVarian[i].qty)||0;
+  mouVarian[i].subtotal = h*q;
+  const el = document.getElementById('mouSubtotal_'+i);
+  if(el) el.textContent = mouVarian[i].subtotal ? fmtRp(mouVarian[i].subtotal) : '-';
+  mouUpdateTotal();
+}
+function mouUpdateTotal() {
+  const total = mouVarian.reduce((s,it)=>s+it.subtotal,0);
+  const qty = mouVarian.reduce((s,it)=>s+(parseFloat(it.qty)||0),0);
+  const totalEl = document.getElementById('mou_totalBiaya');
+  if(totalEl) { totalEl.value = total.toLocaleString('id-ID'); }
+  const qtyEl = document.getElementById('mou_jumlahProduk');
+  if(qtyEl && !qtyEl._manual) qtyEl.value = qty||'';
+}
+function mouRenderVarian() {
+  const tbody = document.getElementById('mouVarianTbody');
+  if(tbody) tbody.innerHTML = mouVarianRowsHTML();
+  mouUpdateTotal();
+}
+function mouAddVarian() { mouVarian.push({varian:'',harga:'',qty:'',subtotal:0}); mouRenderVarian(); }
+
+function mouAnggotaRowsHTML() {
+  return mouAnggota.map((it,i)=>`
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:4px"><input class="form-input" style="font-size:12px;padding:6px 8px" placeholder="Nama" value="${esc(it.nama||'')}" oninput="mouAnggota[${i}].nama=this.value"></td>
+      <td style="padding:4px"><input class="form-input" style="font-size:12px;padding:6px 8px" placeholder="Jabatan / Divisi" value="${esc(it.jabatan||'')}" oninput="mouAnggota[${i}].jabatan=this.value"></td>
+      <td style="padding:4px"><input class="form-input" style="font-size:12px;padding:6px 8px;width:70px;text-align:center" placeholder="M" value="${esc(it.ukuran||'')}" oninput="mouAnggota[${i}].ukuran=this.value"></td>
+      <td style="padding:4px;text-align:center"><button class="tbl-action-btn tbl-del" onclick="mouAnggota.splice(${i},1);mouRenderAnggota()">x</button></td>
+    </tr>`).join('');
+}
+function mouRenderAnggota() {
+  const tbody = document.getElementById('mouAnggotaTbody');
+  if(tbody) tbody.innerHTML = mouAnggotaRowsHTML();
+}
+function mouAddAnggota() { mouAnggota.push({nama:'',jabatan:'',ukuran:''}); mouRenderAnggota(); }
+
+function mouSpekRowsHTML() {
+  return mouSpek.map((it,i)=>`
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:4px;width:140px"><input class="form-input" style="font-size:12px;padding:6px 8px" placeholder="Label" value="${esc(it.label)}" oninput="mouSpek[${i}].label=this.value"></td>
+      <td style="padding:4px"><input class="form-input" style="font-size:12px;padding:6px 8px" placeholder="Value" value="${esc(it.val)}" oninput="mouSpek[${i}].val=this.value"></td>
+      <td style="padding:4px;text-align:center">${mouSpek.length>1?`<button class="tbl-action-btn tbl-del" onclick="mouSpek.splice(${i},1);mouRenderSpek()">x</button>`:'<span style="color:var(--muted)">-</span>'}</td>
+    </tr>`).join('');
+}
+function mouRenderSpek() {
+  const tbody = document.getElementById('mouSpekTbody');
+  if(tbody) tbody.innerHTML = mouSpekRowsHTML();
+}
+function mouAddSpek() { mouSpek.push({label:'',val:''}); mouRenderSpek(); }
+
+function mouLoadDesain(input) {
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    mouDesainImg = e.target.result;
+    const prev = document.getElementById('mou_desain_preview');
+    if(prev) {
+      prev.innerHTML = `<img src="${mouDesainImg}" style="max-width:100%;max-height:200px;object-fit:contain;border-radius:6px">`;
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function renderGenMou() {
+  document.getElementById('addBtn').classList.add('hidden');
+  const today = toDisplayDate(todayStr());
+  return `
+    <div style="display:grid;grid-template-columns:1fr 360px;gap:20px;align-items:start">
+      <div>
+        <div style="font-size:11px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:14px">Generator Proof of Agreement (MoU) Kolektiva</div>
+
+        <!-- Header -->
+        <div class="card" style="margin-bottom:14px">
+          <div class="strategy-section-title" style="margin-bottom:12px">Header Dokumen</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="form-group"><div class="form-label">Nomor Dokumen</div><input class="form-input" id="mou_nomor" placeholder="AGR-KLV-MCE-001-2026"></div>
+            <div class="form-group"><div class="form-label">Tanggal</div><input class="form-input" id="mou_tanggal" placeholder="DD/MM/YYYY" maxlength="10" value="${today}" oninput="autoSlashDate(this)"></div>
+            <div class="form-group" style="grid-column:span 2"><div class="form-label">Judul Produk / Jenis Order *</div><input class="form-input" id="mou_judulProduk" placeholder="TSHIRT MERCHANDISE MANDUBES CAMPUS EXPO 2026"></div>
+          </div>
+        </div>
+
+        <!-- Pihak Kedua -->
+        <div class="card" style="margin-bottom:14px">
+          <div class="strategy-section-title" style="margin-bottom:12px">Pihak Kedua (Klien / Pemesan)</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="form-group"><div class="form-label">Nama PIC *</div><input class="form-input" id="mou_namaP2" placeholder="Dian Rosilawati"></div>
+            <div class="form-group"><div class="form-label">Jabatan</div><input class="form-input" id="mou_jabatanP2" placeholder="Co. Danus"></div>
+            <div class="form-group"><div class="form-label">Jenis Kelamin</div>
+              <select class="form-select" id="mou_genderP2"><option>Laki-laki</option><option>Perempuan</option></select>
+            </div>
+            <div class="form-group"><div class="form-label">Alamat</div><input class="form-input" id="mou_alamatP2" placeholder="Kota / Kecamatan"></div>
+            <div class="form-group" style="grid-column:span 2"><div class="form-label">Nama Organisasi / Acara *</div><input class="form-input" id="mou_namaOrg" placeholder="Panitia Pelaksana Mandubes Campus Expo 2026"></div>
+          </div>
+        </div>
+
+        <!-- Pasal 1 -->
+        <div class="card" style="margin-bottom:14px">
+          <div class="strategy-section-title" style="margin-bottom:12px">Pasal 1 — Ruang Lingkup Perjanjian</div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Deskripsi apa yang dikerjakan Kolektiva untuk klien</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="checkbox" id="mou_scope1" checked style="accent-color:var(--accent)">
+              <input class="form-input" id="mou_scope1text" value="Bahwa PIHAK KEDUA bersedia untuk menggunakan jasa dan pembelian barang dari PIHAK PERTAMA sesuai dengan kesepakatan dalam perjanjian ini" style="font-size:11px">
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="checkbox" id="mou_scope2" checked style="accent-color:var(--accent)">
+              <input class="form-input" id="mou_scope2text" value="Bahwa PIHAK KEDUA bersedia bertanggungjawab atas pengumpulan data dan pembayaran setiap anggota kepada PIHAK PERTAMA" style="font-size:11px">
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="checkbox" id="mou_scope3" checked style="accent-color:var(--accent)">
+              <input class="form-input" id="mou_scope3text" value="Bahwa PIHAK PERTAMA bersedia melakukan perjanjian yaitu desain, cetak hingga pengemasan menjadi barang sebagai satu kesatuan yang utuh kepada PIHAK KEDUA" style="font-size:11px">
+            </div>
+          </div>
+        </div>
+
+        <!-- Pasal 2 Pembiayaan -->
+        <div class="card" style="margin-bottom:14px">
+          <div class="strategy-section-title" style="margin-bottom:12px">Pasal 2 — Pembiayaan</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+            <div class="form-group"><div class="form-label">Range Harga Produk</div><input class="form-input" id="mou_hargaRange" placeholder="Rp75.000 - Rp96.000"></div>
+            <div class="form-group"><div class="form-label">Jumlah Produk (pcs)</div><input class="form-input" id="mou_jumlahProduk" type="number" placeholder="115" oninput="this._manual=true"></div>
+            <div class="form-group"><div class="form-label">Biaya Total (auto)</div><input class="form-input" id="mou_totalBiaya" readonly style="opacity:0.7;cursor:default" placeholder="Auto dari rincian"></div>
+          </div>
+          <!-- Rincian varian -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="font-size:11px;color:var(--text2);font-weight:500">Rincian per Varian</div>
+            <button class="btn btn-ghost btn-sm" onclick="mouAddVarian()">+ Varian</button>
+          </div>
+          <div style="overflow-x:auto;margin-bottom:12px">
+            <table style="width:100%;border-collapse:collapse">
+              <thead><tr style="border-bottom:1px solid var(--border);background:rgba(46,156,255,0.04)">
+                <th style="padding:8px 4px;font-size:10px;color:var(--muted);font-weight:500;text-align:left;font-family:'DM Mono',monospace;text-transform:uppercase">Varian</th>
+                <th style="padding:8px 4px;font-size:10px;color:var(--muted);font-weight:500;text-align:left;font-family:'DM Mono',monospace;text-transform:uppercase">Harga/pcs</th>
+                <th style="padding:8px 4px;font-size:10px;color:var(--muted);font-weight:500;text-align:left;font-family:'DM Mono',monospace;text-transform:uppercase;width:70px">Qty</th>
+                <th style="padding:8px 4px;font-size:10px;color:var(--muted);font-weight:500;text-align:left;font-family:'DM Mono',monospace;text-transform:uppercase">Subtotal</th>
+                <th style="width:32px"></th>
+              </tr></thead>
+              <tbody id="mouVarianTbody">${mouVarianRowsHTML()}</tbody>
+            </table>
+          </div>
+          <!-- Termin & Rekening -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="form-group"><div class="form-label">Termin 1 (%)</div><input class="form-input" id="mou_termin1" value="50" type="number" min="1" max="100"></div>
+            <div class="form-group"><div class="form-label">Batas Termin 1</div><input class="form-input" id="mou_terminBatas1" value="H+7 setelah penandatanganan"></div>
+            <div class="form-group"><div class="form-label">Termin 2 (%)</div><input class="form-input" id="mou_termin2" value="50" type="number" min="0" max="100"></div>
+            <div class="form-group"><div class="form-label">Batas Termin 2</div><input class="form-input" id="mou_terminBatas2" value="H+7 setelah pembayaran termin 1"></div>
+            <div class="form-group" style="grid-column:span 2">
+              <div class="form-label">Info Rekening / Pembayaran</div>
+              <textarea class="form-textarea" id="mou_rekening" style="min-height:70px">Bank BRI: 3901 0100 6133 503
+Bank BCA: 3610680878
+GoPay/QRIS: 0851-7210-7815
+Atas nama: Ananda Mario Fani Pratama</textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pasal 3 Produk -->
+        <div class="card" style="margin-bottom:14px">
+          <div class="strategy-section-title" style="margin-bottom:12px">Pasal 3 — Tentang Produk</div>
+
+          <!-- Upload Desain -->
+          <div class="form-group" style="margin-bottom:12px">
+            <div class="form-label">Upload Mockup / Desain Final</div>
+            <label style="display:block;cursor:pointer">
+              <div id="mou_desain_preview" style="width:100%;min-height:80px;border:1.5px dashed var(--border2);border-radius:8px;display:flex;align-items:center;justify-content:center;background:var(--surface2);overflow:hidden;padding:8px">
+                <span style="font-size:11px;color:var(--muted)">Klik untuk upload foto desain / mockup produk</span>
+              </div>
+              <input type="file" accept="image/*" style="display:none" onchange="mouLoadDesain(this)">
+            </label>
+            <div style="font-size:10px;color:var(--muted);margin-top:4px">JPG/PNG — foto mockup, desain final, atau foto produk sample</div>
+          </div>
+
+          <!-- Spesifikasi -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="font-size:11px;color:var(--text2);font-weight:500">Spesifikasi Produk</div>
+            <button class="btn btn-ghost btn-sm" onclick="mouAddSpek()">+ Baris</button>
+          </div>
+          <div style="overflow-x:auto;margin-bottom:14px">
+            <table style="width:100%;border-collapse:collapse">
+              <thead><tr style="border-bottom:1px solid var(--border);background:rgba(46,156,255,0.04)">
+                <th style="padding:6px 4px;font-size:10px;color:var(--muted);font-weight:500;text-align:left;font-family:'DM Mono',monospace;text-transform:uppercase;width:140px">Label</th>
+                <th style="padding:6px 4px;font-size:10px;color:var(--muted);font-weight:500;text-align:left;font-family:'DM Mono',monospace;text-transform:uppercase">Value</th>
+                <th style="width:32px"></th>
+              </tr></thead>
+              <tbody id="mouSpekTbody">${mouSpekRowsHTML()}</tbody>
+            </table>
+          </div>
+
+          <!-- Tabel Ukuran -->
+          <div style="font-size:11px;color:var(--text2);font-weight:500;margin-bottom:8px">Tabel Ukuran & Jumlah</div>
+          <div style="overflow-x:auto;margin-bottom:14px">
+            <table style="border-collapse:collapse">
+              <thead><tr style="background:#1E2D4E">
+                ${mouUkuran.map((u,i)=>`<th style="padding:7px 12px;font-size:10px;font-weight:700;color:#fff;text-align:center;min-width:52px">${u.label}</th>`).join('')}
+                <th style="padding:7px 12px;font-size:10px;font-weight:700;color:#fff;background:#C4623A">TOTAL</th>
+              </tr></thead>
+              <tbody><tr style="background:#f5f0e8">
+                ${mouUkuran.map((u,i)=>`<td style="padding:4px"><input id="mouUkuran_${i}" class="form-input" style="width:52px;text-align:center;padding:5px;font-size:12px" type="number" placeholder="0" value="${u.qty}" oninput="mouUkuran[${i}].qty=this.value;mouUpdateUkuranTotal()"></td>`).join('')}
+                <td style="padding:7px 12px;font-size:13px;font-weight:700;color:#1E2D4E;text-align:center" id="mouUkuranTotal">0</td>
+              </tr></tbody>
+            </table>
+          </div>
+
+          <!-- List Anggota -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div>
+              <div style="font-size:11px;color:var(--text2);font-weight:500">List Nama Anggota</div>
+              <div style="font-size:10px;color:var(--muted)">Opsional — isi kalau ada list nama + ukuran per orang</div>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="mouAddAnggota()">+ Anggota</button>
+          </div>
+          <div id="mouAnggotaWrap" style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse">
+              <thead><tr style="border-bottom:1px solid var(--border);background:rgba(46,156,255,0.04)">
+                <th style="padding:6px 4px;font-size:10px;color:var(--muted);font-weight:500;text-align:left;font-family:'DM Mono',monospace;text-transform:uppercase">Nama</th>
+                <th style="padding:6px 4px;font-size:10px;color:var(--muted);font-weight:500;text-align:left;font-family:'DM Mono',monospace;text-transform:uppercase">Jabatan / Divisi</th>
+                <th style="padding:6px 4px;font-size:10px;color:var(--muted);font-weight:500;text-align:left;font-family:'DM Mono',monospace;text-transform:uppercase;width:70px">Ukuran</th>
+                <th style="width:32px"></th>
+              </tr></thead>
+              <tbody id="mouAnggotaTbody"><tr><td colspan="4" style="padding:12px;text-align:center;font-size:11px;color:var(--muted)">Belum ada anggota — klik + Anggota untuk tambah</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TTD -->
+        <div class="card" style="margin-bottom:14px">
+          <div class="strategy-section-title" style="margin-bottom:12px">Tanda Tangan Pihak Pertama</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="form-group">
+              <div class="form-label">Tanda Tangan <span style="color:var(--red)">*</span></div>
+              <label style="display:block;cursor:pointer">
+                <div id="mou_ttd_preview" style="width:100%;height:80px;border:1.5px dashed var(--border2);border-radius:8px;display:flex;align-items:center;justify-content:center;background:var(--surface2);overflow:hidden">
+                  <span style="font-size:11px;color:var(--muted)">Klik untuk upload TTD</span>
+                </div>
+                <input type="file" accept="image/*" style="display:none" onchange="bastLoadImg(this,'mou_ttd_preview','mou_ttd_data')">
+              </label>
+              <input type="hidden" id="mou_ttd_data">
+            </div>
+            <div class="form-group">
+              <div class="form-label">Stampel <span style="color:var(--muted)">(opsional)</span></div>
+              <label style="display:block;cursor:pointer">
+                <div id="mou_stamp_preview" style="width:100%;height:80px;border:1.5px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;background:var(--surface2);overflow:hidden">
+                  <span style="font-size:11px;color:var(--muted)">Klik untuk upload Stampel</span>
+                </div>
+                <input type="file" accept="image/*" style="display:none" onchange="bastLoadImg(this,'mou_stamp_preview','mou_stamp_data')">
+              </label>
+              <input type="hidden" id="mou_stamp_data">
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" style="width:100%;padding:12px" onclick="generateMouPDF()">Generate MoU / Proof of Agreement &rarr; Print / Save PDF</button>
+      </div>
+
+      <!-- PREVIEW -->
+      <div style="position:sticky;top:20px">
+        <div style="font-size:11px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:10px">Preview</div>
+        <div style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.3)">
+          <iframe id="mouPreviewFrame" style="width:100%;height:540px;border:none;display:block" srcdoc="<div style='padding:32px;color:#333;font-family:sans-serif;font-size:11px'><h3 style='text-align:center'>PROOF OF AGREEMENT</h3><p style='text-align:center;color:#888;font-size:10px'>Isi form di kiri untuk lihat preview</p></div>"></iframe>
+        </div>
+        <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:8px" onclick="updateMouPreview()">Refresh Preview</button>
+      </div>
+    </div>`;
+}
+
+function mouUpdateUkuranTotal() {
+  const total = mouUkuran.reduce((s,u)=>s+(parseFloat(u.qty)||0),0);
+  const el = document.getElementById('mouUkuranTotal');
+  if(el) el.textContent = total||'0';
+}
+
+function getMouData() {
+  const gv2 = id => (document.getElementById(id)||{}).value||'';
+  const total = mouVarian.reduce((s,it)=>s+it.subtotal,0);
+  return {
+    nomor:         gv2('mou_nomor'),
+    tanggal:       gv2('mou_tanggal'),
+    judulProduk:   gv2('mou_judulProduk'),
+    namaP2:        gv2('mou_namaP2'),
+    jabatanP2:     gv2('mou_jabatanP2'),
+    genderP2:      gv2('mou_genderP2'),
+    alamatP2:      gv2('mou_alamatP2'),
+    namaOrg:       gv2('mou_namaOrg'),
+    hargaRange:    gv2('mou_hargaRange'),
+    jumlahProduk:  gv2('mou_jumlahProduk'),
+    totalBiaya:    total,
+    termin1:       gv2('mou_termin1'),
+    terminBatas1:  gv2('mou_terminBatas1'),
+    termin2:       gv2('mou_termin2'),
+    terminBatas2:  gv2('mou_terminBatas2'),
+    rekening:      gv2('mou_rekening'),
+    scope1:        document.getElementById('mou_scope1')?.checked,
+    scope1text:    gv2('mou_scope1text'),
+    scope2:        document.getElementById('mou_scope2')?.checked,
+    scope2text:    gv2('mou_scope2text'),
+    scope3:        document.getElementById('mou_scope3')?.checked,
+    scope3text:    gv2('mou_scope3text'),
+    ttdData:       gv2('mou_ttd_data'),
+    stampData:     gv2('mou_stamp_data'),
+    varian:        mouVarian,
+    ukuran:        mouUkuran,
+    anggota:       mouAnggota,
+    spek:          mouSpek,
+    desainImg:     mouDesainImg,
+  };
+}
+
+function getMouHTML(d) {
+  const fmtN = n => n ? 'Rp '+Math.round(n).toLocaleString('id-ID') : 'Rp -';
+  const varianRows = d.varian.map(it=>`
+    <tr>
+      <td style="padding:6px 10px;font-size:10.5px">- ${it.varian||'-'}</td>
+      <td style="padding:6px 10px;font-size:10.5px;text-align:right">${it.harga?'Rp '+parseFloat((it.harga||'0').toString().replace(/\./g,'')).toLocaleString('id-ID'):'-'}</td>
+      <td style="padding:6px 10px;font-size:10.5px;text-align:center">${it.qty||'-'} Pcs</td>
+      <td style="padding:6px 10px;font-size:10.5px;text-align:right;font-weight:600">${fmtN(it.subtotal)}</td>
+    </tr>`).join('');
+  const spekRows = d.spek.filter(s=>s.label||s.val).map(s=>`
+    <tr style="border-bottom:1px solid #eee">
+      <td style="padding:7px 12px;font-size:10.5px;font-weight:600;color:#333;width:150px">${s.label}</td>
+      <td style="padding:7px 12px;font-size:10.5px;color:#555">${s.val}</td>
+    </tr>`).join('');
+  const ukuranHeaders = d.ukuran.filter(u=>u.qty).map(u=>`<th style="padding:7px 10px;text-align:center;font-size:10px;background:#1E2D4E;color:#fff;font-weight:700">${u.label}</th>`).join('');
+  const ukuranQtys = d.ukuran.filter(u=>u.qty).map(u=>`<td style="padding:7px 10px;text-align:center;font-size:11px;font-weight:600">${u.qty}</td>`).join('');
+  const totalUkuran = d.ukuran.reduce((s,u)=>s+(parseFloat(u.qty)||0),0);
+  const anggotaRows = d.anggota.length ? d.anggota.map(a=>`
+    <tr style="border-bottom:1px solid #eee">
+      <td style="padding:6px 10px;font-size:10.5px;font-weight:600">${a.nama||''}</td>
+      <td style="padding:6px 10px;font-size:10.5px;color:#555;text-transform:uppercase">${a.jabatan||''}</td>
+      <td style="padding:6px 10px;font-size:10.5px;font-weight:700;text-align:center">${a.ukuran||''}</td>
+    </tr>`).join('') : '';
+  const rekenRows = (d.rekening||'').split('\n').filter(Boolean).map((r,i)=>`<div style="font-size:10.5px;color:#333;padding:2px 0">${String.fromCharCode(105+i)}. ${r}</div>`).join('');
+  const scopeItems = [
+    d.scope1 ? `<div style="margin-bottom:6px;font-size:11px;line-height:1.7">1. ${d.scope1text}</div>` : '',
+    d.scope2 ? `<div style="margin-bottom:6px;font-size:11px;line-height:1.7">2. ${d.scope2text}</div>` : '',
+    d.scope3 ? `<div style="margin-bottom:6px;font-size:11px;line-height:1.7">3. ${d.scope3text}</div>` : '',
+  ].filter(Boolean).join('');
+  const dots = Array(40).fill('<div class="dot"></div>').join('');
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    @page{margin:0;size:A4;}*{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Inter',sans-serif;color:#1a1a2e;background:#fff;font-size:11.5px;}
+    .page{padding:36px 44px;min-height:297mm;position:relative;overflow:hidden;}
+    .page+.page{page-break-before:always;}
+    .cover-page{display:flex;flex-direction:column;justify-content:flex-end;background:#fff;}
+    .ca{position:absolute;right:0;top:0;width:26mm;height:100%;background:#1E2D4E;}
+    .ca2{position:absolute;right:0;top:0;width:18mm;height:45%;background:#C4623A;}
+    .stripe{position:absolute;left:0;top:0;width:6px;height:100%;background:#C4623A;}
+    .dots-grid{position:absolute;top:28px;left:28px;display:grid;grid-template-columns:repeat(8,10px);gap:5px;}
+    .dot{width:5px;height:5px;border-radius:50%;background:#1E2D4E;opacity:0.15;}
+    .dots-grid2{position:absolute;bottom:28px;left:28px;display:grid;grid-template-columns:repeat(8,10px);gap:5px;}
+    .page-header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:14px;border-bottom:2px solid #1E2D4E;margin-bottom:20px;}
+    .snm-stripe{position:absolute;left:0;top:0;width:6px;height:100%;background:#C4623A;}
+    h2{font-size:13px;font-weight:700;text-align:center;color:#1E2D4E;margin:16px 0 6px;}
+    h3{font-size:11.5px;font-weight:700;text-align:center;color:#1E2D4E;margin:0 0 14px;}
+    .section{margin-bottom:16px;}
+    .pasal-title{text-align:center;font-size:11px;font-weight:700;color:#1E2D4E;margin-bottom:10px;}
+    .field-grid{display:grid;grid-template-columns:160px 1fr;gap:2px 12px;font-size:10.5px;margin-bottom:10px;}
+    .fl{font-weight:600;color:#333;padding:2px 0;}
+    .fv{color:#555;padding:2px 0;}
+    .fv::before{content:': ';}
+    .desain-box{border:1.5px solid #eee;border-radius:6px;overflow:hidden;margin:8px 0;text-align:center;background:#fafafa;}
+    .desain-box img{max-width:100%;max-height:220px;object-fit:contain;display:block;margin:0 auto;}
+    table.spek-table{width:100%;border-collapse:collapse;margin-bottom:12px;}
+    table.ukuran-table{border-collapse:collapse;margin-bottom:12px;}
+    table.anggota-table{width:100%;border-collapse:collapse;}
+    table.anggota-table thead tr{background:#1E2D4E;color:#fff;}
+    table.anggota-table thead th{padding:7px 10px;font-size:10px;font-weight:700;text-transform:uppercase;text-align:left;}
+    table.anggota-table tbody tr:nth-child(even){background:#f5f0e8;}
+    .ttd-grid{display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-top:24px;}
+    .ttd-block{text-align:center;}
+    .ttd-lbl{font-size:10.5px;font-weight:700;color:#1E2D4E;margin-bottom:4px;}
+    .ttd-wrap{position:relative;height:60px;margin:4px 16px;}
+    .ttd-line{border-bottom:1.5px solid #1E2D4E;position:absolute;bottom:0;left:0;right:0;}
+    .ttd-name{font-size:10.5px;font-weight:700;color:#1E2D4E;margin-top:4px;}
+    .ttd-jabatan{font-size:10px;color:#555;}
+    .footer{text-align:center;font-size:9px;color:#bbb;margin-top:20px;padding-top:10px;border-top:1px solid #eee;}
+  </style></head><body>
+
+  <!-- COVER -->
+  <div class="page cover-page">
+    <div class="ca"><div class="ca2"></div></div>
+    <div class="stripe"></div>
+    <div class="dots-grid">${dots}</div>
+    <div class="dots-grid2">${dots}</div>
+    <div style="margin-bottom:28px"><img src="${KOLEKTIVA_LOGO_BAST}" alt="Kolektiva" style="height:52px"></div>
+    <div style="font-size:48px;font-weight:800;color:#1E2D4E;line-height:1.1;margin-bottom:12px">Proof<br>of Agreement</div>
+    <div style="font-size:13px;color:#666;line-height:1.6;max-width:280px">Kesepakatan final atas project yang dikerjakan</div>
+    <div style="margin-top:48px;font-size:10px;color:#888;line-height:1.8">+62 851-7210-7815<br>by.kolektiva@gmail.com<br>Jl. Pesantren No.29, Ketanggungan, Brebes 52263</div>
+  </div>
+
+  <!-- HALAMAN IDENTITAS -->
+  <div class="page">
+    <div class="snm-stripe"></div>
+    <div class="dots-grid">${dots}</div>
+    <div class="dots-grid2" style="bottom:28px;left:auto;right:28px">${dots}</div>
+    <div class="page-header">
+      <div>
+        <img src="${KOLEKTIVA_LOGO_BAST}" alt="Kolektiva" style="height:36px;display:block;margin-bottom:4px">
+        <div style="font-size:9px;color:#C4623A;font-weight:600">by PT Pratani Kreatif Group</div>
+      </div>
+      <div style="text-align:right;font-size:9.5px;color:#555;line-height:1.8">
+        <strong style="color:#1E2D4E">Kolektiva</strong><br>Jl. Pesantren No.29, Ketanggungan, Brebes<br>by.kolektiva@gmail.com | 0851-7210-7815
+      </div>
+    </div>
+
+    <h2>BUKTI PERSETUJUAN PESANAN ${(d.judulProduk||'').toUpperCase()}</h2>
+    <h3>Nomor : ${d.nomor||'-'}</h3>
+
+    <div style="font-size:11px;line-height:1.75;margin-bottom:14px;text-align:justify">
+      Pada hari ini, <strong>${d.tanggal||'-'}</strong>, telah dicapai kesepakatan antara:
+    </div>
+
+    <div class="section">
+      <div style="font-size:11px;font-weight:700;color:#1E2D4E;margin-bottom:6px">1. Pihak Pertama (Kolektiva)</div>
+      <div class="field-grid">
+        <span class="fl">Nama</span><span class="fv">Ananda Mario Fani Pratama</span>
+        <span class="fl">Jenis Kelamin</span><span class="fv">Laki-laki</span>
+        <span class="fl">Jabatan</span><span class="fv">Founder & Direktur</span>
+        <span class="fl">Alamat</span><span class="fv">Ketanggungan, Brebes</span>
+      </div>
+      <div style="font-size:10.5px;color:#555;line-height:1.7">Dalam hal ini selaku jabatannya sebagai Founder & Direktur bertindak mewakili untuk dan atas nama <strong>Kolektiva by PT Pratani Kreatif Group</strong> yang beralamat di Jl. Pesantren No.29, Ketanggungan, Brebes. Yang selanjutnya mohon disebut sebagai <strong>PIHAK PERTAMA</strong></div>
+    </div>
+
+    <div class="section">
+      <div style="font-size:11px;font-weight:700;color:#1E2D4E;margin-bottom:6px">2. Pihak Kedua (Klien / Pemesan)</div>
+      <div class="field-grid">
+        <span class="fl">Nama</span><span class="fv">${d.namaP2||'-'}</span>
+        <span class="fl">Jenis Kelamin</span><span class="fv">${d.genderP2||'-'}</span>
+        <span class="fl">Jabatan</span><span class="fv">${d.jabatanP2||'-'}</span>
+        <span class="fl">Alamat</span><span class="fv">${d.alamatP2||'-'}</span>
+      </div>
+      <div style="font-size:10.5px;color:#555;line-height:1.7">Bertindak dan atau atas nama <strong>${d.namaOrg||'[Nama Organisasi]'}</strong>, yang selanjutnya mohon disebut sebagai <strong>PIHAK KEDUA</strong></div>
+    </div>
+
+    <div style="font-size:10.5px;color:#555;line-height:1.75;margin-bottom:14px;text-align:justify">Atau secara bersama-sama disebut sebagai <strong>PARA PIHAK</strong></div>
+
+    <div style="font-size:10.5px;color:#555;line-height:1.75;margin-bottom:6px"><strong>Bahwa terlebih dahulu PARA PIHAK menerangkan hal-hal sebagai berikut:</strong></div>
+    <div style="font-size:10.5px;color:#555;line-height:1.7;margin-bottom:4px">1. PIHAK KEDUA adalah panitia / penanggung jawab dari ${d.namaOrg||'[Nama Organisasi]'}</div>
+    <div style="font-size:10.5px;color:#555;line-height:1.7;margin-bottom:4px">2. PIHAK PERTAMA menyatakan bahwa kontrak kerjasama ini telah diketahui oleh PIHAK KEDUA</div>
+    <div style="font-size:10.5px;color:#555;line-height:1.7;margin-bottom:4px">3. PIHAK PERTAMA adalah perwakilan dari perusahaan yang bergerak dalam bidang perdagangan jasa</div>
+    <div style="font-size:10.5px;color:#555;line-height:1.7;margin-bottom:14px">4. Perjanjian ini dibuat dengan itikad baik dengan tujuan untuk memfasilitasi kebutuhan PIHAK KEDUA</div>
+
+    <div style="font-size:10.5px;color:#555;line-height:1.75;text-align:justify">Berdasarkan hal tersebut di atas, selanjutnya PARA PIHAK telah sepakat untuk mengikatkan dan melaksanakan perjanjian ini dengan ketentuan sebagai berikut:</div>
+  </div>
+
+  <!-- PASAL 1 & 2 -->
+  <div class="page">
+    <div class="snm-stripe"></div>
+    <div class="page-header">
+      <img src="${KOLEKTIVA_LOGO_BAST}" alt="Kolektiva" style="height:32px">
+      <div style="font-size:9.5px;color:#555">${d.nomor||'-'} | ${d.tanggal||'-'}</div>
+    </div>
+
+    <div class="section">
+      <div class="pasal-title">PASAL 1<br>RUANG LINGKUP PERJANJIAN</div>
+      ${scopeItems || '<div style="font-size:11px;color:#555">-</div>'}
+    </div>
+
+    <div class="section">
+      <div class="pasal-title">PASAL 2<br>PEMBIAYAAN</div>
+      <div style="font-size:11px;line-height:1.75;margin-bottom:10px">1. PIHAK KEDUA wajib membayar total biaya kerjasama ini yaitu sebagai berikut :</div>
+      <div class="field-grid" style="margin-bottom:10px">
+        <span class="fl">a. Harga Produk</span><span class="fv">${d.hargaRange||'-'}</span>
+        <span class="fl">b. Jumlah Produk</span><span class="fv">${d.jumlahProduk||mouVarian.reduce((s,it)=>s+(parseFloat(it.qty)||0),0)||'-'}</span>
+        <span class="fl">c. Biaya Total</span><span class="fv" style="font-weight:600;color:#1E2D4E">${d.totalBiaya?fmtRp(Math.round(d.totalBiaya)):'-'}</span>
+      </div>
+      ${d.varian.length ? `
+      <div style="font-size:11px;margin-bottom:8px">d. Dengan Rincian sebagai berikut :</div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:12px">
+        <tbody>${varianRows}</tbody>
+      </table>` : ''}
+      <div style="font-size:11px;line-height:1.75;margin-bottom:8px">2. PIHAK KEDUA wajib melakukan mekanisme pembayaran sesuai dengan ketentuan sebagai berikut :</div>
+      <div style="font-size:10.5px;margin-bottom:4px">a. Termin ${d.termin1||50}% dari total biaya yang akan dilakukan maksimal ${d.terminBatas1||'H+7 setelah penandatanganan'}.</div>
+      <div style="font-size:10.5px;margin-bottom:10px">b. Termin ${d.termin2||50}% dari biaya total dibayarkan maksimal ${d.terminBatas2||'H+7 setelah pembayaran termin 1'}.</div>
+      <div style="font-size:10.5px;margin-bottom:6px">c. Pembayaran hanya dilakukan melalui rekening resmi PIHAK PERTAMA yaitu :</div>
+      <div style="margin-left:16px">${rekenRows}</div>
+    </div>
+  </div>
+
+  <!-- PASAL 3 PRODUK -->
+  <div class="page">
+    <div class="snm-stripe"></div>
+    <div class="page-header">
+      <img src="${KOLEKTIVA_LOGO_BAST}" alt="Kolektiva" style="height:32px">
+      <div style="font-size:9.5px;color:#555">${d.nomor||'-'} | ${d.tanggal||'-'}</div>
+    </div>
+
+    <div class="pasal-title">PASAL 3<br>TENTANG PRODUK</div>
+    <div style="font-size:11px;margin-bottom:12px">1. PIHAK PERTAMA memberikan ${d.judulProduk||'produk'} kepada ${d.namaOrg||'klien'} dengan ketentuan sebagai berikut :</div>
+
+    ${d.desainImg ? `
+    <div style="background:#1E2D4E;color:#fff;text-align:center;padding:8px;font-size:10.5px;font-weight:700;margin-bottom:0;border-radius:4px 4px 0 0">DESAIN</div>
+    <div class="desain-box" style="border-top:none;border-radius:0 0 4px 4px;padding:16px;margin-bottom:14px">
+      <img src="${d.desainImg}" style="max-width:100%;max-height:240px;object-fit:contain">
+    </div>` : ''}
+
+    ${spekRows ? `
+    <table class="spek-table">
+      <tbody>${spekRows}</tbody>
+    </table>` : ''}
+
+    ${d.ukuran.some(u=>u.qty) ? `
+    <table class="ukuran-table" style="margin-bottom:14px">
+      <thead><tr>
+        ${d.ukuran.filter(u=>u.qty).map(u=>`<th style="padding:7px 10px;text-align:center;font-size:10px;background:#1E2D4E;color:#fff;font-weight:700;min-width:48px">${u.label}</th>`).join('')}
+        <th style="padding:7px 10px;text-align:center;font-size:10px;background:#C4623A;color:#fff;font-weight:700">TOTAL</th>
+      </tr></thead>
+      <tbody><tr style="background:#f5f0e8">
+        ${d.ukuran.filter(u=>u.qty).map(u=>`<td style="padding:7px 10px;text-align:center;font-size:12px;font-weight:700">${u.qty}</td>`).join('')}
+        <td style="padding:7px 10px;text-align:center;font-size:12px;font-weight:700;color:#1E2D4E">${totalUkuran}</td>
+      </tr></tbody>
+    </table>` : ''}
+
+    ${anggotaRows ? `
+    <table class="anggota-table">
+      <thead><tr>
+        <th>Nama</th><th>Jabatan / Divisi</th><th style="text-align:center">Ukuran</th>
+      </tr></thead>
+      <tbody>${anggotaRows}</tbody>
+    </table>` : ''}
+  </div>
+
+  <!-- KETENTUAN & TTD -->
+  <div class="page">
+    <div class="snm-stripe"></div>
+    <div class="page-header">
+      <img src="${KOLEKTIVA_LOGO_BAST}" alt="Kolektiva" style="height:32px">
+      <div style="font-size:9.5px;color:#555">${d.nomor||'-'} | ${d.tanggal||'-'}</div>
+    </div>
+
+    <div class="section">
+      <div style="font-weight:700;font-size:11px;color:#1E2D4E;margin-bottom:6px">1. Persetujuan Bersama</div>
+      <div style="font-size:10.5px;color:#555;line-height:1.75;text-align:justify;margin-bottom:12px">Para Pihak sepakat bahwa segala hal yang belum diatur atau yang memerlukan perubahan dari MoU ini akan dibicarakan dan disepakati bersama secara tertulis oleh Para Pihak.</div>
+      <div style="font-weight:700;font-size:11px;color:#1E2D4E;margin-bottom:6px">2. Keabsahan MoU</div>
+      <div style="font-size:10.5px;color:#555;line-height:1.75;text-align:justify;margin-bottom:12px">MoU ini berlaku setelah ditandatangani oleh Para Pihak dan tetap berlaku selama periode yang telah ditentukan, kecuali diakhiri lebih awal oleh kesepakatan tertulis antara Para Pihak atau karena alasan hukum yang mengakibatkan berakhirnya MoU ini.</div>
+      <div style="font-weight:700;font-size:11px;color:#1E2D4E;margin-bottom:6px">3. Penafsiran MoU</div>
+      <div style="font-size:10.5px;color:#555;line-height:1.75;text-align:justify;margin-bottom:12px">MoU ini ditafsirkan berdasarkan hukum yang berlaku di wilayah tempat MoU ini dibuat, kecuali dinyatakan lain oleh Para Pihak.</div>
+      <div style="font-weight:700;font-size:11px;color:#1E2D4E;margin-bottom:6px">4. Penyelesaian Sengketa</div>
+      <div style="font-size:10.5px;color:#555;line-height:1.75;text-align:justify;margin-bottom:12px">Segala sengketa yang timbul sehubungan dengan pelaksanaan MoU ini akan diselesaikan secara musyawarah untuk mufakat. Jika musyawarah tidak mencapai mufakat, Para Pihak sepakat untuk menyelesaikan sengketa tersebut melalui jalur hukum yang berlaku.</div>
+      <div style="font-weight:700;font-size:11px;color:#1E2D4E;margin-bottom:6px">5. Perubahan dan Amandemen</div>
+      <div style="font-size:10.5px;color:#555;line-height:1.75;text-align:justify;margin-bottom:16px">Setiap perubahan atau amandemen terhadap MoU ini hanya sah dan mengikat apabila dibuat secara tertulis dan ditandatangani oleh Para Pihak.</div>
+      <div style="font-size:10.5px;color:#555;line-height:1.75;text-align:justify;margin-bottom:20px">Para Pihak menyatakan bahwa MoU ini dibuat dengan sebenar-benarnya, dalam keadaan sadar, sehat jasmani dan rohani, serta tanpa adanya paksaan atau tekanan dari pihak manapun. Kedua belah pihak sepakat untuk menjalankan isi MoU ini dengan itikad baik dan penuh tanggung jawab.</div>
+    </div>
+
+    <div style="text-align:center;font-size:11px;font-weight:600;margin-bottom:16px">Mengetahui</div>
+    <div class="ttd-grid">
+      <div class="ttd-block">
+        <div class="ttd-lbl">PIHAK KEDUA</div>
+        <div class="ttd-wrap"><div class="ttd-line"></div></div>
+        <div class="ttd-name">${d.namaP2||'[Nama Perwakilan]'}</div>
+        <div class="ttd-jabatan">${d.jabatanP2||''}</div>
+      </div>
+      <div class="ttd-block">
+        <div class="ttd-lbl">PIHAK PERTAMA</div>
+        <div class="ttd-wrap">
+          ${d.ttdData?`<img src="${d.ttdData}" style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);max-height:58px;max-width:140px;object-fit:contain">`:''}
+          ${d.stampData?`<img src="${d.stampData}" style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);max-height:60px;max-width:60px;object-fit:contain;opacity:0.75">`:''}
+          <div class="ttd-line"></div>
+        </div>
+        <div class="ttd-name">Ananda Mario Fani Pratama</div>
+        <div class="ttd-jabatan">Founder & Direktur — PT Pratani Kreatif Group / Kolektiva</div>
+      </div>
+    </div>
+
+    <div class="footer">Kolektiva | PT Pratani Kreatif Group · AHU-053343.AH.01.30.Tahun 2025 · by.kolektiva@gmail.com</div>
+  </div>
+
+  </body></html>`;
+}
+
+function updateMouPreview() {
+  const frame = document.getElementById('mouPreviewFrame');
+  if(!frame) return;
+  frame.srcdoc = getMouHTML(getMouData());
+}
+function generateMouPDF() {
+  const html = getMouHTML(getMouData());
+  const w = window.open('','_blank');
+  w.document.write(html);
+  w.document.close();
+  setTimeout(()=>w.print(), 700);
+}
+
+
+let kwtItems = [{ termin:'1', deskripsi:'Pembayaran DP / Termin 1', nominal:'', diskon:'0' }];
+
+function kwtItemRowsHTML() {
+  return kwtItems.map((it,i)=>`
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:4px"><input class="form-input" style="font-size:12px;padding:6px 8px;width:60px;text-align:center" placeholder="1" value="${esc(it.termin)}" oninput="kwtItems[${i}].termin=this.value"></td>
+      <td style="padding:4px"><input class="form-input" style="font-size:12px;padding:6px 8px" placeholder="Pembayaran DP / Termin 1" value="${esc(it.deskripsi)}" oninput="kwtItems[${i}].deskripsi=this.value"></td>
+      <td style="padding:4px"><input class="form-input" style="font-size:12px;padding:6px 8px;min-width:120px" type="text" inputmode="numeric" placeholder="0" value="${esc(it.nominal)}" oninput="kwtItems[${i}].nominal=this.value;hppFmtInput(this);kwtUpdateSummary()"></td>
+      <td style="padding:4px"><input class="form-input" style="font-size:12px;padding:6px 8px;width:70px;text-align:center" placeholder="0" value="${esc(it.diskon)}" oninput="kwtItems[${i}].diskon=this.value;kwtUpdateSummary()"></td>
+      <td style="padding:6px 8px;font-family:'DM Mono',monospace;font-size:12px;color:#4cc9a0;white-space:nowrap" id="kwtLineTotal_${i}">${kwtCalcLine(it)}</td>
+      <td style="padding:4px;text-align:center">${kwtItems.length>1?`<button class="tbl-action-btn tbl-del" onclick="kwtRemoveRow(${i})">x</button>`:'<span style="color:var(--muted)">-</span>'}</td>
+    </tr>`).join('');
+}
+function kwtCalcLine(it) {
+  const nom = parseFloat((it.nominal||'0').toString().replace(/\./g,''))||0;
+  const dis = parseFloat(it.diskon)||0;
+  const total = nom * (1 - dis/100);
+  return total ? fmtRp(Math.round(total)) : 'Rp 0';
+}
+function kwtCalcTotal() {
+  return kwtItems.reduce((s,it)=>{
+    const nom = parseFloat((it.nominal||'0').toString().replace(/\./g,''))||0;
+    const dis = parseFloat(it.diskon)||0;
+    return s + nom * (1-dis/100);
+  },0);
+}
+function kwtRenderRows() {
+  const tbody = document.getElementById('kwtItemsTbody');
+  if (tbody) tbody.innerHTML = kwtItemRowsHTML();
+  kwtUpdateSummary();
+}
+function kwtAddRow() {
+  const nextNo = kwtItems.length+1;
+  kwtItems.push({termin:String(nextNo),deskripsi:'',nominal:'',diskon:'0'});
+  kwtRenderRows();
+}
+function kwtRemoveRow(i) { kwtItems.splice(i,1); kwtRenderRows(); }
+function kwtUpdateSummary() {
+  const total = kwtCalcTotal();
+  const nilaiEl = document.getElementById('kwt_nilaiProject');
+  const nilaiProject = nilaiEl ? parseFloat((nilaiEl.value||'0').replace(/\./g,''))||0 : 0;
+  const kurang = nilaiProject - total;
+  const pembEl = document.getElementById('kwt_summary_pembayaran');
+  const kurangEl = document.getElementById('kwt_summary_kurang');
+  if (pembEl) pembEl.textContent = fmtRp(Math.round(total));
+  if (kurangEl) kurangEl.textContent = fmtRp(Math.round(kurang >= 0 ? kurang : 0));
+}
+
+function renderGenKwitansi() {
+  document.getElementById('addBtn').classList.add('hidden');
+  const today = toDisplayDate(todayStr());
+  return `
+    <div style="display:grid;grid-template-columns:1fr 380px;gap:20px;align-items:start">
+      <div>
+        <div style="font-size:11px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:14px">Generator Kwitansi Kolektiva</div>
+
+        <!-- Header -->
+        <div class="card" style="margin-bottom:14px">
+          <div class="strategy-section-title" style="margin-bottom:12px">Header Kwitansi</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+            <div class="form-group"><div class="form-label">Nomor Kwitansi</div><input class="form-input" id="kwt_nomor" placeholder="KWT-KLV-001-I-2026"></div>
+            <div class="form-group"><div class="form-label">Tanggal</div><input class="form-input" id="kwt_tanggal" placeholder="DD/MM/YYYY" maxlength="10" value="${today}" oninput="autoSlashDate(this)"></div>
+            <div class="form-group"><div class="form-label">Customer ID</div><input class="form-input" id="kwt_customerId" placeholder="MCE-2026"></div>
+          </div>
+        </div>
+
+        <!-- Penerima -->
+        <div class="card" style="margin-bottom:14px">
+          <div class="strategy-section-title" style="margin-bottom:12px">Dikirim Untuk (Penerima)</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="form-group"><div class="form-label">Nama Penerima *</div><input class="form-input" id="kwt_namaPenerima" placeholder="Nama PIC / Penanggung Jawab"></div>
+            <div class="form-group"><div class="form-label">Divisi / Jabatan</div><input class="form-input" id="kwt_divisiPenerima" placeholder="Co Danus MCE 2025"></div>
+            <div class="form-group" style="grid-column:span 2"><div class="form-label">Instansi / Nama Event</div><input class="form-input" id="kwt_instansiPenerima" placeholder="HIMA Teknik UNSOED"></div>
+          </div>
+        </div>
+
+        <!-- Info Pengiriman -->
+        <div class="card" style="margin-bottom:14px">
+          <div class="strategy-section-title" style="margin-bottom:12px">Info Pembayaran</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+            <div class="form-group"><div class="form-label">Pengirim (nama staf)</div><input class="form-input" id="kwt_pengirim" value="Ananda Mario"></div>
+            <div class="form-group"><div class="form-label">Jabatan Pengirim</div><input class="form-input" id="kwt_jabatanPengirim" value="Founder"></div>
+            <div class="form-group"><div class="form-label">Isi Kwitansi</div><input class="form-input" id="kwt_isiKwitansi" value="Pembayaran"></div>
+            <div class="form-group"><div class="form-label">Tanggal Diterima</div><input class="form-input" id="kwt_tglTerima" placeholder="DD/MM/YYYY" maxlength="10" value="${today}" oninput="autoSlashDate(this)"></div>
+            <div class="form-group" style="grid-column:span 2"><div class="form-label">Metode Pembayaran</div>
+              <select class="form-select" id="kwt_metode">
+                <option>Transfer BRI</option>
+                <option>Transfer BCA</option>
+                <option>Transfer Mandiri</option>
+                <option>Transfer BSI</option>
+                <option>QRIS</option>
+                <option>Tunai / Cash</option>
+                <option>Transfer Bank Lain</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabel Termin -->
+        <div class="card" style="margin-bottom:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div class="strategy-section-title">Rincian Pembayaran</div>
+            <button class="btn btn-ghost btn-sm" onclick="kwtAddRow()">+ Termin</button>
+          </div>
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse">
+              <thead>
+                <tr style="border-bottom:1px solid var(--border);background:rgba(46,156,255,0.04)">
+                  <th style="padding:8px 4px;font-size:10px;color:var(--muted);font-weight:500;text-align:left;font-family:'DM Mono',monospace;text-transform:uppercase;width:60px">Termin</th>
+                  <th style="padding:8px 4px;font-size:10px;color:var(--muted);font-weight:500;text-align:left;font-family:'DM Mono',monospace;text-transform:uppercase">Deskripsi</th>
+                  <th style="padding:8px 4px;font-size:10px;color:var(--muted);font-weight:500;text-align:left;font-family:'DM Mono',monospace;text-transform:uppercase;min-width:120px">Nominal</th>
+                  <th style="padding:8px 4px;font-size:10px;color:var(--muted);font-weight:500;text-align:left;font-family:'DM Mono',monospace;text-transform:uppercase;width:70px">Diskon %</th>
+                  <th style="padding:8px 4px;font-size:10px;color:var(--muted);font-weight:500;text-align:left;font-family:'DM Mono',monospace;text-transform:uppercase">Total</th>
+                  <th style="width:32px"></th>
+                </tr>
+              </thead>
+              <tbody id="kwtItemsTbody">${kwtItemRowsHTML()}</tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Summary -->
+        <div class="card" style="margin-bottom:14px">
+          <div class="strategy-section-title" style="margin-bottom:12px">Ringkasan Nilai</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:center">
+            <div class="form-group">
+              <div class="form-label">Nilai Total Project (Rp)</div>
+              <input class="form-input" id="kwt_nilaiProject" type="text" inputmode="numeric" placeholder="Total nilai order keseluruhan" oninput="hppFmtInput(this);kwtUpdateSummary()">
+            </div>
+            <div style="background:var(--surface2);border-radius:10px;padding:12px;font-size:12px;font-family:'DM Mono',monospace">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="color:var(--muted)">Dibayar</span>
+                <span id="kwt_summary_pembayaran" style="color:#4cc9a0;font-weight:600">Rp 0</span>
+              </div>
+              <div style="display:flex;justify-content:space-between">
+                <span style="color:var(--muted)">Sisa / Kurang</span>
+                <span id="kwt_summary_kurang" style="color:var(--red);font-weight:600">Rp 0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" style="width:100%;padding:12px" onclick="generateKwtPDF()">Generate Kwitansi &rarr; Print / Save PDF</button>
+      </div>
+
+      <!-- PREVIEW -->
+      <div style="position:sticky;top:20px">
+        <div style="font-size:11px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:10px">Preview</div>
+        <div style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.3)">
+          <iframe id="kwtPreviewFrame" style="width:100%;height:520px;border:none;display:block" srcdoc="<div style='padding:32px;color:#333;font-family:sans-serif;font-size:11px'><h3 style='text-align:center'>KWITANSI</h3><p style='text-align:center;color:#888;font-size:10px'>Isi form di kiri untuk lihat preview</p></div>"></iframe>
+        </div>
+        <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:8px" onclick="updateKwtPreview()">Refresh Preview</button>
+      </div>
+    </div>`;
+}
+
+function getKwtData() {
+  const gv2 = id => (document.getElementById(id)||{}).value||'';
+  const total = kwtCalcTotal();
+  const nilaiProject = parseFloat((gv2('kwt_nilaiProject')||'0').replace(/\./g,''))||0;
+  return {
+    nomor:           gv2('kwt_nomor'),
+    tanggal:         gv2('kwt_tanggal'),
+    customerId:      gv2('kwt_customerId'),
+    namaPenerima:    gv2('kwt_namaPenerima'),
+    divisiPenerima:  gv2('kwt_divisiPenerima'),
+    instansiPenerima:gv2('kwt_instansiPenerima'),
+    pengirim:        gv2('kwt_pengirim'),
+    jabatanPengirim: gv2('kwt_jabatanPengirim'),
+    isiKwitansi:     gv2('kwt_isiKwitansi'),
+    tglTerima:       gv2('kwt_tglTerima'),
+    metode:          gv2('kwt_metode'),
+    nilaiProject:    nilaiProject,
+    totalPembayaran: total,
+    kurang:          Math.max(nilaiProject - total, 0),
+    items:           kwtItems,
+  };
+}
+
+function getKwtHTML(d) {
+  const fmtH = v => { const n = parseFloat((v||'0').toString().replace(/\./g,'').replace(/,/g,''))||0; return n ? 'Rp '+n.toLocaleString('id-ID') : 'Rp -'; };
+  const fmtN = n => n ? 'Rp '+Math.round(n).toLocaleString('id-ID') : 'Rp -';
+
+  // Generate 15 rows (filled + empty) like the template
+  const filled = d.items.map(it => {
+    const nom = parseFloat((it.nominal||'0').toString().replace(/\./g,''))||0;
+    const dis = parseFloat(it.diskon)||0;
+    const total = Math.round(nom * (1-dis/100));
+    return `<tr style="border-bottom:1px solid #eee">
+      <td style="padding:8px 12px;font-size:11px;text-align:center">${it.termin}</td>
+      <td style="padding:8px 12px;font-size:11px">${it.deskripsi||'-'}</td>
+      <td style="padding:8px 12px;font-size:11px;text-align:right">${nom?'Rp '+nom.toLocaleString('id-ID'):'-'}</td>
+      <td style="padding:8px 12px;font-size:11px;text-align:center">${it.diskon||'0'}%</td>
+      <td style="padding:8px 12px;font-size:11px;text-align:right;font-weight:600">Rp</td>
+      <td style="padding:8px 12px;font-size:11px;text-align:right;font-weight:600">${total?total.toLocaleString('id-ID'):'-'}</td>
+    </tr>`;
+  });
+  const empty = Array(Math.max(0, 10-d.items.length)).fill(`<tr style="border-bottom:1px solid #eee">
+    <td style="padding:8px 12px;height:28px"></td><td></td><td></td><td></td>
+    <td style="padding:8px 12px;font-size:11px;text-align:right;color:#aaa">Rp</td>
+    <td style="padding:8px 12px;font-size:11px;text-align:right;color:#aaa">-</td>
+  </tr>`);
+  const allRows = [...filled, ...empty].join('');
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    @page{margin:0;size:A4;}*{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Inter',sans-serif;color:#1a1a2e;background:#fff;font-size:11px;padding:32px 40px;}
+    .header-bar{background:#1E2D4E;color:#fff;padding:14px 20px;display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:16px;align-items:center;margin:-32px -40px 28px;border-radius:0;}
+    .header-bar .lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.6);margin-bottom:2px;}
+    .header-bar .val{font-size:11px;font-weight:600;}
+    .kwt-title{font-size:36px;font-weight:800;color:#C4623A;letter-spacing:2px;text-align:right;}
+    .info-section{display:grid;grid-template-columns:auto 1fr 1fr;gap:24px;margin-bottom:20px;padding-bottom:20px;border-bottom:2px solid #1E2D4E;}
+    .company-info .name{font-size:13px;font-weight:700;color:#1E2D4E;margin-bottom:2px;}
+    .company-info .sub{font-size:9.5px;color:#C4623A;font-weight:600;margin-bottom:6px;}
+    .company-info .addr{font-size:9.5px;color:#555;line-height:1.7;}
+    .company-info .email{font-size:9.5px;color:#1E2D4E;font-weight:600;}
+    .dikirim-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#C4623A;margin-bottom:6px;}
+    .dikirim-val{font-size:11px;color:#1a1a2e;font-weight:600;line-height:1.7;}
+    table.info-table{width:100%;border-collapse:collapse;margin-bottom:16px;}
+    table.info-table thead tr{background:#1E2D4E;color:#fff;}
+    table.info-table thead th{padding:9px 12px;font-size:9.5px;font-weight:700;text-transform:uppercase;text-align:left;}
+    table.info-table tbody td{padding:8px 12px;font-size:11px;border-bottom:1px solid #eee;}
+    table.item-table{width:100%;border-collapse:collapse;margin-bottom:0;}
+    table.item-table thead tr{background:#1E2D4E;color:#fff;}
+    table.item-table thead th{padding:9px 12px;font-size:9.5px;font-weight:700;text-transform:uppercase;}
+    table.item-table thead th:nth-child(n+3){text-align:right;}
+    table.item-table tbody tr:nth-child(odd){background:#f9f9f9;}
+    .summary-row{display:grid;grid-template-columns:1fr auto auto;border-top:2px solid #1E2D4E;margin-top:0;}
+    .summary-label{padding:8px 12px;font-size:11px;font-weight:700;text-align:right;color:#1a1a2e;}
+    .summary-rp{padding:8px 12px;font-size:11px;font-weight:700;color:#1E2D4E;min-width:30px;}
+    .summary-val{padding:8px 12px;font-size:11px;font-weight:700;color:#1E2D4E;min-width:100px;text-align:right;}
+    .footer-bar{background:#1E2D4E;color:#fff;padding:20px 40px;text-align:center;margin:24px -40px -32px;border-radius:0;}
+    .footer-bar .payable{font-size:10px;color:rgba(255,255,255,0.6);margin-bottom:4px;}
+    .footer-bar .brand{font-size:15px;font-weight:800;letter-spacing:1px;color:#fff;margin-bottom:4px;}
+    .footer-bar .thanks{font-size:10px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#C4623A;}
+  </style></head><body>
+  <div class="header-bar">
+    <div><div class="lbl">Nomor Kwitansi</div><div class="val">${d.nomor||'-'}</div></div>
+    <div><div class="lbl">Date</div><div class="val">${d.tanggal||'-'}</div></div>
+    <div><div class="lbl">Customer ID</div><div class="val">${d.customerId||'-'}</div></div>
+    <div class="kwt-title">KWITANSI</div>
+  </div>
+
+  <div class="info-section">
+    <div>
+      <img src="${KOLEKTIVA_LOGO_BAST}" alt="Kolektiva" style="height:48px;display:block;margin-bottom:8px">
+    </div>
+    <div class="company-info">
+      <div class="name">Kolektiva</div>
+      <div class="sub">by PT Pratani Kreatif Group</div>
+      <div class="addr">Jl Pesantren No 29, Ketanggungan, Brebes<br>Jawa Tengah - 52263<br>0851-7210-7815</div>
+      <div class="email">by.kolektiva@gmail.com</div>
+    </div>
+    <div>
+      <div class="dikirim-label">Dikirim Untuk</div>
+      <div class="dikirim-val">
+        ${d.namaPenerima||'-'}<br>
+        ${d.divisiPenerima||''}<br>
+        ${d.instansiPenerima||''}
+      </div>
+    </div>
+  </div>
+
+  <table class="info-table">
+    <thead>
+      <tr>
+        <th>Pengirim</th>
+        <th>Jabatan</th>
+        <th>Isi Kwitansi</th>
+        <th>Pembayaran Diterima</th>
+        <th>Metode Pembayaran</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>${d.pengirim||'-'}</td>
+        <td>${d.jabatanPengirim||'-'}</td>
+        <td>${d.isiKwitansi||'Pembayaran'}</td>
+        <td>${d.tglTerima||'-'}</td>
+        <td>${d.metode||'-'}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <table class="item-table">
+    <thead>
+      <tr>
+        <th style="width:60px;text-align:center">Termin</th>
+        <th style="text-align:left">Deskripsi</th>
+        <th style="width:130px">Nominal</th>
+        <th style="width:70px;text-align:center">Diskon</th>
+        <th colspan="2" style="width:130px;text-align:right">Total</th>
+      </tr>
+    </thead>
+    <tbody>${allRows}</tbody>
+  </table>
+
+  <div style="display:flex;flex-direction:column;align-items:flex-end;border-top:2px solid #1E2D4E;padding-top:8px">
+    <div style="display:grid;grid-template-columns:auto auto auto;gap:0;width:320px">
+      <div style="padding:7px 12px;font-size:11px;font-weight:700;background:#f5f0e8;border-bottom:1px solid #ddd">PEMBAYARAN</div>
+      <div style="padding:7px 12px;font-size:11px;font-weight:700;background:#1E2D4E;color:#fff;border-bottom:1px solid #1E2D4E">Rp</div>
+      <div style="padding:7px 12px;font-size:11px;font-weight:700;background:#1E2D4E;color:#fff;text-align:right;border-bottom:1px solid #1E2D4E">${Math.round(d.totalPembayaran).toLocaleString('id-ID')}</div>
+      <div style="padding:7px 12px;font-size:11px;font-weight:600;background:#f5f0e8;border-bottom:1px solid #ddd">NILAI PROJECT</div>
+      <div style="padding:7px 12px;font-size:11px;font-weight:700;background:#1E2D4E;color:#fff;border-bottom:1px solid #1E2D4E">Rp</div>
+      <div style="padding:7px 12px;font-size:11px;font-weight:700;background:#1E2D4E;color:#fff;text-align:right;border-bottom:1px solid #1E2D4E">${d.nilaiProject ? Math.round(d.nilaiProject).toLocaleString('id-ID') : '-'}</div>
+      <div style="padding:7px 12px;font-size:11px;font-weight:700;background:#f5f0e8">KURANG</div>
+      <div style="padding:7px 12px;font-size:11px;font-weight:700;background:#1E2D4E;color:#C4623A">Rp</div>
+      <div style="padding:7px 12px;font-size:11px;font-weight:700;background:#1E2D4E;color:#C4623A;text-align:right">${Math.round(d.kurang).toLocaleString('id-ID')}</div>
+    </div>
+  </div>
+
+  <div class="footer-bar">
+    <div class="payable">Make all checks payable to</div>
+    <div class="brand">KOLEKTIVA</div>
+    <div class="thanks">THANK YOU FOR YOUR BUSINESS!</div>
+  </div>
+  </body></html>`;
+}
+
+function updateKwtPreview() {
+  const frame = document.getElementById('kwtPreviewFrame');
+  if (!frame) return;
+  frame.srcdoc = getKwtHTML(getKwtData());
+}
+function generateKwtPDF() {
+  const html = getKwtHTML(getKwtData());
+  const w = window.open('','_blank');
+  w.document.write(html);
+  w.document.close();
+  setTimeout(()=>w.print(), 700);
+}
+
+
+let penawaranItems = [{ nama:'', deskripsi:'', tier1:'', tier2:'', tier3:'' }];
+
+function penawaranItemRowsHTML() {
+  return penawaranItems.map((it,i)=>`
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:4px"><input class="form-input" style="font-size:12px;padding:6px 8px" placeholder="Nama Produk" value="${esc(it.nama)}" oninput="penawaranItems[${i}].nama=this.value"></td>
+      <td style="padding:4px"><textarea class="form-textarea" style="font-size:11px;padding:6px 8px;min-height:52px;resize:vertical" placeholder="Spesifikasi" oninput="penawaranItems[${i}].deskripsi=this.value">${esc(it.deskripsi)}</textarea></td>
+      <td style="padding:4px"><input class="form-input" style="font-size:12px;padding:6px 8px;min-width:100px" type="text" inputmode="numeric" placeholder="0" value="${esc(it.tier1)}" oninput="penawaranItems[${i}].tier1=this.value;hppFmtInput(this)"></td>
+      <td style="padding:4px"><input class="form-input" style="font-size:12px;padding:6px 8px;min-width:100px" type="text" inputmode="numeric" placeholder="0" value="${esc(it.tier2)}" oninput="penawaranItems[${i}].tier2=this.value;hppFmtInput(this)"></td>
+      <td style="padding:4px"><input class="form-input" style="font-size:12px;padding:6px 8px;min-width:100px" type="text" inputmode="numeric" placeholder="0" value="${esc(it.tier3)}" oninput="penawaranItems[${i}].tier3=this.value;hppFmtInput(this)"></td>
+      <td style="padding:4px;text-align:center">${penawaranItems.length>1?`<button class="tbl-action-btn tbl-del" onclick="penawaranRemoveRow(${i})">x</button>`:'<span style="color:var(--muted);font-size:11px">-</span>'}</td>
+    </tr>`).join('');
+}
+function penawaranRenderRows() {
+  const tbody = document.getElementById('penawaranItemsTbody');
+  if (tbody) tbody.innerHTML = penawaranItemRowsHTML();
+}
+function penawaranAddRow() { penawaranItems.push({nama:'',deskripsi:'',tier1:'',tier2:'',tier3:''}); penawaranRenderRows(); }
+function penawaranRemoveRow(i) { penawaranItems.splice(i,1); penawaranRenderRows(); }
+
+function renderGenPenawaran() {
+  document.getElementById('addBtn').classList.add('hidden');
+  const today = toDisplayDate(todayStr());
+  return `
+    <div style="display:grid;grid-template-columns:1fr 380px;gap:20px;align-items:start">
+      <div>
+        <div style="font-size:11px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:14px">Generator Surat Penawaran Kolektiva</div>
+        <div class="card" style="margin-bottom:14px">
+          <div class="strategy-section-title" style="margin-bottom:12px">Header Surat</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="form-group"><div class="form-label">Nomor Surat</div><input class="form-input" id="quo_nomor" placeholder="001/KLV.QUO/2026"></div>
+            <div class="form-group"><div class="form-label">Tanggal</div><input class="form-input" id="quo_tanggal" placeholder="DD/MM/YYYY" maxlength="10" value="${today}" oninput="autoSlashDate(this)"></div>
+            <div class="form-group"><div class="form-label">Perihal</div><input class="form-input" id="quo_perihal" value="Surat Penawaran"></div>
+            <div class="form-group"><div class="form-label">Lampiran</div><input class="form-input" id="quo_lampiran" value="1"></div>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:14px">
+          <div class="strategy-section-title" style="margin-bottom:12px">Penerima</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="form-group" style="grid-column:span 2"><div class="form-label">Nama Acara / Organisasi *</div><input class="form-input" id="quo_namaAcara" placeholder="MANDUBES CAMPUS EXPO 2026"></div>
+            <div class="form-group"><div class="form-label">Ditujukan kepada</div><input class="form-input" id="quo_kepadaLabel" value="Panitia Pelaksana"></div>
+            <div class="form-group"><div class="form-label">Instansi / Kampus (opsional)</div><input class="form-input" id="quo_instansi" placeholder="Universitas..."></div>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:14px">
+          <div class="strategy-section-title" style="margin-bottom:12px">Isi Surat</div>
+          <div class="form-group">
+            <div class="form-label">Paragraf Pembuka</div>
+            <textarea class="form-textarea" id="quo_bodyText" style="min-height:90px">Melalui kesempatan ini kami dari Kolektiva, bermaksud mengajukan kerjasama dalam pengadaan merchandise dan konveksi. Detail penawaran terlampir.
+
+Semoga melalui penawaran ini kami bisa diberikan kesempatan untuk menjalin kerjasama dengan baik dan dapat berkelanjutan.
+
+Demikian surat penawaran ini kami sampaikan, untuk perhatiannya kami ucapkan terimakasih.</textarea>
+          </div>
+          <div class="form-group" style="margin-top:8px"><div class="form-label">Label Penutup TTD</div><input class="form-input" id="quo_hormatKami" value="Hormat Kami,"></div>
+        </div>
+        <div class="card" style="margin-bottom:14px">
+          <div class="strategy-section-title" style="margin-bottom:12px">Price List - Label Kolom Qty</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
+            <div class="form-group"><div class="form-label">MOQ</div><input class="form-input" id="quo_moq" value="MOQ 30 Pcs"></div>
+            <div class="form-group"><div class="form-label">Tier 1</div><input class="form-input" id="quo_tier1label" value="30-50 Pcs"></div>
+            <div class="form-group"><div class="form-label">Tier 2</div><input class="form-input" id="quo_tier2label" value="50-100 Pcs"></div>
+            <div class="form-group"><div class="form-label">Tier 3</div><input class="form-input" id="quo_tier3label" value=">100 Pcs"></div>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div class="strategy-section-title">Daftar Produk &amp; Harga</div>
+            <button class="btn btn-ghost btn-sm" onclick="penawaranAddRow()">+ Produk</button>
+          </div>
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse">
+              <thead>
+                <tr style="border-bottom:1px solid var(--border);background:rgba(46,156,255,0.04)">
+                  <th style="padding:8px 4px;font-size:10px;color:var(--muted);font-weight:500;text-align:left;font-family:'DM Mono',monospace;text-transform:uppercase;min-width:120px">Nama Produk</th>
+                  <th style="padding:8px 4px;font-size:10px;color:var(--muted);font-weight:500;text-align:left;font-family:'DM Mono',monospace;text-transform:uppercase">Spesifikasi</th>
+                  <th style="padding:8px 4px;font-size:10px;color:var(--muted);font-weight:500;text-align:left;font-family:'DM Mono',monospace;text-transform:uppercase">Tier 1</th>
+                  <th style="padding:8px 4px;font-size:10px;color:var(--muted);font-weight:500;text-align:left;font-family:'DM Mono',monospace;text-transform:uppercase">Tier 2</th>
+                  <th style="padding:8px 4px;font-size:10px;color:var(--muted);font-weight:500;text-align:left;font-family:'DM Mono',monospace;text-transform:uppercase">Tier 3</th>
+                  <th style="width:32px"></th>
+                </tr>
+              </thead>
+              <tbody id="penawaranItemsTbody">${penawaranItemRowsHTML()}</tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:14px">
+          <div class="strategy-section-title" style="margin-bottom:12px">Tanda Tangan &amp; Stampel</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="form-group">
+              <div class="form-label">Tanda Tangan <span style="color:var(--red)">*</span></div>
+              <label style="display:block;cursor:pointer">
+                <div id="quo_ttd_preview" style="width:100%;height:80px;border:1.5px dashed var(--border2);border-radius:8px;display:flex;align-items:center;justify-content:center;background:var(--surface2);overflow:hidden">
+                  <span style="font-size:11px;color:var(--muted)">Klik untuk upload TTD</span>
+                </div>
+                <input type="file" accept="image/*" style="display:none" onchange="bastLoadImg(this,'quo_ttd_preview','quo_ttd_data')">
+              </label>
+              <input type="hidden" id="quo_ttd_data">
+            </div>
+            <div class="form-group">
+              <div class="form-label">Stampel <span style="color:var(--muted)">(opsional)</span></div>
+              <label style="display:block;cursor:pointer">
+                <div id="quo_stamp_preview" style="width:100%;height:80px;border:1.5px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;background:var(--surface2);overflow:hidden">
+                  <span style="font-size:11px;color:var(--muted)">Klik untuk upload Stampel</span>
+                </div>
+                <input type="file" accept="image/*" style="display:none" onchange="bastLoadImg(this,'quo_stamp_preview','quo_stamp_data')">
+              </label>
+              <input type="hidden" id="quo_stamp_data">
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-primary" style="width:100%;padding:12px" onclick="generatePenawaranPDF()">Generate Surat Penawaran &rarr; Print / Save PDF</button>
+      </div>
+      <div style="position:sticky;top:20px">
+        <div style="font-size:11px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:10px">Preview</div>
+        <div style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.3)">
+          <iframe id="quoPreviewFrame" style="width:100%;height:520px;border:none;display:block" srcdoc="<div style='padding:32px;color:#333;font-family:sans-serif;font-size:11px'><h3 style='text-align:center'>SURAT PENAWARAN HARGA</h3><p style='text-align:center;color:#888;font-size:10px'>Isi form di kiri untuk lihat preview</p></div>"></iframe>
+        </div>
+        <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:8px" onclick="updateQuoPreview()">Refresh Preview</button>
+      </div>
+    </div>`;
+}
+
+function getQuoData() {
+  const gv2 = id => (document.getElementById(id)||{}).value||'';
+  return {
+    nomor:gv2('quo_nomor'), tanggal:gv2('quo_tanggal'), perihal:gv2('quo_perihal'),
+    lampiran:gv2('quo_lampiran'), namaAcara:gv2('quo_namaAcara'), kepadaLabel:gv2('quo_kepadaLabel'),
+    instansi:gv2('quo_instansi'), bodyText:gv2('quo_bodyText'), hormatKami:gv2('quo_hormatKami'),
+    moq:gv2('quo_moq'), tier1label:gv2('quo_tier1label'), tier2label:gv2('quo_tier2label'),
+    tier3label:gv2('quo_tier3label'), ttdData:gv2('quo_ttd_data'), stampData:gv2('quo_stamp_data'),
+    items:penawaranItems,
+  };
+}
+
+function getQuoHTML(d) {
+  const fmtH = v => { const n=parseFloat((v||'').toString().replace(/\./g,'').replace(/,/g,''))||0; return n?'Rp'+n.toLocaleString('id-ID'):'-'; };
+  const itemRows = d.items.map(it=>`<tr><td style="border:1px solid #ddd;padding:8px 10px;font-size:11px;font-weight:600;vertical-align:top">${it.nama||'-'}</td><td style="border:1px solid #ddd;padding:8px 10px;font-size:10.5px;vertical-align:top;white-space:pre-line;color:#444">${it.deskripsi||'-'}</td><td style="border:1px solid #ddd;padding:8px 10px;font-size:11px;text-align:center;font-weight:600;color:#1E2D4E">${fmtH(it.tier1)}</td><td style="border:1px solid #ddd;padding:8px 10px;font-size:11px;text-align:center;font-weight:600;color:#1E2D4E">${fmtH(it.tier2)}</td><td style="border:1px solid #ddd;padding:8px 10px;font-size:11px;text-align:center;font-weight:600;color:#1E2D4E">${fmtH(it.tier3)}</td></tr>`).join('');
+  const bodyParas = (d.bodyText||'').split('\n\n').filter(Boolean).map(p=>`<p style="margin:0 0 10px;text-align:justify;font-size:11px;line-height:1.75">${p.replace(/\n/g,'<br>')}</p>`).join('');
+  const dots = Array(40).fill('<div class="cover-dot"></div>').join('');
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    @page{margin:0;size:A4;}*{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Inter',sans-serif;color:#1a1a2e;background:#fff;font-size:11.5px;}
+    .cover{position:relative;width:210mm;height:297mm;background:#fff;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding:48px;page-break-after:always;}
+    .cover-accent{position:absolute;right:0;top:0;width:28mm;height:100%;background:#1E2D4E;}
+    .cover-accent-inner{position:absolute;right:0;top:0;width:20mm;height:50%;background:#C4623A;}
+    .cover-dots{position:absolute;top:32px;left:32px;display:grid;grid-template-columns:repeat(8,10px);gap:6px;}
+    .cover-dot{width:5px;height:5px;border-radius:50%;background:#1E2D4E;opacity:0.2;}
+    .cover-stripe{position:absolute;left:0;top:0;width:6px;height:100%;background:#C4623A;}
+    .letter-page{padding:40px 48px;min-height:297mm;page-break-after:always;}
+    .letter-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:16px;border-bottom:2px solid #1E2D4E;}
+    .perihal-block{display:grid;grid-template-columns:80px 1fr;gap:4px 12px;font-size:11px;margin-bottom:24px;}
+    .perihal-block .lbl{font-weight:600;color:#333;}
+    .ttd-right{text-align:right;margin-top:32px;}
+    .ttd-img-wrap{position:relative;display:inline-block;width:140px;height:64px;margin-bottom:6px;}
+    .ttd-img-wrap img.ttd{position:absolute;bottom:0;left:50%;transform:translateX(-50%);max-height:62px;max-width:140px;object-fit:contain;}
+    .ttd-img-wrap img.stamp{position:absolute;bottom:0;left:50%;transform:translateX(-50%);max-height:64px;max-width:64px;object-fit:contain;opacity:0.75;}
+    .ttd-line{border-bottom:1.5px solid #1E2D4E;width:160px;margin:0 0 6px auto;}
+    .pricelist-page{padding:40px 48px;min-height:297mm;}
+    .pl-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:14px;border-bottom:2px solid #1E2D4E;}
+    .pl-moq{display:inline-block;background:#C4623A;color:#fff;font-size:10px;font-weight:700;padding:3px 12px;border-radius:99px;}
+    table.pl-table{width:100%;border-collapse:collapse;}
+    table.pl-table thead{background:#1E2D4E;}
+    table.pl-table thead th{padding:10px 12px;font-size:10.5px;font-weight:600;color:#fff;text-align:left;}
+    table.pl-table thead th:nth-child(n+3){text-align:center;}
+    table.pl-table tbody tr:nth-child(even){background:#f5f0e8;}
+    .footer-note{margin-top:20px;font-size:10px;color:#888;border-top:1px solid #eee;padding-top:10px;}
+    .doc-footer{text-align:center;font-size:9px;color:#bbb;margin-top:28px;}
+  </style></head><body>
+  <div class="cover">
+    <div class="cover-stripe"></div>
+    <div class="cover-accent"><div class="cover-accent-inner"></div></div>
+    <div class="cover-dots">${dots}</div>
+    <div style="margin-bottom:32px"><img src="${KOLEKTIVA_LOGO_BAST}" alt="Kolektiva" style="height:52px"></div>
+    <div style="font-size:52px;font-weight:800;color:#1E2D4E;line-height:1.1;margin-bottom:12px">Surat<br>Penawaran<br>Harga</div>
+    <div style="font-size:13px;color:#666;max-width:300px;line-height:1.6">Dokumen ini berisi rincian penawaran harga beserta spesifikasi produk</div>
+    <div style="margin-top:48px;font-size:10px;color:#888;line-height:1.8">+62 851-7210-7815<br>by.kolektiva@gmail.com<br>Jl. Pesantren No.29, Ketanggungan, Brebes 52263</div>
+  </div>
+  <div class="letter-page">
+    <div class="letter-header">
+      <div>
+        <img src="${KOLEKTIVA_LOGO_BAST}" alt="Kolektiva" style="height:40px;display:block;margin-bottom:4px">
+        <div style="font-size:9.5px;color:#C4623A;font-weight:600">by PT Pratani Kreatif Group</div>
+        <div style="font-size:9px;color:#888">Konveksi &amp; Merchandise Partner Komunitas</div>
+      </div>
+      <div style="text-align:right;font-size:10px;color:#555;line-height:1.9"><strong style="color:#1E2D4E">Kolektiva</strong><br>Jl. Pesantren No.29, Ketanggungan<br>Kabupaten Brebes, Jawa Tengah - 52263<br>by.kolektiva@gmail.com<br>0851-7210-7815</div>
+    </div>
+    <div style="font-size:10.5px;color:#333;line-height:1.8;margin-bottom:20px">
+      <strong style="font-size:11px;color:#1E2D4E">Kepada, Yth</strong><br>
+      ${d.kepadaLabel||'Panitia Pelaksana'}<br>
+      ${d.namaAcara||'[Nama Acara / Organisasi]'}${d.instansi ? '<br>'+d.instansi : ''}
+    </div>
+    <div class="perihal-block">
+      <span class="lbl">Tanggal</span><span>: ${d.tanggal||'-'}</span>
+      <span class="lbl">Nomor</span><span>: ${d.nomor||'-'}</span>
+      <span class="lbl">Perihal</span><span>: ${d.perihal||'Surat Penawaran'}</span>
+      <span class="lbl">Lampiran</span><span>: ${d.lampiran||'1'}</span>
+    </div>
+    <div style="margin-bottom:28px">${bodyParas}</div>
+    <div class="ttd-right">
+      <div style="font-size:11px;color:#333;margin-bottom:8px">${d.hormatKami||'Hormat Kami,'}</div>
+      <div class="ttd-img-wrap">
+        ${d.ttdData ? `<img class="ttd" src="${d.ttdData}">` : ''}
+        ${d.stampData ? `<img class="stamp" src="${d.stampData}">` : ''}
+      </div>
+      <div class="ttd-line"></div>
+      <div style="font-size:11px;font-weight:700;color:#1E2D4E">Ananda Mario Fani Pratama</div>
+      <div style="font-size:10px;color:#555">Founder &amp; Direktur - PT Pratani Kreatif Group / Kolektiva</div>
+    </div>
+  </div>
+  <div class="pricelist-page">
+    <div class="pl-header">
+      <div>
+        <div style="font-size:16px;font-weight:800;color:#1E2D4E;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Price List ${d.namaAcara ? '- '+d.namaAcara : ''}</div>
+        <span class="pl-moq">${d.moq||'MOQ 30 Pcs'}</span>
+      </div>
+      <img src="${KOLEKTIVA_LOGO_BAST}" alt="Kolektiva" style="height:36px">
+    </div>
+    <table class="pl-table">
+      <thead><tr>
+        <th style="width:130px">Produk</th>
+        <th>Deskripsi / Spesifikasi</th>
+        <th style="width:100px;text-align:center">${d.tier1label||'30-50 Pcs'}</th>
+        <th style="width:100px;text-align:center">${d.tier2label||'50-100 Pcs'}</th>
+        <th style="width:90px;text-align:center">${d.tier3label||'>100 Pcs'}</th>
+      </tr></thead>
+      <tbody>${itemRows}</tbody>
+    </table>
+    <div class="footer-note">* Harga belum termasuk ongkos kirim kecuali disebutkan. Harga berlaku 30 hari sejak tanggal surat. DP 50% di muka, pelunasan sebelum pengiriman.</div>
+    <div class="doc-footer">Kolektiva | PT Pratani Kreatif Group - AHU-053343.AH.01.30.Tahun 2025 - by.kolektiva@gmail.com</div>
+  </div>
+  </body></html>`;
+}
+
+function updateQuoPreview() {
+  const frame = document.getElementById('quoPreviewFrame');
+  if (!frame) return;
+  frame.srcdoc = getQuoHTML(getQuoData());
+}
+function generatePenawaranPDF() {
+  const html = getQuoHTML(getQuoData());
+  const w = window.open('','_blank');
+  w.document.write(html);
+  w.document.close();
+  setTimeout(()=>w.print(), 700);
+}
+
+
+let bastItems = [{ no:'', jenis:'', qty:'', ket:'' }];
+
+function renderGenBast() {
+  document.getElementById('addBtn').classList.add('hidden');
+  const today = toDisplayDate(todayStr());
+
+  const itemRows = bastRowsHTML();
+
+  return `
+    <div style="display:grid;grid-template-columns:1fr 420px;gap:20px;align-items:start">
+      <!-- FORM -->
+      <div>
+        <div style="font-size:11px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:14px">✅ Generator BAST — Kolektiva</div>
+
+        <!-- Referensi Dokumen -->
+        <div class="card" style="margin-bottom:14px">
+          <div class="strategy-section-title" style="margin-bottom:12px">📋 Referensi Dokumen</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="form-group">
+              <div class="form-label">No. Order / SPK</div>
+              <input class="form-input" id="bast_noOrder" placeholder="KLV/2025/001">
+            </div>
+            <div class="form-group">
+              <div class="form-label">Tanggal Serah Terima</div>
+              <input class="form-input" id="bast_tglST" placeholder="DD/MM/YYYY" maxlength="10" value="${today}" oninput="autoSlashDate(this)">
+            </div>
+            <div class="form-group">
+              <div class="form-label">Tanggal Order</div>
+              <input class="form-input" id="bast_tglOrder" placeholder="DD/MM/YYYY" maxlength="10" oninput="autoSlashDate(this)">
+            </div>
+            <div class="form-group">
+              <div class="form-label">Tanggal Produksi Selesai</div>
+              <input class="form-input" id="bast_tglProduksi" placeholder="DD/MM/YYYY" maxlength="10" oninput="autoSlashDate(this)">
+            </div>
+            <div class="form-group" style="grid-column:span 2">
+              <div class="form-label">Metode Pengiriman</div>
+              <select class="form-input" id="bast_metode">
+                <option value="Dikirim via ekspedisi">Dikirim via ekspedisi</option>
+                <option value="Diambil langsung oleh klien">Diambil langsung oleh klien</option>
+                <option value="Dikirim langsung oleh tim Kolektiva">Dikirim langsung oleh tim Kolektiva</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pihak Kedua -->
+        <div class="card" style="margin-bottom:14px">
+          <div class="strategy-section-title" style="margin-bottom:12px">👤 Pihak Kedua (Klien)</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="form-group" style="grid-column:span 2">
+              <div class="form-label">Nama Klien / Organisasi *</div>
+              <input class="form-input" id="bast_namaKlien" placeholder="Himpunan Mahasiswa Teknik UNSOED">
+            </div>
+            <div class="form-group" style="grid-column:span 2">
+              <div class="form-label">Alamat</div>
+              <input class="form-input" id="bast_alamatKlien" placeholder="Jl. ...">
+            </div>
+            <div class="form-group">
+              <div class="form-label">No. Telepon PIC</div>
+              <input class="form-input" id="bast_hpKlien" placeholder="08xx...">
+            </div>
+            <div class="form-group">
+              <div class="form-label">Email PIC</div>
+              <input class="form-input" id="bast_emailKlien" placeholder="panitia@email.com">
+            </div>
+            <div class="form-group">
+              <div class="form-label">Nama PIC</div>
+              <input class="form-input" id="bast_namaPC" placeholder="Nama Penanggung Jawab">
+            </div>
+            <div class="form-group">
+              <div class="form-label">Jabatan PIC</div>
+              <input class="form-input" id="bast_jabatanPC" placeholder="Ketua Panitia / Bendahara">
+            </div>
+          </div>
+        </div>
+
+        <!-- Ringkasan Barang -->
+        <div class="card" style="margin-bottom:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div class="strategy-section-title">📦 Ringkasan Barang</div>
+            <button class="btn btn-ghost btn-sm" onclick="bastAddRow()">+ Baris</button>
+          </div>
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse">
+              <thead>
+                <tr style="border-bottom:1px solid var(--border)">
+                  <th style="padding:6px 4px;font-size:10px;color:var(--muted);font-weight:500;text-align:left;font-family:'DM Mono',monospace;text-transform:uppercase">No</th>
+                  <th style="padding:6px 4px;font-size:10px;color:var(--muted);font-weight:500;text-align:left;font-family:'DM Mono',monospace;text-transform:uppercase">Jenis Barang</th>
+                  <th style="padding:6px 4px;font-size:10px;color:var(--muted);font-weight:500;text-align:left;font-family:'DM Mono',monospace;text-transform:uppercase">Jumlah</th>
+                  <th style="padding:6px 4px;font-size:10px;color:var(--muted);font-weight:500;text-align:left;font-family:'DM Mono',monospace;text-transform:uppercase">Keterangan</th>
+                  <th style="width:32px"></th>
+                </tr>
+              </thead>
+              <tbody id="bastItemsTbody">${itemRows}</tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TTD & Stampel -->
+        <div class="card" style="margin-bottom:14px">
+          <div class="strategy-section-title" style="margin-bottom:12px">✍️ Tanda Tangan & Stampel</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="form-group">
+              <div class="form-label">Tanda Tangan Pihak Pertama <span style="color:var(--red)">*</span></div>
+              <label style="display:block;cursor:pointer">
+                <div id="bast_ttd_preview" style="width:100%;height:80px;border:1.5px dashed var(--border2);border-radius:8px;display:flex;align-items:center;justify-content:center;background:var(--surface2);overflow:hidden;transition:border-color 0.2s">
+                  <span style="font-size:11px;color:var(--muted)">Klik untuk upload TTD</span>
+                </div>
+                <input type="file" accept="image/*" id="bast_ttd_input" style="display:none" onchange="bastLoadImg(this,'bast_ttd_preview','bast_ttd_data')">
+              </label>
+              <input type="hidden" id="bast_ttd_data">
+              <div style="font-size:10px;color:var(--muted);margin-top:4px">PNG transparan recommended · Wajib diisi</div>
+            </div>
+            <div class="form-group">
+              <div class="form-label">Stampel <span style="color:var(--muted)">(opsional)</span></div>
+              <label style="display:block;cursor:pointer">
+                <div id="bast_stamp_preview" style="width:100%;height:80px;border:1.5px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;background:var(--surface2);overflow:hidden;transition:border-color 0.2s">
+                  <span style="font-size:11px;color:var(--muted)">Klik untuk upload Stampel</span>
+                </div>
+                <input type="file" accept="image/*" id="bast_stamp_input" style="display:none" onchange="bastLoadImg(this,'bast_stamp_preview','bast_stamp_data')">
+              </label>
+              <input type="hidden" id="bast_stamp_data">
+              <div style="font-size:10px;color:var(--muted);margin-top:4px">PNG transparan recommended · Opsional</div>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" style="width:100%;padding:12px" onclick="generateBastPDF()">
+          📄 Generate BAST → Print / Save PDF
+        </button>
+      </div>
+
+      <!-- PREVIEW -->
+      <div style="position:sticky;top:20px">
+        <div style="font-size:11px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:10px">Preview</div>
+        <div style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.3)">
+          <iframe id="bastPreviewFrame" style="width:100%;height:520px;border:none;display:block" srcdoc="<div style='padding:32px;color:#333;font-family:Georgia,serif;font-size:11px;line-height:1.6'><h3 style='text-align:center;margin:0 0 4px'>BERITA ACARA SERAH TERIMA</h3><p style='text-align:center;color:#888;font-size:10px'>Isi form di kiri untuk lihat preview</p></div>"></iframe>
+        </div>
+        <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:8px" onclick="updateBastPreview()">🔄 Refresh Preview</button>
+      </div>
+    </div>`;
+}
+
+function getBastHTML(data) {
+  const itemRowsHTML = data.items.map(it=>`
+    <tr>
+      <td style="border:1px solid #ccc;padding:7px 10px;font-size:11px">${it.no}</td>
+      <td style="border:1px solid #ccc;padding:7px 10px;font-size:11px">${it.jenis}</td>
+      <td style="border:1px solid #ccc;padding:7px 10px;font-size:11px;text-align:center">${it.qty} pcs</td>
+      <td style="border:1px solid #ccc;padding:7px 10px;font-size:11px">${it.ket}</td>
+    </tr>`).join('');
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    @page { margin: 0; size:A4; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Inter',sans-serif; color:#1a1a2e; background:#fff; padding:40px 48px; font-size:11.5px; line-height:1.6; }
+    .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #1E2D4E; padding-bottom:16px; margin-bottom:24px; }
+    .logo-block .logo { font-size:28px; font-weight:800; color:#1E2D4E; letter-spacing:-0.5px; }
+    .logo-block .sub { font-size:9.5px; color:#C4623A; font-weight:600; margin-top:1px; }
+    .logo-block .tagline { font-size:9px; color:#888; }
+    .contact-block { text-align:right; font-size:9.5px; color:#555; line-height:1.8; }
+    h1 { text-align:center; font-size:17px; font-weight:700; color:#1E2D4E; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; }
+    .sub-title { text-align:center; font-size:10px; color:#C4623A; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; }
+    .tgl-header { text-align:center; font-size:10.5px; color:#555; font-style:italic; margin-bottom:20px; }
+    .intro { font-size:11px; color:#333; line-height:1.75; margin-bottom:20px; text-align:justify; }
+    .section { margin-bottom:18px; break-inside:avoid; page-break-inside:avoid; padding-top:24px; }
+    .section-title { font-size:11.5px; font-weight:700; color:#1E2D4E; border-bottom:1.5px solid #C4623A; padding-bottom:4px; margin-bottom:10px; break-after:avoid; page-break-after:avoid; orphans:3; widows:3; }
+    .field-grid { display:grid; grid-template-columns:160px 1fr; gap:3px 12px; }
+    .field-label { font-weight:600; color:#333; font-size:10.5px; padding:2px 0; }
+    .field-val { color:#555; font-size:10.5px; padding:2px 0; }
+    .field-val::before { content:': '; }
+    table.item-table { width:100%; border-collapse:collapse; margin-top:4px; }
+    table.item-table thead { background:#1E2D4E; color:#fff; }
+    table.item-table thead th { padding:8px 10px; font-size:10.5px; font-weight:600; text-align:left; }
+    table.item-table tbody tr:nth-child(even) { background:#f5f0e8; }
+    .pernyataan { font-size:10.5px; color:#333; line-height:1.8; margin-bottom:18px; break-inside:avoid; page-break-inside:avoid; }
+    .pernyataan ol { padding-left:18px; }
+    .pernyataan ol li { margin-bottom:4px; }
+    .ttd-section { display:grid; grid-template-columns:1fr 1fr; gap:40px; margin-top:28px; break-inside:avoid; page-break-inside:avoid; }
+    .ttd-block { text-align:center; }
+    .ttd-label { font-size:10.5px; color:#1E2D4E; font-weight:700; margin-bottom:4px; }
+    .ttd-name { font-size:10px; color:#555; }
+    .ttd-space { height:56px; border-bottom:1.5px solid #1E2D4E; margin:4px 20px; }
+    .footer { margin-top:24px; padding-top:10px; border-top:1px solid #ddd; text-align:center; font-size:9px; color:#aaa; }
+  </style>
+  </head><body>
+    <div class="header">
+      <div class="logo-block">
+        <img src="${KOLEKTIVA_LOGO_BAST}" alt="Kolektiva" style="height:44px;display:block;margin-bottom:4px">
+        <div class="sub">by PT Pratani Kreatif Group</div>
+        <div class="tagline">Konveksi &amp; Merchandise Partner Komunitas</div>
+      </div>
+      <div class="contact-block">
+        Jl. Pesantren No 29, Ketanggungan<br>
+        Brebes, Jawa Tengah 52263<br>
+        +62 851-7210-7815<br>
+        by.kolektiva@gmail.com
+      </div>
+    </div>
+
+    <h1>Berita Acara Serah Terima</h1>
+    <div class="sub-title">Pengadaan Barang / Merchandise</div>
+    <div class="tgl-header">Tanggal: ${data.tglST||'—'}</div>
+
+    <div class="intro">
+      Pada hari ini, ${data.tglST||'[Tanggal Serah Terima]'}, kami yang bertanda tangan di bawah ini telah melaksanakan serah terima
+      atas order pengadaan barang/merchandise yang tertuang dalam dokumen Surat Penawaran / Purchase Order
+      antara kedua belah pihak berikut:
+    </div>
+
+    <div class="section">
+      <div class="section-title">1. Pihak Pertama (Vendor / Penyedia)</div>
+      <div class="field-grid">
+        <span class="field-label">Nama Brand</span><span class="field-val">Kolektiva</span>
+        <span class="field-label">Induk Perusahaan</span><span class="field-val">PT Pratani Kreatif Group</span>
+        <span class="field-label">Alamat</span><span class="field-val">Jl. Pesantren No.29, Ketanggungan, Brebes 52263</span>
+        <span class="field-label">No. Telepon</span><span class="field-val">+62 851-7210-7815</span>
+        <span class="field-label">Email</span><span class="field-val">by.kolektiva@gmail.com</span>
+        <span class="field-label">PIC</span><span class="field-val">Ananda Mario Fani Pratama</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">2. Pihak Kedua (Klien / Pemesan)</div>
+      <div class="field-grid">
+        <span class="field-label">Nama Klien / Organisasi</span><span class="field-val">${data.namaKlien||'—'}</span>
+        <span class="field-label">Alamat</span><span class="field-val">${data.alamatKlien||'—'}</span>
+        <span class="field-label">No. Telepon</span><span class="field-val">${data.hpKlien||'—'}</span>
+        <span class="field-label">Email</span><span class="field-val">${data.emailKlien||'—'}</span>
+        <span class="field-label">Nama PIC</span><span class="field-val">${data.namaPC||'—'}</span>
+        <span class="field-label">Jabatan PIC</span><span class="field-val">${data.jabatanPC||'—'}</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">3. Referensi Dokumen</div>
+      <div class="field-grid">
+        <span class="field-label">Nomor Order / SPK</span><span class="field-val">${data.noOrder||'—'}</span>
+        <span class="field-label">Tanggal Order</span><span class="field-val">${data.tglOrder||'—'}</span>
+        <span class="field-label">Tanggal Produksi Selesai</span><span class="field-val">${data.tglProduksi||'—'}</span>
+        <span class="field-label">Tanggal Serah Terima</span><span class="field-val">${data.tglST||'—'}</span>
+        <span class="field-label">Metode Pengiriman</span><span class="field-val">${data.metode||'—'}</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">4. Ringkasan Barang yang Diserahterimakan</div>
+      <table class="item-table">
+        <thead>
+          <tr>
+            <th style="width:60px">No. Order</th>
+            <th>Jenis Barang</th>
+            <th style="width:90px;text-align:center">Jumlah</th>
+            <th>Keterangan</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemRowsHTML}
+          <tr><td colspan="4" style="border:1px solid #ccc;padding:7px 10px;font-size:11px;color:#aaa;font-style:italic">Seluruh barang/item di atas telah diperiksa bersama dan dinyatakan sesuai spesifikasi.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">5. Pernyataan Serah Terima</div>
+      <div class="pernyataan">
+        Dengan ditandatanganinya Berita Acara Serah Terima ini, kedua belah pihak menyatakan bahwa:
+        <ol style="margin-top:8px">
+          <li>Seluruh barang/merchandise telah diserahkan oleh Kolektiva kepada Klien dalam kondisi baik dan sesuai spesifikasi pesanan.</li>
+          <li>Klien telah menerima, memeriksa, dan menyetujui seluruh barang yang diserahkan.</li>
+          <li>Seluruh kewajiban pembayaran dari Pihak Kedua kepada Pihak Pertama telah terpenuhi sesuai kesepakatan (apabila belum, maka kewajiban pembayaran tetap berlaku sesuai perjanjian awal).</li>
+          <li>Dengan selesainya serah terima ini, order dinyatakan <strong>CLOSED</strong> dan tidak ada kewajiban produksi tambahan dari Pihak Pertama, kecuali terdapat klaim garansi sesuai ketentuan yang berlaku.</li>
+          <li>Dokumen ini dapat digunakan sebagai bagian dari kelengkapan <strong>LPJ (Laporan Pertanggungjawaban)</strong> atau administrasi keuangan instansi Klien.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">6. Penutup</div>
+      <div class="pernyataan">
+        Demikian Berita Acara Serah Terima ini dibuat dengan sebenar-benarnya, dalam keadaan sadar dan tanpa
+        paksaan dari pihak manapun, untuk dapat dipergunakan sebagaimana mestinya.
+      </div>
+    </div>
+
+    <div class="ttd-section">
+      <div class="ttd-block">
+        <div class="ttd-label">Pihak Kedua (Klien)</div>
+        <div class="ttd-space"></div>
+        <div class="ttd-name" style="font-weight:600">${data.namaPC||'[Nama Perwakilan Klien]'}</div>
+        <div class="ttd-name">${data.jabatanPC||'[Jabatan / Divisi]'}</div>
+        <div class="ttd-name">${data.namaKlien||'[Nama Organisasi / Instansi]'}</div>
+      </div>
+      <div class="ttd-block">
+        <div class="ttd-label">Pihak Pertama (Kolektiva)</div>
+        <div style="position:relative;height:70px;margin:4px 20px 0">
+          ${data.ttdData ? `<img src="${data.ttdData}" style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);max-height:64px;max-width:160px;object-fit:contain">` : ''}
+          ${data.stampData ? `<img src="${data.stampData}" style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);max-height:70px;max-width:70px;object-fit:contain;opacity:0.7">` : ''}
+          <div style="position:absolute;bottom:0;left:0;right:0;border-bottom:1.5px solid #1E2D4E"></div>
+        </div>
+        <div class="ttd-name" style="font-weight:600;margin-top:6px">Ananda Mario Fani Pratama</div>
+        <div class="ttd-name">Founder &amp; Direktur</div>
+        <div class="ttd-name">PT Pratani Kreatif Group / Kolektiva</div>
+      </div>
+    </div>
+
+    <div class="footer">
+      Kolektiva | PT Pratani Kreatif Group • AHU-053343.AH.01.30.Tahun 2025 • by.kolektiva@gmail.com
+    </div>
+  </body></html>`;
+}
+
+function bastRowsHTML() {
+  return bastItems.map((it,i)=>`
+    <tr>
+      <td style="padding:4px"><input class="form-input" style="font-size:12px;padding:6px 8px;min-width:60px" placeholder="No" value="${esc(it.no)}" oninput="bastItems[${i}].no=this.value"></td>
+      <td style="padding:4px"><input class="form-input" style="font-size:12px;padding:6px 8px" placeholder="Jenis Barang" value="${esc(it.jenis)}" oninput="bastItems[${i}].jenis=this.value"></td>
+      <td style="padding:4px"><input class="form-input" style="font-size:12px;padding:6px 8px;min-width:80px" placeholder="Qty" value="${esc(it.qty)}" oninput="bastItems[${i}].qty=this.value"></td>
+      <td style="padding:4px"><input class="form-input" style="font-size:12px;padding:6px 8px" placeholder="Spesifikasi / Keterangan" value="${esc(it.ket)}" oninput="bastItems[${i}].ket=this.value"></td>
+      <td style="padding:4px;text-align:center">${bastItems.length>1?`<button class="tbl-action-btn tbl-del" onclick="bastRemoveRow(${i})">✕</button>`:'<span style="color:var(--muted);font-size:11px">—</span>'}</td>
+    </tr>`).join('');
+}
+function bastRenderRows() {
+  const tbody = document.getElementById('bastItemsTbody');
+  if (tbody) tbody.innerHTML = bastRowsHTML();
+}
+function bastAddRow() {
+  bastItems.push({no:'',jenis:'',qty:'',ket:''});
+  bastRenderRows();
+}
+function bastRemoveRow(i) {
+  bastItems.splice(i,1);
+  bastRenderRows();
+}
+
+function bastLoadImg(input, previewId, dataId) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const data = e.target.result;
+    document.getElementById(dataId).value = data;
+    const prev = document.getElementById(previewId);
+    prev.innerHTML = `<img src="${data}" style="max-height:76px;max-width:100%;object-fit:contain;padding:4px">`;
+    prev.style.borderColor = 'var(--accent)';
+  };
+  reader.readAsDataURL(file);
+}
+
+function getBastData() {
+  return {
+    noOrder:     (document.getElementById('bast_noOrder')||{}).value||'',
+    tglST:       (document.getElementById('bast_tglST')||{}).value||'',
+    tglOrder:    (document.getElementById('bast_tglOrder')||{}).value||'',
+    tglProduksi: (document.getElementById('bast_tglProduksi')||{}).value||'',
+    metode:      (document.getElementById('bast_metode')||{}).value||'',
+    namaKlien:   (document.getElementById('bast_namaKlien')||{}).value||'',
+    alamatKlien: (document.getElementById('bast_alamatKlien')||{}).value||'',
+    hpKlien:     (document.getElementById('bast_hpKlien')||{}).value||'',
+    emailKlien:  (document.getElementById('bast_emailKlien')||{}).value||'',
+    namaPC:      (document.getElementById('bast_namaPC')||{}).value||'',
+    jabatanPC:   (document.getElementById('bast_jabatanPC')||{}).value||'',
+    ttdData:     (document.getElementById('bast_ttd_data')||{}).value||'',
+    stampData:   (document.getElementById('bast_stamp_data')||{}).value||'',
+    items:       bastItems,
+  };
+}
+
+function updateBastPreview() {
+  const frame = document.getElementById('bastPreviewFrame');
+  if (!frame) return;
+  frame.srcdoc = getBastHTML(getBastData());
+}
+
+function generateBastPDF() {
+  const html = getBastHTML(getBastData());
+  const w = window.open('','_blank');
+  w.document.write(html);
+  w.document.close();
+  setTimeout(()=>w.print(), 600);
+}
+
+// ─── HUTANG & CICILAN ────────────────────────────────────────
+let hutangBrand = 'dikopi';
+
+function hutangTotalBayar(h) {
+  return (h.cicilan||[]).reduce((s,c)=>s+Number(c.nominal),0);
+}
+function hutangSisa(h) {
+  return Math.max(0, h.total - hutangTotalBayar(h));
+}
+function hutangPct(h) {
+  return h.total > 0 ? Math.min(100, Math.round(hutangTotalBayar(h)/h.total*100)) : 0;
+}
+
+function hutangAgingBucket(h) {
+  const today = new Date();
+  const created = new Date(h.tanggal);
+  const diffDays = Math.floor((today - created) / 86400000);
+  if (hutangPct(h) >= 100) return 'lunas';
+  if (diffDays <= 30)  return 'current';
+  if (diffDays <= 60)  return '1-30';
+  if (diffDays <= 90)  return '31-60';
+  if (diffDays <= 120) return '61-90';
+  return '90plus';
+}
+
+const AGING_BUCKETS = [
+  { key:'current', label:'🟢 Current',      sub:'Dibuat bulan ini / belum 30 hari',  color:'#4cc9a0' },
+  { key:'1-30',    label:'🟡 1–30 Hari',    sub:'Overdue 1 bulan',                   color:'#ffd166' },
+  { key:'31-60',   label:'🟠 31–60 Hari',   sub:'Overdue 2 bulan',                   color:'#ff9f43' },
+  { key:'61-90',   label:'🔴 61–90 Hari',   sub:'Overdue 3 bulan',                   color:'#ff5e7a' },
+  { key:'90plus',  label:'⛔ 90+ Hari',     sub:'Critical — perlu tindakan segera',  color:'#c0392b' },
+  { key:'lunas',   label:'✅ Lunas',         sub:'Terbayar penuh',                    color:'#00d4a0' },
+];
+
+let hutangBucketOpen = {};
+
+function renderKeuHutang() {
+  document.getElementById('addBtn').classList.remove('hidden');
+  document.getElementById('addBtn').onclick = () => openAddHutang();
+
+  const brandTabs = KEU_BRANDS.map(b=>`
+    <button class="filter-btn ${b===hutangBrand?'active':''}" onclick="hutangBrand='${b}';render()">${KEU_BRAND_LABEL[b]}</button>`).join('');
+
+  const list = (db.hutang||[]).filter(h=>h.brand===hutangBrand);
+
+  // ── Rekap bulanan cicilan ──────────────────────────────────
+  const monthlyMap = {};
+  list.forEach(h=>{
+    (h.cicilan||[]).forEach(c=>{
+      if(!c.tanggal) return;
+      const ym = c.tanggal.substring(0,7); // YYYY-MM
+      if(!monthlyMap[ym]) monthlyMap[ym] = { bayar:0, count:0 };
+      monthlyMap[ym].bayar += c.nominal||0;
+      monthlyMap[ym].count++;
+    });
+  });
+  const sortedMonths = Object.keys(monthlyMap).sort().reverse();
+  const rekapHTML = sortedMonths.length ? `
+    <div class="card" style="margin-bottom:16px;padding:14px 16px">
+      <div style="font-size:11px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:10px">📅 Rekap Pembayaran Bulanan</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${sortedMonths.map(ym=>{
+          const m = monthlyMap[ym];
+          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
+            <span style="font-size:12px;color:var(--text2);font-family:'DM Mono',monospace">${getBulanLabel(ym)}</span>
+            <div style="display:flex;gap:16px;align-items:center">
+              <span style="font-size:11px;color:var(--muted)">${m.count}× cicilan</span>
+              <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:#4cc9a0">+${fmtRp(m.bayar)}</span>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : '';
+
+  // ── AP Aging Summary Header ────────────────────────────────
+  const totalHutang = list.reduce((s,h)=>s+h.total,0);
+  const totalSisa   = list.reduce((s,h)=>s+hutangSisa(h),0);
+  const totalBayar  = list.reduce((s,h)=>s+hutangTotalBayar(h),0);
+  const totalAktif  = list.filter(h=>hutangPct(h)<100).length;
+  const totalLunas  = list.filter(h=>hutangPct(h)>=100).length;
+
+  const agingSummary = list.length ? `
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px">
+      <div class="keu-card"><div class="keu-label">Total Hutang</div><div class="keu-val keu-red" style="font-size:14px">${fmtRp(totalHutang)}</div></div>
+      <div class="keu-card"><div class="keu-label">Total Dibayar</div><div class="keu-val keu-green" style="font-size:14px">${fmtRp(totalBayar)}</div></div>
+      <div class="keu-card"><div class="keu-label">Sisa Hutang</div><div class="keu-val" style="font-size:14px;color:#ff9f43">${fmtRp(totalSisa)}</div></div>
+      <div class="keu-card"><div class="keu-label">Aktif</div><div class="keu-val" style="font-size:14px;color:var(--accent)">${totalAktif}</div></div>
+      <div class="keu-card"><div class="keu-label">Lunas</div><div class="keu-val keu-green" style="font-size:14px">${totalLunas}</div></div>
+    </div>` : '';
+
+  // ── Group by aging bucket ─────────────────────────────────
+  const grouped = {};
+  AGING_BUCKETS.forEach(b=>{ grouped[b.key] = []; });
+  list.forEach(h=>{ grouped[hutangAgingBucket(h)].push(h); });
+
+  const bucketsHTML = AGING_BUCKETS.map(bucket=>{
+    const items = grouped[bucket.key];
+    if(!items.length) return '';
+    const isOpen = hutangBucketOpen[bucket.key] !== false; // default open
+    const bucketSisa  = items.reduce((s,h)=>s+hutangSisa(h),0);
+    const bucketTotal = items.reduce((s,h)=>s+h.total,0);
+    const bucketBayar = items.reduce((s,h)=>s+hutangTotalBayar(h),0);
+
+    const cardsHTML = items.map(h=>{
+      const bayar  = hutangTotalBayar(h);
+      const sisa   = hutangSisa(h);
+      const pct    = hutangPct(h);
+      const isLunas = pct >= 100;
+      const logs   = (h.cicilan||[]).slice().reverse().slice(0,5);
+      // cicilan grouped by month in card
+      const cicilanByMonth = {};
+      (h.cicilan||[]).forEach(c=>{
+        if(!c.tanggal) return;
+        const ym = c.tanggal.substring(0,7);
+        if(!cicilanByMonth[ym]) cicilanByMonth[ym] = [];
+        cicilanByMonth[ym].push(c);
+      });
+
+      return `<div class="hutang-card ${isLunas?'lunas':''}">
+        <div class="hutang-header">
+          <div>
+            <div class="hutang-nama">${esc(h.nama)}</div>
+            <div class="hutang-meta">
+              Ke: <strong>${esc(h.kepada)}</strong> ·
+              Mulai: ${fmtTanggal(h.tanggal)} ·
+              ${h.keterangan?esc(h.keterangan):''}
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="${isLunas?'hutang-status-lunas':'hutang-status-aktif'}">${isLunas?'✅ Lunas':'🔄 Aktif'}</span>
+            ${!isLunas?`<button class="btn btn-primary btn-sm" onclick="openBayarCicilan(${h.id})">+ Bayar</button>`:''}
+            <button class="tbl-action-btn tbl-edit" onclick="openEditHutang(${h.id})">✏️</button>
+            <button class="tbl-action-btn tbl-del" onclick="deleteHutang(${h.id})">🗑️</button>
+          </div>
+        </div>
+
+        <div class="hutang-progress-wrap">
+          <div class="hutang-progress-nums">
+            <span>Dibayar: <strong style="color:${isLunas?'#00d4a0':'var(--accent)'}">${fmtRp(bayar)}</strong></span>
+            <span style="font-weight:700;font-size:13px">${pct}%</span>
+            <span>Sisa: <strong style="color:${isLunas?'#00d4a0':'#ff9f43'}">${isLunas?'Lunas 🎉':fmtRp(sisa)}</strong></span>
+          </div>
+          <div class="hutang-bar">
+            <div class="hutang-fill ${isLunas?'lunas':''}" style="width:${pct}%"></div>
+          </div>
+          <div style="font-size:10px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:4px;text-align:right">
+            Total: ${fmtRp(h.total)} · ${(h.cicilan||[]).length}× cicilan
+          </div>
+        </div>
+
+        ${logs.length ? `<div class="cicilan-log">
+          ${logs.map(c=>`<div class="cicilan-row">
+            <span style="color:var(--muted);white-space:nowrap">${fmtTanggal(c.tanggal)}</span>
+            <span style="flex:1;color:var(--text2)">${esc(c.ket||'Cicilan')}</span>
+            <span style="font-family:'DM Mono',monospace;color:#4cc9a0;font-weight:600">+${fmtRp(c.nominal)}</span>
+            <button class="tbl-action-btn tbl-edit" style="margin-left:4px" onclick="openEditCicilan(${h.id},${c.id})">✏️</button>
+            <button class="tbl-action-btn tbl-del" onclick="deleteCicilan(${h.id},${c.id})">🗑️</button>
+          </div>`).join('')}
+          ${(h.cicilan||[]).length > 5 ? `<div style="font-size:10px;color:var(--muted);text-align:center;padding:4px">${(h.cicilan||[]).length-5} cicilan lainnya...</div>` : ''}
+        </div>` : ''}
+      </div>`;
+    }).join('');
+
+    return `
+      <div style="margin-bottom:12px">
+        <div onclick="hutangBucketOpen['${bucket.key}']=!hutangBucketOpen['${bucket.key}'];render()"
+          style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:10px;cursor:pointer;background:var(--surface2);border:1px solid var(--border);border-left:3px solid ${bucket.color};margin-bottom:${isOpen?'8px':'0'};user-select:none">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:13px;font-weight:700;color:${bucket.color}">${bucket.label}</span>
+            <span style="font-size:10px;color:var(--muted)">${bucket.sub}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:16px">
+            <span style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace">${items.length} hutang</span>
+            ${bucket.key!=='lunas' ? `<span style="font-size:11px;color:#ff9f43;font-family:'DM Mono',monospace">Sisa ${fmtRp(bucketSisa)}</span>` : `<span style="font-size:11px;color:#4cc9a0;font-family:'DM Mono',monospace">${fmtRp(bucketBayar)}</span>`}
+            <span style="color:var(--muted);font-size:12px;transform:rotate(${isOpen?'0':'180deg'});display:inline-block;transition:transform 0.2s">▲</span>
+          </div>
+        </div>
+        ${isOpen ? `<div style="padding-left:4px">${cardsHTML}</div>` : ''}
+      </div>`;
+  }).join('');
+
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div class="filter-row" style="margin-bottom:0">${brandTabs}</div>
+      <button class="btn btn-primary btn-sm" onclick="openAddHutang()">+ Catat Hutang</button>
+    </div>
+    ${agingSummary}
+    ${bucketsHTML}
+    ${rekapHTML}
+    ${!list.length ? `<div class="empty"><div class="empty-icon">💳</div>Belum ada hutang untuk ${KEU_BRAND_LABEL[hutangBrand]}<br><button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="openAddHutang()">+ Catat Hutang Baru</button></div>` : ''}`;
+}
+
+function openAddHutang() {
+  document.getElementById('modalTitle').textContent = '💳 Catat Hutang Baru';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="form-row">
+      <div class="form-group" style="flex:2">
+        <div class="form-label">Nama Barang / Keperluan *</div>
+        <input class="form-input" id="h_nama" placeholder="Grinder, Blender, Modal Bahan, dll...">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Brand</div>
+        <select class="form-select" id="h_brand">
+          ${KEU_BRANDS.map(b=>`<option value="${b}" ${b===hutangBrand?'selected':''}>${KEU_BRAND_LABEL[b]}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Total Hutang (Rp) *</div>
+        <input class="form-input" id="h_total" type="text" inputmode="numeric" placeholder="0" oninput="hppFmtInput(this)">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Kepada (Siapa) *</div>
+        <input class="form-input" id="h_kepada" placeholder="Owner, Pak Budi, Supplier...">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Tanggal Mulai</div>
+        <input class="form-input" id="h_tanggal" placeholder="DD/MM/YYYY" maxlength="10" oninput="autoSlashDate(this)" value="${toDisplayDate(todayStr())}">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Keterangan</div>
+        <input class="form-input" id="h_ket" placeholder="Dana talangan beli grinder...">
+      </div>
+    </div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="submitAddHutang()">💾 Simpan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('h_nama')?.focus(),80);
+}
+
+async function submitAddHutang() {
+  if (!dirHandle){toast('⚠️ Pilih folder dulu','error');return;}
+  const nama  = gv('h_nama').trim();
+  const total = parseFloat((gv('h_total')||'0').replace(/\./g,''))||0;
+  const kepada= gv('h_kepada').trim();
+  if (!nama)  {toast('⚠️ Nama tidak boleh kosong','error');return;}
+  if (!total) {toast('⚠️ Total hutang tidak boleh 0','error');return;}
+  if (!kepada){toast('⚠️ Kepada siapa?','error');return;}
+  const item = {
+    id:Date.now(), nama, total, kepada,
+    brand: gv('h_brand')||hutangBrand,
+    tanggal: toStorageDate(gv('h_tanggal')),
+    keterangan: gv('h_ket'),
+    cicilan: [],
+    createdAt: new Date().toISOString()
+  };
+  if (!db.hutang) db.hutang=[];
+  db.hutang.push(item);
+  await saveDB('hutang');
+  closeModal(); toast('✅ Hutang dicatat!','success'); render();
+}
+
+function openEditHutang(id) {
+  const h = db.hutang.find(x=>x.id===id);
+  if (!h) return;
+  document.getElementById('modalTitle').textContent = '✏️ Edit Hutang';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="form-group"><div class="form-label">Nama</div><input class="form-input" id="eh_nama" value="${esc(h.nama)}"></div>
+    <div class="form-row">
+      <div class="form-group"><div class="form-label">Total Hutang (Rp)</div><input class="form-input" id="eh_total" type="text" inputmode="numeric" value="${Number(h.total).toLocaleString('id-ID')}" oninput="hppFmtInput(this)"></div>
+      <div class="form-group"><div class="form-label">Kepada</div><input class="form-input" id="eh_kepada" value="${esc(h.kepada)}"></div>
+    </div>
+    <div class="form-group"><div class="form-label">Keterangan</div><input class="form-input" id="eh_ket" value="${esc(h.keterangan||'')}"></div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="saveEditHutang(${id})">💾 Simpan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+}
+
+async function saveEditHutang(id) {
+  const h=db.hutang.find(x=>x.id===id);
+  if(!h)return;
+  h.nama      = gv('eh_nama').trim();
+  h.total     = parseFloat((gv('eh_total')||'0').replace(/\./g,''))||h.total;
+  h.kepada    = gv('eh_kepada').trim();
+  h.keterangan= gv('eh_ket');
+  await saveDB('hutang');
+  closeModal(); toast('✅ Hutang diperbarui!','success'); render();
+}
+
+function openBayarCicilan(id) {
+  const h = db.hutang.find(x=>x.id===id);
+  if (!h) return;
+  const sisa = hutangSisa(h);
+  document.getElementById('modalTitle').textContent = `💸 Bayar Cicilan — ${esc(h.nama)}`;
+  document.getElementById('modalBody').innerHTML = `
+    <div style="background:rgba(255,159,67,0.08);border:1px solid rgba(255,159,67,0.2);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-family:'DM Mono',monospace;font-size:12px">
+      Sisa hutang: <strong style="color:#ff9f43">${fmtRp(sisa)}</strong> dari total ${fmtRp(h.total)}
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Tanggal Bayar</div>
+        <input class="form-input" id="c_tanggal" placeholder="DD/MM/YYYY" maxlength="10" oninput="autoSlashDate(this)" value="${toDisplayDate(todayStr())}">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Nominal (Rp) *</div>
+        <input class="form-input" id="c_nominal" type="text" inputmode="numeric" placeholder="0" oninput="hppFmtInput(this)">
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Keterangan <span style="color:var(--muted);font-size:10px">(opsional)</span></div>
+      <input class="form-input" id="c_ket" placeholder="Bayar dari hasil penjualan hari ini...">
+    </div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="submitBayarCicilan(${id})">💾 Catat Pembayaran</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('c_nominal')?.focus(),80);
+}
+
+async function submitBayarCicilan(id) {
+  if (!dirHandle){toast('⚠️ Pilih folder dulu','error');return;}
+  const nominal = parseFloat((gv('c_nominal')||'0').replace(/\./g,''))||0;
+  if (!nominal){toast('⚠️ Nominal tidak boleh 0','error');return;}
+  const h = db.hutang.find(x=>x.id===id);
+  if (!h) return;
+  if (!h.cicilan) h.cicilan=[];
+  h.cicilan.push({ id:Date.now(), tanggal:toStorageDate(gv('c_tanggal')), nominal, ket:gv('c_ket') });
+  await saveDB('hutang');
+  const pct = hutangPct(h);
+  closeModal();
+  if (pct >= 100) toast('🎉 Hutang LUNAS! Selamat!','success');
+  else toast(`✅ Cicilan dicatat! Sisa ${fmtRp(hutangSisa(h))}`, 'success');
+  render();
+}
+
+async function deleteHutang(id) {
+  db.hutang = db.hutang.filter(x=>x.id!==id);
+  await saveDB('hutang');
+  toast('🗑️ Hutang dihapus','success'); render();
+}
+
+function openEditCicilan(hutangId, cicilanId) {
+  const h = db.hutang.find(x=>x.id===hutangId);
+  const c = (h?.cicilan||[]).find(x=>x.id===cicilanId);
+  if (!h||!c) return;
+  document.getElementById('modalTitle').textContent = '✏️ Edit Pembayaran';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Hutang: <span style="color:var(--text);font-weight:600">${esc(h.nama)}</span></div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Tanggal</div>
+        <input class="form-input" id="ec_tanggal" placeholder="DD/MM/YYYY" maxlength="10" oninput="autoSlashDate(this)" value="${toDisplayDate(c.tanggal)}">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Nominal (Rp) *</div>
+        <input class="form-input" id="ec_nominal" type="text" inputmode="numeric" value="${Number(c.nominal).toLocaleString('id-ID')}" oninput="hppFmtInput(this)">
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Keterangan</div>
+      <input class="form-input" id="ec_ket" placeholder="Opsional" value="${esc(c.ket||'')}">
+    </div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="saveEditCicilan(${hutangId},${cicilanId})">Simpan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('ec_nominal')?.focus(),80);
+}
+
+async function saveEditCicilan(hutangId, cicilanId) {
+  const h = db.hutang.find(x=>x.id===hutangId);
+  const c = (h?.cicilan||[]).find(x=>x.id===cicilanId);
+  if (!h||!c) return;
+  const nominal = parseFloat((gv('ec_nominal')||'0').replace(/\./g,''))||0;
+  if (!nominal){toast('⚠️ Nominal tidak boleh 0','error');return;}
+  c.tanggal = toStorageDate(gv('ec_tanggal'));
+  c.nominal = nominal;
+  c.ket = gv('ec_ket');
+  await saveDB('hutang');
+  closeModal(); toast('✅ Pembayaran diperbarui!','success'); render();
+}
+
+async function deleteCicilan(hutangId, cicilanId) {
+  const h = db.hutang.find(x=>x.id===hutangId);
+  if (!h) return;
+  h.cicilan = (h.cicilan||[]).filter(x=>x.id!==cicilanId);
+  await saveDB('hutang');
+  toast('🗑️ Pembayaran dihapus','success'); render();
+}
+
+// ─── RESEP DIKOPI ────────────────────────────────────────────
+let resepActiveId = null;
+let resepActiveChannel = 'kedai';
+
+function getResepChannels() {
+  const custom = (db.keu._meta?.dikopiChannels) || [];
+  const defaults = ['kedai','cfd','marketplace'];
+  const all = [...new Set([...defaults, ...custom])];
+  return all;
+}
+const CHANNEL_LABEL = { kedai:'🏃 CFD', cfd:'☕ Kedai', marketplace:'🛒 Marketplace' };
+function getChannelLabel(ch) {
+  const custom = db?.keu?._meta?.channelLabels?.[ch];
+  if (custom) return custom;
+  return CHANNEL_LABEL[ch] || ('🏷️ '+ch.charAt(0).toUpperCase()+ch.slice(1));
+}
+
+const BAHAN_DEFAULT = [
+  { nama:'Robusta',       satuan:'gram',  hargaBeli:90000,   qtyBeli:1000 },
+  { nama:'Arabika',       satuan:'gram',  hargaBeli:120000,  qtyBeli:1000 },
+  { nama:'Susu UHT',      satuan:'ml',    hargaBeli:18000,   qtyBeli:1000 },
+  { nama:'Susu Diamond',  satuan:'ml',    hargaBeli:22000,   qtyBeli:1000 },
+  { nama:'Simple Syrup',  satuan:'ml',    hargaBeli:15000,   qtyBeli:500  },
+  { nama:'Gula Pasir',    satuan:'gram',  hargaBeli:16000,   qtyBeli:1000 },
+  { nama:'Es Batu',       satuan:'gram',  hargaBeli:3000,    qtyBeli:1000 },
+  { nama:'Cup 16oz',      satuan:'pcs',   hargaBeli:35000,   qtyBeli:50   },
+  { nama:'Cup 22oz',      satuan:'pcs',   hargaBeli:45000,   qtyBeli:50   },
+  { nama:'Lid',           satuan:'pcs',   hargaBeli:20000,   qtyBeli:100  },
+  { nama:'Sedotan',       satuan:'pcs',   hargaBeli:10000,   qtyBeli:100  },
+  { nama:'Kantong Plastik',satuan:'pcs',  hargaBeli:15000,   qtyBeli:100  },
+];
+
+// Harga per satuan
+function bahanHargaPerSatuan(b) {
+  return b.qtyBeli > 0 ? b.hargaBeli / b.qtyBeli : 0;
+}
+
+// Hitung HPP satu resep
+function hitungHPPResep(resep) {
+  let total = 0;
+  (resep.ingredients||[]).forEach(ing => {
+    const b = db.bahan.find(x=>x.id===ing.bahanId);
+    if (!b) return;
+    total += bahanHargaPerSatuan(b) * (ing.qty||0);
+  });
+  return Math.round(total);
+}
+
+// Cek apakah ada harga bahan yang berubah sejak resep dibuat
+function resepHasWarning(resep) {
+  if (!resep.hppSnapshot) return false;
+  const currentHPP = hitungHPPResep(resep);
+  return Math.abs(currentHPP - resep.hppSnapshot) > 50; // threshold Rp 50
+}
+
+async function initBahan() {
+  if (!db.bahan.length) {
+    db.bahan = BAHAN_DEFAULT.map((b,i) => ({ ...b, id: Date.now()+i, createdAt: new Date().toISOString() }));
+    await saveDB('bahan');
+  }
+}
+
+// ── RESEP DRAG & DROP ─────────────────────────────────────────
+let resepDragSrcId = null;
+function resepDragStart(e, id) {
+  resepDragSrcId = id;
+  e.dataTransfer.effectAllowed = 'move';
+  setTimeout(()=>{ const el=e.target; if(el) el.style.opacity='0.4'; },0);
+}
+function resepDragOver(e, id) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  if (id !== resepDragSrcId) {
+    const el = e.currentTarget;
+    if (el) el.style.borderTop = '2px solid var(--accent)';
+  }
+}
+function resepDragLeave(e) {
+  const el = e.currentTarget;
+  if (el) el.style.borderTop = '';
+}
+async function resepDrop(e, targetId, grupKey) {
+  e.preventDefault();
+  const el = e.currentTarget;
+  if (el) el.style.borderTop = '';
+  if (!resepDragSrcId || resepDragSrcId === targetId) { resepDragSrcId=null; return; }
+  const srcIdx  = db.resep.findIndex(r=>r.id===resepDragSrcId);
+  const tgtIdx  = db.resep.findIndex(r=>r.id===targetId);
+  if (srcIdx===-1||tgtIdx===-1) { resepDragSrcId=null; return; }
+  // pindahkan dalam array + update kategori sesuai grup target
+  const [moved] = db.resep.splice(srcIdx, 1);
+  moved.kategori = grupKey;
+  const newTgtIdx = db.resep.findIndex(r=>r.id===targetId);
+  db.resep.splice(newTgtIdx, 0, moved);
+  resepDragSrcId = null;
+  await saveDB('resep');
+  render();
+}
+
+function renderResep() {
+  document.getElementById('addBtn').classList.add('hidden');
+
+  // init bahan defaults jika kosong
+  if (!db.bahan.length) {
+    setTimeout(async ()=>{ await initBahan(); render(); },100);
+  }
+
+  // ── Channel tabs ──────────────────────────────────────────
+  const channels = getResepChannels();
+  if (!channels.includes(resepActiveChannel)) resepActiveChannel = channels[0];
+  const channelTabs = channels.map(ch=>`
+    <button class="filter-btn ${ch===resepActiveChannel?'active':''}"
+      style="${ch===resepActiveChannel?'':'border-color:var(--border)'}"
+      onclick="resepActiveChannel='${ch}';resepActiveId=null;render()">${getChannelLabel(ch)}</button>`).join('');
+
+  const warnings = db.resep.filter(r=>(r.channel||'kedai')===resepActiveChannel&&resepHasWarning(r));
+  const warningBanner = warnings.length ? `
+    <div class="resep-warning">
+      <span>⚠️</span>
+      <div><strong>${warnings.length} resep</strong> perlu dicek — ada perubahan harga bahan baku yang memengaruhi HPP:
+        ${warnings.map(r=>`<strong>${esc(r.nama)}</strong>`).join(', ')}. Cek apakah harga jual masih aman.
+      </div>
+    </div>` : '';
+
+  // Active resep detail — filter by active channel
+  const channelResep = db.resep.filter(r=>(r.channel||'kedai')===resepActiveChannel);
+  const activeResep = resepActiveId ? channelResep.find(r=>r.id===resepActiveId) : channelResep[0];
+  if (activeResep && !resepActiveId) resepActiveId = activeResep.id;
+
+  const resepDetail = activeResep ? renderResepDetail(activeResep) : `
+    <div class="empty"><div class="empty-icon">☕</div>Pilih atau buat resep di kiri</div>`;
+
+  const RESEP_GROUPS = [
+    { key:'Coffee',      label:'☕ Coffee' },
+    { key:'Non Coffee',  label:'🥤 Non Coffee' },
+    { key:'Manual Brew', label:'🫗 Manual Brew' },
+    { key:'Snack',       label:'🍪 Snack' },
+  ];
+  const grouped = RESEP_GROUPS.map(g=>({
+    ...g, items: channelResep.filter(r=>(r.kategori||'Coffee')===g.key)
+  })).filter(g=>g.items.length>0);
+
+  const resepList = grouped.length ? grouped.map(g=>`
+    <div style="margin-bottom:12px">
+      <div style="font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);padding:4px 0 6px;border-bottom:1px solid var(--border);margin-bottom:6px">${g.label}</div>
+      ${g.items.map(r => {
+        const hpp = hitungHPPResep(r);
+        const warn = resepHasWarning(r);
+        return '<div class="resep-card ' + (r.id===resepActiveId?'active':'') + '" draggable="true" ondragstart="resepDragStart(event,' + r.id + ')" ondragover="resepDragOver(event,' + r.id + ')" ondragleave="resepDragLeave(event)" ondrop="resepDrop(event,' + r.id + ',\'' + g.key + '\')" onclick="resepActiveId=' + r.id + ';render()" style="cursor:grab;user-select:none"><div style="display:flex;align-items:center;gap:6px"><span style="color:var(--muted);font-size:11px">⠿</span><div class=\"resep-nama\">' + esc(r.nama) + ' ' + (warn?'⚠️':'') + '</div></div><div class=\"resep-meta\"><span style=\"color:#4cc9a0\">HPP ' + fmtRp(hpp) + '</span>' + (r.hargaJual?'<span style=\"color:var(--accent)\">Jual ' + fmtRp(r.hargaJual) + '</span>':'') + '</div></div>';
+      }).join('')}
+    </div>`).join('') : '';
+
+  const bahanRows = db.bahan.map((b,i)=>`
+    <tr>
+      <td style="padding:9px 12px;color:var(--text);font-weight:500">${esc(b.nama)}</td>
+      <td style="padding:9px 12px;color:var(--text2);font-family:'DM Mono',monospace;font-size:12px">${fmtRp(b.hargaBeli)}</td>
+      <td style="padding:9px 12px;color:var(--text2);font-family:'DM Mono',monospace;font-size:12px;text-align:center">${b.qtyBeli} ${b.satuan}</td>
+      <td style="padding:9px 12px;font-family:'DM Mono',monospace;font-size:12px;font-weight:600;color:#4cc9a0;text-align:right">${fmtRp(Math.round(bahanHargaPerSatuan(b)))}/${b.satuan}</td>
+      <td style="padding:9px 12px;text-align:right;white-space:nowrap">
+        <button class="tbl-action-btn tbl-edit" onclick="openEditBahan(${b.id})">✏️</button>
+        <button class="tbl-action-btn tbl-del" onclick="deleteBahan(${b.id})">🗑️</button>
+      </td>
+    </tr>`).join('');
+
+  return `
+    ${warningBanner}
+    <!-- Channel tabs -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <div class="filter-row" style="margin-bottom:0;flex:1">${channelTabs}</div>
+      <button class="btn btn-ghost btn-sm" style="white-space:nowrap" onclick="openManageChannels()">⚙️ Kelola Channel</button>
+    </div>
+    <!-- resep list + detail + bahan baku -->
+    <div class="resep-layout">
+      <!-- LEFT: list resep -->
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:11px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)">Menu Resep</div>
+          <button class="btn btn-primary btn-sm" onclick="openAddResep()">+ Resep</button>
+        </div>
+        ${resepList || `<div style="font-size:12px;color:var(--muted);text-align:center;padding:20px 0">Belum ada resep</div>`}
+      </div>
+
+      <!-- RIGHT: detail resep + bahan baku stacked -->
+      <div>
+        <div style="margin-bottom:16px">${resepDetail}</div>
+
+        <!-- tabel harga bahan baku -->
+        <div class="card" style="padding:0;overflow:hidden">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)">
+            <div style="font-size:11px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)">📦 Harga Bahan Baku</div>
+            <button class="btn btn-ghost btn-sm" onclick="openAddBahan()">+ Bahan</button>
+          </div>
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse">
+              <thead>
+                <tr style="border-bottom:1px solid var(--border);background:rgba(46,156,255,0.04)">
+                  <th style="padding:8px 12px;font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);text-align:left;font-weight:500">Nama Bahan</th>
+                  <th style="padding:8px 12px;font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);text-align:left;font-weight:500">Harga Beli</th>
+                  <th style="padding:8px 12px;font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);text-align:center;font-weight:500">Qty Beli</th>
+                  <th style="padding:8px 12px;font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);text-align:right;font-weight:500">Harga/Satuan</th>
+                  <th style="padding:8px 12px;font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);text-align:right;font-weight:500">Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${bahanRows || `<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted);font-size:12px">Belum ada bahan baku</td></tr>`}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderResepDetail(r) {
+  const hpp = hitungHPPResep(r);
+  const margin = r.hargaJual ? Math.round((r.hargaJual-hpp)/r.hargaJual*100) : 0;
+  const markup = r.hargaJual ? Math.round((r.hargaJual-hpp)/hpp*100) : 0;
+  const warn = resepHasWarning(r);
+
+  const ingRows = (r.ingredients||[]).map(ing => {
+    const b = db.bahan.find(x=>x.id===ing.bahanId);
+    if (!b) return '';
+    const hps = bahanHargaPerSatuan(b);
+    const subtotal = Math.round(hps * ing.qty);
+    return `<div class="ingredient-row">
+      <div class="ing-nama">${esc(b.nama)}</div>
+      <div class="ing-qty">${ing.qty} ${b.satuan}</div>
+      <div class="ing-hpp">${fmtRp(Math.round(hps))}/${b.satuan}</div>
+      <div style="font-family:'DM Mono',monospace;font-size:12px;color:#4cc9a0;white-space:nowrap">${fmtRp(subtotal)}</div>
+      <div style="display:flex;gap:4px;align-items:center">
+        <button class="tbl-action-btn tbl-edit" onclick="openEditIngredient(${r.id},${ing.bahanId})">✏️</button>
+        <button class="tbl-action-btn tbl-del" onclick="removeIngredient(${r.id},${ing.bahanId})">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  const warnMsg = warn ? `
+    <div class="resep-warning" style="margin-bottom:12px">
+      <span>⚠️</span>
+      <div>Harga bahan baku berubah — HPP sekarang <strong>${fmtRp(hpp)}</strong> (snapshot: ${fmtRp(r.hppSnapshot||0)}). Cek harga jual!</div>
+    </div>` : '';
+
+  return `<div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div style="font-size:16px;font-weight:700">${esc(r.nama)}</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-ghost btn-sm" onclick="openCopyResepToChannel(${r.id})" title="Salin ke channel lain">📋 Salin</button>
+        <button class="btn btn-ghost btn-sm" onclick="openEditResep(${r.id})">✏️ Edit</button>
+        <button class="btn btn-ghost btn-sm" onclick="openAddIngredient(${r.id})">+ Bahan</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteResep(${r.id})">🗑️</button>
+      </div>
+    </div>
+    ${warnMsg}
+
+    <div class="strategy-section-title">🧪 Komposisi per Cup</div>
+    <div style="margin-bottom:4px">${ingRows||'<div style="color:var(--muted);font-size:12px;padding:8px 0">Belum ada bahan — klik + Bahan</div>'}</div>
+
+    <div class="hpp-cup-box">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+        <div>
+          <div style="font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:4px">HPP/cup</div>
+          <div style="font-size:22px;font-weight:800;font-family:'DM Mono',monospace;color:#4cc9a0">${fmtRp(hpp)}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:4px">Harga Jual</div>
+          <div style="font-size:22px;font-weight:800;font-family:'DM Mono',monospace;color:var(--accent)">${r.hargaJual?fmtRp(r.hargaJual):'—'}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:4px">Margin</div>
+          <div style="font-size:22px;font-weight:800;font-family:'DM Mono',monospace;color:${margin>=50?'#4cc9a0':margin>=30?'#f5a623':'var(--red)'}">
+            ${r.hargaJual?margin+'%':'—'}
+          </div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace">
+        Markup: ${r.hargaJual?markup+'%':'—'} ·
+        Profit/cup: ${r.hargaJual?fmtRp(r.hargaJual-hpp):'—'}
+      </div>
+      <div style="margin-top:12px">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Update harga jual:</div>
+        <div style="display:flex;gap:8px">
+          <input class="form-input" id="resep_hj_${r.id}" type="text" inputmode="numeric" value="${r.hargaJual?Number(r.hargaJual).toLocaleString('id-ID'):''}" placeholder="0" style="flex:1;font-size:13px" oninput="hppFmtInput(this)">
+          <button class="btn btn-primary btn-sm" onclick="saveResepHargaJual(${r.id})">Simpan</button>
+        </div>
+      </div>
+    </div>
+    ${r.catatan?`<div style="font-size:12px;color:var(--muted);margin-top:10px;padding:8px 12px;background:rgba(46,156,255,0.04);border-radius:8px">${esc(r.catatan)}</div>`:''}
+  </div>`;
+}
+
+// ── RESEP CRUD ────────────────────────────────────────────────
+function openAddResep() {
+  const channels = getResepChannels();
+  document.getElementById('modalTitle').textContent = '+ Resep Baru';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="form-row">
+      <div class="form-group" style="flex:2">
+        <div class="form-label">Nama Menu *</div>
+        <input class="form-input" id="r_nama" placeholder="Americano, Es Kopi Susu, Cold Brew...">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Kategori</div>
+        <select class="form-select" id="r_kategori">
+          <option value="Coffee">☕ Coffee</option>
+          <option value="Non Coffee">🥤 Non Coffee</option>
+          <option value="Manual Brew">🫗 Manual Brew</option>
+          <option value="Snack">🍪 Snack</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Channel</div>
+        <select class="form-select" id="r_channel">
+          ${channels.map(ch=>`<option value="${ch}" ${ch===resepActiveChannel?'selected':''}>${getChannelLabel(ch)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <div class="form-label">Harga Jual (Rp)</div>
+        <input class="form-input" id="r_harga" type="text" inputmode="numeric" placeholder="0" oninput="hppFmtInput(this)">
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Catatan</div>
+      <textarea class="form-textarea" id="r_catatan" placeholder="Ukuran cup, suhu, variasi..."></textarea>
+    </div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="submitAddResep()">Simpan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('r_nama')?.focus(),80);
+}
+
+async function submitAddResep() {
+  const nama = gv('r_nama').trim();
+  if (!nama){toast('⚠️ Nama tidak boleh kosong','error');return;}
+  const item = {
+    id:Date.now(), nama,
+    kategori: (document.getElementById('r_kategori')?.value)||'Coffee',
+    channel: (document.getElementById('r_channel')?.value)||resepActiveChannel||'kedai',
+    hargaJual: parseFloat((gv('r_harga')||'0').replace(/\./g,''))||0,
+    catatan: gv('r_catatan'),
+    ingredients: [],
+    hppSnapshot: 0,
+    createdAt: new Date().toISOString()
+  };
+  db.resep.push(item);
+  await saveDB('resep');
+  resepActiveId = item.id;
+  closeModal(); toast('✅ Resep ditambahkan!','success'); render();
+}
+
+function openEditResep(id) {
+  const r = db.resep.find(x=>x.id===id);
+  if (!r) return;
+  const kat = r.kategori||'Coffee';
+  const ch  = r.channel||'kedai';
+  const channels = getResepChannels();
+  document.getElementById('modalTitle').textContent = '✏️ Edit Resep';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="form-row">
+      <div class="form-group" style="flex:2">
+        <div class="form-label">Nama Menu *</div>
+        <input class="form-input" id="r_nama" value="${esc(r.nama)}">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Kategori</div>
+        <select class="form-select" id="r_kategori">
+          <option value="Coffee" ${kat==='Coffee'?'selected':''}>☕ Coffee</option>
+          <option value="Non Coffee" ${kat==='Non Coffee'?'selected':''}>🥤 Non Coffee</option>
+          <option value="Manual Brew" ${kat==='Manual Brew'?'selected':''}>🫗 Manual Brew</option>
+          <option value="Snack" ${kat==='Snack'?'selected':''}>🍪 Snack</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Channel</div>
+        <select class="form-select" id="r_channel">
+          ${channels.map(c=>`<option value="${c}" ${c===ch?'selected':''}>${getChannelLabel(c)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <div class="form-label">Harga Jual (Rp)</div>
+        <input class="form-input" id="r_harga" type="text" inputmode="numeric" value="${r.hargaJual?Number(r.hargaJual).toLocaleString('id-ID'):''}" placeholder="0" oninput="hppFmtInput(this)">
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Catatan</div>
+      <textarea class="form-textarea" id="r_catatan">${esc(r.catatan||'')}</textarea>
+    </div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="saveEditResep(${id})">Simpan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+}
+
+async function saveEditResep(id) {
+  const r = db.resep.find(x=>x.id===id);
+  if (!r) return;
+  r.nama = gv('r_nama').trim();
+  r.kategori = (document.getElementById('r_kategori')?.value)||'Coffee';
+  r.channel  = (document.getElementById('r_channel')?.value)||r.channel||'kedai';
+  r.hargaJual = parseFloat((gv('r_harga')||'0').replace(/\./g,''))||0;
+  r.catatan = gv('r_catatan');
+  r.hppSnapshot = hitungHPPResep(r);
+  await saveDB('resep');
+  closeModal(); toast('✅ Resep diperbarui!','success'); render();
+}
+
+async function saveResepHargaJual(id) {
+  const r = db.resep.find(x=>x.id===id);
+  if (!r) return;
+  r.hargaJual = parseFloat((document.getElementById(`resep_hj_${id}`)?.value||'0').replace(/\./g,''))||0;
+  r.hppSnapshot = hitungHPPResep(r);
+  await saveDB('resep');
+  toast('✅ Harga jual & snapshot HPP diperbarui!','success'); render();
+}
+
+async function deleteResep(id) {
+  db.resep = db.resep.filter(x=>x.id!==id);
+  if (resepActiveId===id) resepActiveId = db.resep[0]?.id||null;
+  await saveDB('resep');
+  toast('🗑️ Resep dihapus','success'); render();
+}
+
+// ── INGREDIENT ────────────────────────────────────────────────
+function openAddIngredient(resepId) {
+  const r = db.resep.find(x=>x.id===resepId);
+  if (!r) return;
+  const usedIds = (r.ingredients||[]).map(i=>i.bahanId);
+  const available = db.bahan.filter(b=>!usedIds.includes(b.id));
+  document.getElementById('modalTitle').textContent = `+ Bahan — ${esc(r.nama)}`;
+  document.getElementById('modalBody').innerHTML = `
+    <div class="form-row">
+      <div class="form-group" style="flex:2">
+        <div class="form-label">Bahan Baku</div>
+        <select class="form-select" id="ing_bahan" onchange="updateIngPreview()">
+          <option value="">— Pilih bahan —</option>
+          ${available.map(b=>`<option value="${b.id}" data-hps="${bahanHargaPerSatuan(b).toFixed(2)}" data-satuan="${b.satuan}">${esc(b.nama)} (${fmtRp(Math.round(bahanHargaPerSatuan(b)))}/${b.satuan})</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <div class="form-label">Qty per Cup</div>
+        <input class="form-input" id="ing_qty" type="number" min="0.1" step="0.5" placeholder="15" oninput="updateIngPreview()">
+      </div>
+    </div>
+    <div id="ing_preview" style="font-size:12px;color:#4cc9a0;font-family:'DM Mono',monospace;padding:8px 0"></div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="submitAddIngredient(${resepId})">+ Tambahkan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('ing_qty')?.focus(),80);
+}
+
+function updateIngPreview() {
+  const sel = document.getElementById('ing_bahan');
+  const qty = parseFloat(document.getElementById('ing_qty')?.value)||0;
+  const opt = sel?.options[sel.selectedIndex];
+  const hps = parseFloat(opt?.dataset?.hps||0);
+  const sat = opt?.dataset?.satuan||'';
+  const prev = document.getElementById('ing_preview');
+  if (prev && qty && hps) {
+    prev.textContent = `${qty}${sat} × ${fmtRp(Math.round(hps))}/${sat} = ${fmtRp(Math.round(hps*qty))}/cup`;
+  } else if (prev) prev.textContent = '';
+}
+
+async function submitAddIngredient(resepId) {
+  const r = db.resep.find(x=>x.id===resepId);
+  const bahanId = parseInt(gv('ing_bahan'));
+  const qty = parseFloat(document.getElementById('ing_qty')?.value)||0;
+  if (!bahanId){toast('⚠️ Pilih bahan dulu','error');return;}
+  if (!qty){toast('⚠️ Qty tidak boleh 0','error');return;}
+  if (!r.ingredients) r.ingredients=[];
+  r.ingredients.push({ bahanId, qty });
+  r.hppSnapshot = hitungHPPResep(r);
+  await saveDB('resep');
+  closeModal(); toast('✅ Bahan ditambahkan!','success'); render();
+}
+
+function openEditIngredient(resepId, bahanId) {
+  const r = db.resep.find(x=>x.id===resepId);
+  const ing = (r?.ingredients||[]).find(i=>i.bahanId===bahanId);
+  const b = db.bahan.find(x=>x.id===bahanId);
+  if (!r||!ing||!b) return;
+  const hps = bahanHargaPerSatuan(b);
+  document.getElementById('modalTitle').textContent = `✏️ Edit Bahan — ${esc(r.nama)}`;
+  document.getElementById('modalBody').innerHTML = `
+    <div class="form-group" style="margin-bottom:12px">
+      <div class="form-label">Ganti Bahan (opsional)</div>
+      <select class="form-select" id="eing_bahan" onchange="eIngUpdatePreview()">
+        ${db.bahan.map(bh=>`<option value="${bh.id}" ${bh.id===bahanId?'selected':''}>${esc(bh.nama)} — ${fmtRp(Math.round(bahanHargaPerSatuan(bh)))}/${bh.satuan}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Qty per Cup *</div>
+        <input class="form-input" id="eing_qty" type="number" min="0.1" step="0.5" value="${ing.qty}" oninput="eIngUpdatePreview()">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Satuan</div>
+        <div id="eing_satuan_label" style="padding:9px 12px;background:var(--surface2);border-radius:8px;font-family:'DM Mono',monospace;font-size:12px;color:var(--text2)">${b.satuan}</div>
+      </div>
+    </div>
+    <div id="eing_preview" style="font-size:12px;color:#4cc9a0;font-family:'DM Mono',monospace;padding:6px 0">${ing.qty} ${b.satuan} × ${fmtRp(Math.round(hps))}/${b.satuan} = ${fmtRp(Math.round(hps*ing.qty))}/cup</div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" style="color:var(--red);border-color:var(--red)" onclick="removeIngredient(${resepId},${bahanId});closeModal()">🗑️ Hapus</button>
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="saveEditIngredient(${resepId},${bahanId})">Simpan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('eing_qty')?.focus(),80);
+}
+
+function eIngUpdatePreview() {
+  const selId = parseInt(document.getElementById('eing_bahan')?.value)||0;
+  const bh = db.bahan.find(x=>x.id===selId);
+  if (!bh) return;
+  const hps = bahanHargaPerSatuan(bh);
+  const qty = parseFloat(document.getElementById('eing_qty')?.value)||0;
+  const satLabel = document.getElementById('eing_satuan_label');
+  if (satLabel) satLabel.textContent = bh.satuan;
+  const prev = document.getElementById('eing_preview');
+  if (prev && qty) prev.textContent = `${qty} ${bh.satuan} × ${fmtRp(Math.round(hps))}/${bh.satuan} = ${fmtRp(Math.round(hps*qty))}/cup`;
+}
+
+async function saveEditIngredient(resepId, oldBahanId) {
+  const r = db.resep.find(x=>x.id===resepId);
+  if (!r) return;
+  const qty = parseFloat(document.getElementById('eing_qty')?.value)||0;
+  if (!qty){toast('⚠️ Qty tidak boleh 0','error');return;}
+  const newBahanId = parseInt(document.getElementById('eing_bahan')?.value)||oldBahanId;
+
+  if (newBahanId !== oldBahanId) {
+    // Replace: remove old, add new (or update existing if bahan already in resep)
+    const existingIdx = r.ingredients.findIndex(i=>i.bahanId===newBahanId);
+    if (existingIdx >= 0) {
+      // New bahan already exists in resep — just update qty, remove old
+      r.ingredients[existingIdx].qty = qty;
+      r.ingredients = r.ingredients.filter(i=>i.bahanId!==oldBahanId);
+      toast('✅ Bahan diganti & qty diupdate!','success');
+    } else {
+      // Swap bahan id in place
+      const ing = r.ingredients.find(i=>i.bahanId===oldBahanId);
+      if (ing) { ing.bahanId = newBahanId; ing.qty = qty; }
+      toast('✅ Bahan diganti!','success');
+    }
+  } else {
+    // Same bahan, just update qty
+    const ing = r.ingredients.find(i=>i.bahanId===oldBahanId);
+    if (ing) ing.qty = qty;
+    toast('✅ Qty diperbarui!','success');
+  }
+
+  r.hppSnapshot = hitungHPPResep(r);
+  await saveDB('resep');
+  closeModal(); render();
+}
+
+async function removeIngredient(resepId, bahanId) {
+  const r = db.resep.find(x=>x.id===resepId);
+  if (!r) return;
+  r.ingredients = r.ingredients.filter(i=>i.bahanId!==bahanId);
+  r.hppSnapshot = hitungHPPResep(r);
+  await saveDB('resep');
+  toast('Bahan dihapus','success'); render();
+}
+
+// ── BAHAN BAKU CRUD ───────────────────────────────────────────
+function openCopyResepToChannel(id) {
+  const r = db.resep.find(x=>x.id===id);
+  if (!r) return;
+  const channels = getResepChannels().filter(ch=>ch!==(r.channel||'kedai'));
+  if (!channels.length) { toast('Tidak ada channel lain yang tersedia','error'); return; }
+  document.getElementById('modalTitle').textContent = '📋 Salin Resep ke Channel Lain';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="font-size:12px;color:var(--text2);margin-bottom:14px">
+      Menyalin <strong>${esc(r.nama)}</strong> dari <strong>${getChannelLabel(r.channel||'kedai')}</strong>.<br>
+      Ingredients ikut disalin — edit HPP setelah ini (tambah packaging, fee admin, dll).
+    </div>
+    <div class="form-group">
+      <div class="form-label">Salin ke Channel *</div>
+      <select class="form-select" id="copy_ch">
+        ${channels.map(ch=>`<option value="${ch}">${getChannelLabel(ch)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Harga Jual di Channel Baru (Rp)</div>
+      <input class="form-input" id="copy_harga" type="text" inputmode="numeric"
+        value="${r.hargaJual?Number(r.hargaJual).toLocaleString('id-ID'):''}" oninput="hppFmtInput(this)">
+    </div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="submitCopyResepToChannel(${id})">📋 Salin</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+}
+async function submitCopyResepToChannel(id) {
+  const r = db.resep.find(x=>x.id===id);
+  if (!r) return;
+  const targetCh = (document.getElementById('copy_ch')?.value)||'kedai';
+  const newHarga = parseFloat((gv('copy_harga')||'0').replace(/\./g,''))||r.hargaJual||0;
+  const copy = JSON.parse(JSON.stringify(r));
+  copy.id        = Date.now();
+  copy.channel   = targetCh;
+  copy.hargaJual = newHarga;
+  copy.hppSnapshot = hitungHPPResep(copy);
+  copy.createdAt = new Date().toISOString();
+  db.resep.push(copy);
+  await saveDB('resep');
+  resepActiveChannel = targetCh;
+  resepActiveId = copy.id;
+  closeModal();
+  toast(`Resep disalin ke ${getChannelLabel(targetCh)}!`,'success');
+  render();
+}
+function openManageChannels() {
+  const channels = getResepChannels();
+  const defaults = ['kedai','cfd','marketplace'];
+  document.getElementById('modalTitle').textContent = 'Kelola Channel Menu';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px">Channel default tidak bisa dihapus, tapi bisa di-rename.</div>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+      ${channels.map(ch=>`
+        <div style="display:flex;align-items:center;gap:6px;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px">
+          <span style="font-size:13px;flex:1">${getChannelLabel(ch)}</span>
+          <span style="font-size:10px;color:var(--muted);font-family:'DM Mono',monospace">${ch}</span>
+          <button class="tbl-action-btn tbl-edit" onclick="openEditChannelName('${ch}')">✏️</button>
+          ${defaults.includes(ch)?'':
+            `<button class="tbl-action-btn tbl-del" onclick="deleteChannel('${ch}')">x</button>`}
+        </div>`).join('')}
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:1">
+        <div class="form-label">Tambah Channel Baru</div>
+        <input class="form-input" id="new_channel_name" placeholder="catering, event, dll...">
+      </div>
+      <div style="padding-top:22px"><button class="btn btn-primary btn-sm" onclick="addNewChannel()">+ Tambah</button></div>
+    </div>`;
+  document.getElementById('modalActions').innerHTML = `<button class="btn btn-ghost" onclick="closeModal()">Tutup</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+}
+function openEditChannelName(ch) {
+  const currentLabel = getChannelLabel(ch).replace(/^.+\s/,''); // strip emoji
+  document.getElementById('modalTitle').textContent = '✏️ Rename Channel';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px">
+      Key channel <code style="background:var(--surface3);padding:1px 6px;border-radius:4px">${ch}</code> tidak berubah — hanya label tampilan yang diubah.
+    </div>
+    <div class="form-group">
+      <div class="form-label">Emoji + Nama Label Baru</div>
+      <input class="form-input" id="edit_ch_label" value="${getChannelLabel(ch)}" placeholder="☕ Kedai">
+    </div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="openManageChannels()">Batal</button>
+    <button class="btn btn-primary" onclick="saveChannelLabel('${ch}')">Simpan</button>`;
+}
+async function saveChannelLabel(ch) {
+  const label = (document.getElementById('edit_ch_label')?.value||'').trim();
+  if (!label) { toast('Label tidak boleh kosong','error'); return; }
+  if (!db.keu._meta) db.keu._meta = {};
+  if (!db.keu._meta.channelLabels) db.keu._meta.channelLabels = {};
+  db.keu._meta.channelLabels[ch] = label;
+  await saveKeu();
+  closeModal(); toast('✅ Label channel diperbarui!','success'); render();
+}
+
+async function addNewChannel() {
+  const name = (document.getElementById('new_channel_name')?.value||'').trim().toLowerCase().replace(/\s+/g,'-');
+  if (!name) { toast('Nama channel tidak boleh kosong','error'); return; }
+  if (!db.keu._meta) db.keu._meta = {};
+  if (!db.keu._meta.dikopiChannels) db.keu._meta.dikopiChannels = [];
+  if (getResepChannels().includes(name)) { toast('Channel sudah ada','error'); return; }
+  db.keu._meta.dikopiChannels.push(name);
+  await saveKeu();
+  closeModal(); toast(`Channel ditambahkan!`,'success'); render();
+}
+async function deleteChannel(ch) {
+  const defaults = ['kedai','cfd','marketplace'];
+  if (defaults.includes(ch)) return;
+  if (!db.keu._meta?.dikopiChannels) return;
+  db.keu._meta.dikopiChannels = db.keu._meta.dikopiChannels.filter(c=>c!==ch);
+  await saveKeu();
+  if (resepActiveChannel===ch) resepActiveChannel='kedai';
+  closeModal(); toast('Channel dihapus','success'); render();
+}
+
+function openAddBahan() {
+  document.getElementById('modalTitle').textContent = '+ Bahan Baku Baru';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="form-row">
+      <div class="form-group" style="flex:2">
+        <div class="form-label">Nama Bahan *</div>
+        <input class="form-input" id="b_nama" placeholder="Robusta, Susu UHT, Gula...">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Satuan</div>
+        <select class="form-select" id="b_satuan">
+          <option value="gram">gram</option>
+          <option value="ml">ml</option>
+          <option value="pcs">pcs</option>
+          <option value="liter">liter</option>
+          <option value="kg">kg</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Harga Beli (Rp) *</div>
+        <input class="form-input" id="b_harga" type="text" inputmode="numeric" placeholder="0" oninput="hppFmtInput(this)">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Qty per Pembelian</div>
+        <input class="form-input" id="b_qty" type="number" placeholder="1000" value="1000">
+      </div>
+    </div>
+    <div id="b_preview" style="font-size:12px;color:var(--accent);font-family:'DM Mono',monospace;padding:4px 0"></div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="submitAddBahan()">Simpan</button>`;
+  // live preview
+  ['b_harga','b_qty'].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener('input',updateBahanPreview); });
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('b_nama')?.focus(),80);
+}
+
+function updateBahanPreview() {
+  const h=parseFloat((document.getElementById('b_harga')?.value||'0').replace(/\./g,''))||0;
+  const q=parseFloat(document.getElementById('b_qty')?.value)||1;
+  const s=document.getElementById('b_satuan')?.value||'gram';
+  const prev=document.getElementById('b_preview');
+  if(prev&&h&&q) prev.textContent=`= ${fmtRp(Math.round(h/q))} per ${s}`;
+  else if(prev) prev.textContent='';
+}
+
+async function submitAddBahan() {
+  const nama=gv('b_nama').trim();
+  if(!nama){toast('⚠️ Nama tidak boleh kosong','error');return;}
+  const hargaBeli=parseFloat((gv('b_harga')||'0').replace(/\./g,''))||0;
+  if(!hargaBeli){toast('⚠️ Harga tidak boleh 0','error');return;}
+  const item={ id:Date.now(), nama, satuan:gv('b_satuan')||'gram', hargaBeli, qtyBeli:parseFloat(document.getElementById('b_qty')?.value)||1000, createdAt:new Date().toISOString() };
+  db.bahan.push(item);
+  await saveDB('bahan');
+  closeModal(); toast('✅ Bahan baku ditambahkan!','success'); render();
+}
+
+function openEditBahan(id) {
+  const b=db.bahan.find(x=>x.id===id);
+  if(!b) return;
+  document.getElementById('modalTitle').textContent='✏️ Edit Bahan Baku';
+  document.getElementById('modalBody').innerHTML=`
+    <div class="form-row">
+      <div class="form-group" style="flex:2">
+        <div class="form-label">Nama Bahan *</div>
+        <input class="form-input" id="eb_nama" value="${esc(b.nama)}" placeholder="Nama bahan">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Satuan</div>
+        <select class="form-select" id="eb_satuan">
+          <option value="gram" ${b.satuan==='gram'?'selected':''}>gram</option>
+          <option value="ml" ${b.satuan==='ml'?'selected':''}>ml</option>
+          <option value="pcs" ${b.satuan==='pcs'?'selected':''}>pcs</option>
+          <option value="liter" ${b.satuan==='liter'?'selected':''}>liter</option>
+          <option value="kg" ${b.satuan==='kg'?'selected':''}>kg</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Harga Beli (Rp) *</div>
+        <input class="form-input" id="eb_harga" type="text" inputmode="numeric" value="${Number(b.hargaBeli).toLocaleString('id-ID')}" oninput="hppFmtInput(this)">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Qty per Pembelian</div>
+        <input class="form-input" id="eb_qty" type="number" value="${b.qtyBeli}">
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px;font-family:'DM Mono',monospace">
+      Harga sekarang: ${fmtRp(Math.round(bahanHargaPerSatuan(b)))}/${b.satuan}<br>
+      ⚠️ Mengubah harga akan memicu warning di resep yang menggunakan bahan ini.
+    </div>`;
+  document.getElementById('modalActions').innerHTML=`
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="saveEditBahan(${id})">Simpan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('eb_nama')?.focus(),80);
+}
+
+async function saveEditBahan(id) {
+  const b=db.bahan.find(x=>x.id===id);
+  if(!b) return;
+  const nama=(document.getElementById('eb_nama')?.value||'').trim();
+  if(!nama){toast('⚠️ Nama tidak boleh kosong','error');return;}
+  b.nama=nama;
+  b.satuan=document.getElementById('eb_satuan')?.value||b.satuan;
+  b.hargaBeli=parseFloat((document.getElementById('eb_harga')?.value||'0').replace(/\./g,''))||0;
+  b.qtyBeli=parseFloat(document.getElementById('eb_qty')?.value)||1;
+  b.updatedAt=new Date().toISOString();
+  await saveDB('bahan');
+  closeModal(); toast('✅ Bahan diperbarui!','success'); render();
+}
+
+async function deleteBahan(id) {
+  // Check if used in any resep
+  const usedIn = db.resep.filter(r=>r.ingredients?.some(i=>i.bahanId===id));
+  if (usedIn.length) {
+    toast(`⚠️ Bahan dipakai di ${usedIn.length} resep, hapus dari resep dulu`,'error');
+    return;
+  }
+  db.bahan=db.bahan.filter(x=>x.id!==id);
+  await saveDB('bahan');
+  toast('🗑️ Bahan dihapus','success'); render();
+}
+
+// ─── STRATEGY ────────────────────────────────────────────────
+let strategyBrand = 'dikopi';
+let strategyCollapsed = {};
+function toggleBrandSection(key) { strategyCollapsed[key] = !strategyCollapsed[key]; render(); }
+
+function renderStrategy() {
+  document.getElementById('addBtn').classList.remove('hidden');
+
+  const b = strategyBrand;
+  const saved = (db.strategy || []).find(s => s.brand === b) || null;
+  const info         = saved?.info         || null;
+  const pilars       = saved?.pilars       || [];
+  const hashtags     = saved?.hashtags     || [];
+  const targetAud    = saved?.targetAudience || [];
+  const kpi          = saved?.kpi          || [];
+
+  const brandTabs = BRANDS.map(x => `
+    <button class="filter-btn ${x===b?'active':''}" onclick="strategyBrand='${x}';render()">${BRAND_LABEL[x]}</button>
+  `).join('');
+
+  const topbar = `
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+    <div class="filter-row" style="margin-bottom:0">${brandTabs}</div>
+    <button class="btn btn-ghost btn-sm" onclick="openEditStrategy('${b}')">✏️ Edit Strategy</button>
+  </div>`;
+
+  if (!saved) return topbar + `
+    <div class="empty" style="margin-top:40px">
+      <div class="empty-icon">🎯</div>
+      Belum ada strategy untuk ${BRAND_LABEL[b]}<br>
+      <button class="btn btn-primary btn-sm" style="margin-top:14px" onclick="openEditStrategy('${b}')">+ Setup Strategy</button>
+      <div style="font-size:11px;color:var(--muted);margin-top:10px">atau import file JSON strategy via tombol 📥 Import di sidebar</div>
+    </div>`;
+
+  // ── OVERVIEW CARDS ────────────────────────────────────────
+  const overviewSection = info ? `
+    <div class="strategy-section-title">📋 Overview</div>
+    <div class="strategy-grid" style="margin-bottom:24px">
+      <div class="strategy-card"><div class="strategy-card-label">🎯 Target Audience</div><div class="strategy-card-value">${esc(info.target||'—')}</div></div>
+      <div class="strategy-card"><div class="strategy-card-label">🗣️ Tone of Voice</div><div class="strategy-card-value">${esc(info.tone||'—')}</div></div>
+      <div class="strategy-card"><div class="strategy-card-label">🕐 Best Posting Time</div><div class="strategy-card-value">${esc(info.posting||'—')}</div></div>
+      <div class="strategy-card"><div class="strategy-card-label">📊 Target Frekuensi</div><div class="strategy-card-value">${esc(info.freq||'—')}</div></div>
+    </div>` : '';
+
+  // ── PILARS ────────────────────────────────────────────────
+  const pilarSection = pilars.length ? `
+    <div class="strategy-section-title">📌 Konten Pilar</div>
+    <div class="strategy-grid" style="margin-bottom:24px">
+      ${pilars.map((p,i) => `
+        <div class="strategy-card">
+          <div class="strategy-card-label" style="color:var(--${b})">Pilar ${i+1}</div>
+          <div style="font-weight:600;font-size:13px;margin-bottom:6px;color:var(--text)">${esc(p.nama)}</div>
+          <div class="strategy-card-value" style="color:var(--text2)">${esc(p.desc)}</div>
+        </div>`).join('')}
+    </div>` : '';
+
+  // ── TARGET AUDIENCE TABLE ─────────────────────────────────
+  const audienceSection = targetAud.length ? `
+    <div class="strategy-section-title">👥 Target Audience Segmentation</div>
+    <div class="analytics-wrap" style="margin-bottom:24px">
+      <table class="analytics-table" style="table-layout:auto">
+        <thead><tr>
+          <th>Segment</th><th>Usia</th><th>Platform</th>
+          <th>Pain Point</th><th>Produk</th><th>Pendekatan Konten</th>
+        </tr></thead>
+        <tbody>
+          ${targetAud.map(a => `<tr>
+            <td style="font-weight:600;font-size:12px;min-width:130px">${esc(a.segment)}</td>
+            <td style="font-family:'DM Mono',monospace;font-size:11px;white-space:nowrap">${esc(a.usia)}</td>
+            <td style="font-size:11px;white-space:nowrap">${esc(a.platform)}</td>
+            <td style="font-size:11px;color:var(--text2)">${esc(a.painPoint)}</td>
+            <td style="font-size:11px">${esc(a.produk)}</td>
+            <td style="font-size:11px;color:var(--text2)">${esc(a.pendekatan)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>` : '';
+
+  // ── KPI TABLE ─────────────────────────────────────────────
+  const kpiSection = kpi.length ? `
+    <div class="strategy-section-title">📊 KPI Target Bulan Ini</div>
+    <div class="analytics-wrap" style="margin-bottom:24px">
+      <table class="analytics-table" style="table-layout:auto">
+        <thead><tr>
+          <th>Metrik</th><th>Target Min</th><th>Target Ideal</th>
+          <th>Cara Ukur</th><th>Frekuensi</th><th>Notes</th>
+        </tr></thead>
+        <tbody>
+          ${kpi.map(k => `<tr>
+            <td style="font-weight:600;font-size:12px">${esc(k.metrik)}</td>
+            <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${esc(k.targetMin)}</td>
+            <td style="font-family:'DM Mono',monospace;font-size:11px;color:#4cc9a0;font-weight:600">${esc(k.targetIdeal)}</td>
+            <td style="font-size:11px;color:var(--text2)">${esc(k.caraUkur)}</td>
+            <td style="font-size:11px;white-space:nowrap">${esc(k.frekuensi)}</td>
+            <td style="font-size:11px;color:var(--text2)">${esc(k.notes)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>` : '';
+
+  // ── HASHTAG ───────────────────────────────────────────────
+  const hashtagSection = hashtags.length ? `
+    <div class="strategy-section-title">🏷️ Hashtag Bucket</div>
+    <div style="margin-bottom:24px">
+      ${hashtags.map(h => `<div class="hashtag-tier">
+        <div class="hashtag-tier-label">${esc(h.tier)}</div>
+        <div class="hashtag-tags">${h.tags.split(' ').filter(t=>t).map(t=>`<span class="hashtag-tag">${esc(t)}</span>`).join('')}</div>
+      </div>`).join('')}
+    </div>` : '';
+
+  return topbar + overviewSection + pilarSection + audienceSection + kpiSection + hashtagSection;
+}
+
+function openEditStrategy(brand) {
+  const b = brand || strategyBrand || BRANDS[0];
+  const saved = (db.strategy || []).find(s => s.brand === b) || {};
+  document.getElementById('modalTitle').textContent = `✏️ Edit Strategy — ${BRAND_LABEL[b]}`;
+  document.getElementById('modalBody').innerHTML = `
+    <div class="form-group" style="margin-bottom:12px">
+      <div class="form-label">Brand</div>
+      <select class="form-select" id="es_brand">
+        ${BRANDS.map(x=>`<option value="${x}" ${x===b?'selected':''}>${BRAND_LABEL[x]}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><div class="form-label">Target Audience (singkat)</div><textarea class="form-textarea" id="es_target">${esc(saved.info?.target||'')}</textarea></div>
+      <div class="form-group"><div class="form-label">Tone of Voice</div><textarea class="form-textarea" id="es_tone">${esc(saved.info?.tone||'')}</textarea></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><div class="form-label">Best Posting Time</div><input class="form-input" id="es_posting" value="${esc(saved.info?.posting||'')}"></div>
+      <div class="form-group"><div class="form-label">Target Frekuensi</div><input class="form-input" id="es_freq" value="${esc(saved.info?.freq||'')}"></div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Konten Pilar <span style="color:var(--muted);font-weight:400">(per baris: Nama Pilar | Deskripsi)</span></div>
+      <textarea class="form-textarea" id="es_pilars" style="min-height:90px" placeholder="Portfolio & Hasil | Konten showcase hasil produksi...">${(saved.pilars||[]).map(p=>`${p.nama} | ${p.desc}`).join('\n')}</textarea>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Hashtag Bucket <span style="color:var(--muted);font-weight:400">(per baris: Label Tier | #tag1 #tag2 ...)</span></div>
+      <textarea class="form-textarea" id="es_hashtags" style="min-height:70px" placeholder="Tier 1 — Mega | #kopi #coffee...">${(saved.hashtags||[]).map(h=>`${h.tier} | ${h.tags}`).join('\n')}</textarea>
+    </div>
+    <div style="font-size:11px;color:var(--muted);padding:8px 10px;background:var(--surface2);border-radius:8px;line-height:1.6">
+      💡 <strong>Target Audience segmentation & KPI</strong> diisi otomatis via Import JSON dari file Excel strategy. 
+      Klik <strong>📥 Import Konten JSON</strong> di sidebar dan pilih file <code>*_strategy_import.json</code>.
+    </div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="saveStrategy()">💾 Simpan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+}
+
+async function saveStrategy() {
+  if (!dirHandle) { toast('⚠️ Pilih folder dulu','error'); return; }
+  const b = gv('es_brand');
+  const existing = (db.strategy||[]).find(s=>s.brand===b) || {};
+  const info = { target:gv('es_target'), tone:gv('es_tone'), posting:gv('es_posting'), freq:gv('es_freq') };
+  const pilars = gv('es_pilars').split('\n').filter(l=>l.trim()).map(l=>{
+    const [nama,...rest]=l.split('|'); return {nama:nama.trim(), desc:rest.join('|').trim()};
+  });
+  const hashtags = gv('es_hashtags').split('\n').filter(l=>l.trim()).map(l=>{
+    const [tier,...rest]=l.split('|'); return {tier:tier.trim(), tags:rest.join('|').trim()};
+  });
+  if (!db.strategy) db.strategy = [];
+  const idx = db.strategy.findIndex(s=>s.brand===b);
+  // preserve targetAudience & kpi from existing (only editable via import)
+  const entry = { brand:b, info, pilars, hashtags,
+    targetAudience: existing.targetAudience||[],
+    kpi: existing.kpi||[] };
+  if (idx>=0) db.strategy[idx]=entry; else db.strategy.push(entry);
+  await saveDB('strategy');
+  strategyBrand = b;
+  closeModal();
+  toast('✅ Strategy disimpan!','success');
+  render();
+}
+
+// ─── ANALYTICS ───────────────────────────────────────────────
+let analyticsCollapsed = {};
+function toggleAnalytics(key) { analyticsCollapsed[key] = !analyticsCollapsed[key]; render(); }
+
+function renderAnalytics() {
+  document.getElementById('addBtn').classList.remove('hidden');
+
+  const brandBlocks = BRANDS.map(b => {
+    const entries = [...(db.analytics||[])].filter(a=>a.brand===b).sort((x,y)=>(x.tanggal||'').localeCompare(y.tanggal||''));
+    const key = 'ana_' + b;
+    const collapsed = analyticsCollapsed[key] ?? (b !== 'dikopi');
+
+    // group by month
+    const byMonth = {};
+    entries.forEach(a => {
+      const mk = (a.tanggal||'unset').substring(0,7);
+      if (!byMonth[mk]) byMonth[mk] = [];
+      byMonth[mk].push(a);
+    });
+
+    const monthBlocks = Object.keys(byMonth).sort().map(mk => {
+      const mItems = byMonth[mk];
+      const mkLabel = mk === 'unset' ? 'Tanpa Tanggal' : getBulanLabel(mk);
+      const mCollapsed = analyticsCollapsed[`${key}_${mk}`] ?? false;
+      const rows = mItems.map(a => {
+        const er = a.reach ? ((((a.likes||0)+(a.comments||0)+(a.saves||0)+(a.shares||0))/a.reach)*100).toFixed(1)+'%' : '—';
+        return `<tr>
+          <td class="metric-num">${fmtTanggal(a.tanggal)}</td>
+          <td>${esc(a.judul||'—')}</td>
+          <td>${esc(a.pilar||'—')}</td>
+          <td>${esc(a.format||'—')}</td>
+          <td class="metric-num">${a.likes||'—'}</td>
+          <td class="metric-num">${a.comments||'—'}</td>
+          <td class="metric-num">${a.saves||'—'}</td>
+          <td class="metric-num">${a.shares||'—'}</td>
+          <td class="metric-num">${a.reach||'—'}</td>
+          <td class="metric-num">${er}</td>
+          <td style="font-size:11px;color:var(--text2)">${esc(a.notes||'')}</td>
+          <td>
+            <button class="tbl-action-btn tbl-edit" onclick="openEditAnalytics(${a.id})">✏️</button>
+            <button class="tbl-action-btn tbl-del" onclick="deleteItem('analytics',${a.id})">🗑️</button>
+          </td>
+        </tr>`;
+      }).join('');
+
+      return `
+        <div class="month-collapse-hdr" onclick="toggleAnalytics('${key}_${mk}')">
+          <span style="font-weight:600;font-size:13px">${mkLabel} <span style="color:var(--muted);font-size:11px;font-weight:400">· ${mItems.length} post</span></span>
+          <span style="font-size:12px;color:var(--muted)">${mCollapsed?'▸':'▾'}</span>
+        </div>
+        ${mCollapsed ? '' : `<div class="analytics-wrap">
+          <table class="analytics-table">
+            <thead><tr>
+              <th style="width:7%">Tgl</th><th style="width:14%">Judul</th><th style="width:8%">Pilar</th>
+              <th style="width:8%">Format</th><th style="width:5%">♥</th><th style="width:5%">💬</th>
+              <th style="width:5%">🔖</th><th style="width:5%">↗</th><th style="width:7%">Reach</th>
+              <th style="width:6%">ER%</th><th style="width:18%">Notes</th><th style="width:7%">Aksi</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`}`;
+    }).join('');
+
+    return `<div class="brand-section">
+      <div class="brand-section-header ${collapsed?'collapsed':''}" onclick="toggleBrandSection('${key}')">
+        <div class="brand-section-title"><span style="color:var(--${b})">${BRAND_LABEL[b]}</span>
+          <span style="font-size:11px;color:var(--muted);font-weight:400">${entries.length} data</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          ${!collapsed ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openEditAnalytics(null,'${b}')">+ Tambah</button>` : ''}
+          <span class="brand-section-chevron">▾</span>
+        </div>
+      </div>
+      ${collapsed ? '' : `<div class="brand-section-body">
+        ${entries.length ? monthBlocks : `<div class="empty"><div class="empty-icon">📊</div>Belum ada data analytics<br><button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="openEditAnalytics(null,'${b}')">+ Tambah Data</button></div>`}
+      </div>`}
+    </div>`;
+  }).join('');
+
+  return `<div class="page-topbar"><div style="font-size:13px;color:var(--muted)">Input metrics mingguan per post — track ER%, reach, saves</div></div>${brandBlocks}`;
+}
+
+function openEditAnalytics(id, brand) {
+  const existing = id ? (db.analytics||[]).find(a=>a.id===id) : null;
+  const b = existing?.brand || brand || BRANDS[0];
+  document.getElementById('modalTitle').textContent = id ? '✏️ Edit Analytics' : '+ Tambah Data Analytics';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Brand</div>
+        <select class="form-select" id="fa_brand">${BRANDS.map(x=>`<option value="${x}" ${x===b?'selected':''}>${BRAND_LABEL[x]}</option>`).join('')}</select>
+      </div>
+      <div class="form-group">
+        <div class="form-label">Tanggal Post</div>
+        <input class="form-input" id="fa_tanggal" placeholder="DD/MM/YYYY" maxlength="10" oninput="autoSlashDate(this)" value="${toDisplayDate(existing?.tanggal||'')}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:2">
+        <div class="form-label">Judul Konten</div>
+        <input class="form-input" id="fa_judul" value="${esc(existing?.judul||'')}">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Pilar</div>
+        ${pilarSelect('fa_pilar', existing?.pilar||'')}
+      </div>
+      <div class="form-group">
+        <div class="form-label">Format</div>
+        <select class="form-select" id="fa_format">
+          ${['','Reels','Carousel','Single Post','Story','Video'].map(f=>`<option ${f===(existing?.format||'')?'selected':''}>${f}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><div class="form-label">❤️ Likes</div><input class="form-input" id="fa_likes" type="number" value="${existing?.likes||''}"></div>
+      <div class="form-group"><div class="form-label">💬 Comments</div><input class="form-input" id="fa_comments" type="number" value="${existing?.comments||''}"></div>
+      <div class="form-group"><div class="form-label">🔖 Saves</div><input class="form-input" id="fa_saves" type="number" value="${existing?.saves||''}"></div>
+      <div class="form-group"><div class="form-label">↗ Shares</div><input class="form-input" id="fa_shares" type="number" value="${existing?.shares||''}"></div>
+      <div class="form-group"><div class="form-label">👁 Reach</div><input class="form-input" id="fa_reach" type="number" value="${existing?.reach||''}"></div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Notes / Insight</div>
+      <textarea class="form-textarea" id="fa_notes">${esc(existing?.notes||'')}</textarea>
+    </div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="saveAnalytics(${id||'null'})">💾 Simpan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+}
+
+async function saveAnalytics(id) {
+  if (!dirHandle) { toast('⚠️ Pilih folder dulu','error'); return; }
+  if (!db.analytics) db.analytics = [];
+  const entry = {
+    id: id || Date.now(),
+    brand: gv('fa_brand'), tanggal: toStorageDate(gv('fa_tanggal')),
+    judul: gv('fa_judul'), pilar: gv('fa_pilar'), format: gv('fa_format'),
+    likes: Number(gv('fa_likes'))||0, comments: Number(gv('fa_comments'))||0,
+    saves: Number(gv('fa_saves'))||0, shares: Number(gv('fa_shares'))||0,
+    reach: Number(gv('fa_reach'))||0, notes: gv('fa_notes')
+  };
+  if (id) { const i=db.analytics.findIndex(a=>a.id===id); if(i>=0) db.analytics[i]=entry; }
+  else db.analytics.push(entry);
+  await saveDB('analytics');
+  closeModal(); toast('✅ Data analytics disimpan!','success'); render();
+}
+
+// ─── ADS PLAN ────────────────────────────────────────────────
+let adsCollapsed = {};
+
+function renderAdsplan() {
+  document.getElementById('addBtn').classList.remove('hidden');
+
+  const brandBlocks = BRANDS.map(b => {
+    const campaigns = [...(db.adsplan||[])].filter(a=>a.brand===b).sort((x,y)=>(x.startDate||'').localeCompare(y.startDate||''));
+    const key = 'ads_' + b;
+    const collapsed = adsCollapsed[key] ?? (b !== 'dikopi');
+
+    const totalBudget = campaigns.reduce((s,c)=>s+Number(c.total||0),0);
+    const active = campaigns.filter(c=>c.status==='active').length;
+
+    // group by month
+    const byMonth = {};
+    campaigns.forEach(c => {
+      const mk = (c.bulan||'unset');
+      if (!byMonth[mk]) byMonth[mk] = [];
+      byMonth[mk].push(c);
+    });
+
+    const monthBlocks = Object.keys(byMonth).sort().map(mk => {
+      const mItems = byMonth[mk];
+      const mkLabel = mk==='unset' ? 'Tanpa Bulan' : getBulanLabel(mk);
+      const mCollapsed = adsCollapsed[`${key}_${mk}`] ?? false;
+      const cards = mItems.map(c => {
+        const statusCls = c.status==='active'?'ads-status-active':c.status==='done'?'ads-status-done':'ads-status-planned';
+        const statusLabel = c.status==='active'?'🟢 Active':c.status==='done'?'✅ Done':'🔵 Planned';
+        return `<div class="ads-campaign">
+          <div style="flex:1">
+            <div class="ads-campaign-name">${esc(c.nama)}</div>
+            <div class="ads-campaign-meta">${esc(c.tujuan||'—')} · ${esc(c.durasi||'')} · Budget/hari: ${c.budgetHari?'Rp'+Number(c.budgetHari).toLocaleString('id'):'-'}</div>
+          </div>
+          <span class="ads-budget-pill">Rp ${Number(c.total||0).toLocaleString('id')}</span>
+          <span class="ads-status-pill ${statusCls}">${statusLabel}</span>
+          <button class="tbl-action-btn tbl-edit" onclick="openEditAds(${c.id})">✏️</button>
+          <button class="tbl-action-btn tbl-del" onclick="deleteItem('adsplan',${c.id})">🗑️</button>
+        </div>`;
+      }).join('');
+
+      return `
+        <div class="month-collapse-hdr" onclick="toggleAnalytics('${key}_${mk}')">
+          <span style="font-weight:600;font-size:13px">${mkLabel} <span style="color:var(--muted);font-size:11px;font-weight:400">· ${mItems.length} campaign</span></span>
+          <span style="font-size:12px;color:var(--muted)">${mCollapsed?'▸':'▾'}</span>
+        </div>
+        ${mCollapsed ? '' : cards}`;
+    }).join('');
+
+    return `<div class="brand-section">
+      <div class="brand-section-header ${collapsed?'collapsed':''}" onclick="adsCollapsed['${key}']=!adsCollapsed['${key}'];render()">
+        <div class="brand-section-title">
+          <span style="color:var(--${b})">${BRAND_LABEL[b]}</span>
+          ${active ? `<span style="font-size:11px;color:var(--accent);font-weight:400">${active} active</span>` : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          ${!collapsed ? `<span style="font-family:'DM Mono',monospace;font-size:11px;color:#4cc9a0">Total: Rp${totalBudget.toLocaleString('id')}</span>` : ''}
+          ${!collapsed ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openEditAds(null,'${b}')">+ Campaign</button>` : ''}
+          <span class="brand-section-chevron">▾</span>
+        </div>
+      </div>
+      ${collapsed ? '' : `<div class="brand-section-body">
+        ${campaigns.length ? monthBlocks : `<div class="empty"><div class="empty-icon">📢</div>Belum ada campaign ads<br><button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="openEditAds(null,'${b}')">+ Tambah Campaign</button></div>`}
+      </div>`}
+    </div>`;
+  }).join('');
+
+  return `<div class="page-topbar"><div style="font-size:13px;color:var(--muted)">Track semua campaign Meta Ads per brand, per bulan</div></div>${brandBlocks}`;
+}
+
+function openEditAds(id, brand) {
+  const existing = id ? (db.adsplan||[]).find(a=>a.id===id) : null;
+  const b = existing?.brand || brand || BRANDS[0];
+  document.getElementById('modalTitle').textContent = id ? '✏️ Edit Campaign' : '+ Tambah Campaign Ads';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Brand</div>
+        <select class="form-select" id="fads_brand">${BRANDS.map(x=>`<option value="${x}" ${x===b?'selected':''}>${BRAND_LABEL[x]}</option>`).join('')}</select>
+      </div>
+      <div class="form-group">
+        <div class="form-label">Bulan</div>
+        <input class="form-input" id="fads_bulan" type="month" value="${existing?.bulan||new Date().toISOString().substring(0,7)}">
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Nama Campaign</div>
+      <input class="form-input" id="fads_nama" value="${esc(existing?.nama||'')}" placeholder="Campaign 1: Brand Awareness Dikopi">
+    </div>
+    <div class="form-group">
+      <div class="form-label">Tujuan Campaign</div>
+      <select class="form-select" id="fads_tujuan">
+        ${['Brand Awareness / Reach','Conversion / DM Order','Traffic / Awareness','Engagement / Reach','Retarget + Conversion'].map(t=>`<option ${t===(existing?.tujuan||'')?'selected':''}>${t}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><div class="form-label">Budget / Hari (Rp)</div><input class="form-input" id="fads_budgetHari" type="text" inputmode="numeric" value="${existing?.budgetHari?Number(existing.budgetHari).toLocaleString('id-ID'):''}" oninput="hppFmtInput(this)"></div>
+      <div class="form-group"><div class="form-label">Durasi</div><input class="form-input" id="fads_durasi" value="${esc(existing?.durasi||'')}" placeholder="14 hari"></div>
+      <div class="form-group"><div class="form-label">Total Budget (Rp)</div><input class="form-input" id="fads_total" type="text" inputmode="numeric" value="${existing?.total?Number(existing.total).toLocaleString('id-ID'):''}" oninput="hppFmtInput(this)"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Status</div>
+        <select class="form-select" id="fads_status">
+          <option value="planned" ${(existing?.status||'planned')==='planned'?'selected':''}>🔵 Planned</option>
+          <option value="active" ${existing?.status==='active'?'selected':''}>🟢 Active</option>
+          <option value="done" ${existing?.status==='done'?'selected':''}>✅ Done</option>
+        </select>
+      </div>
+      <div class="form-group" style="flex:2">
+        <div class="form-label">Catatan</div>
+        <input class="form-input" id="fads_notes" value="${esc(existing?.notes||'')}" placeholder="Target audience, insight, dll">
+      </div>
+    </div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="saveAds(${id||'null'})">💾 Simpan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+}
+
+async function saveAds(id) {
+  if (!dirHandle) { toast('⚠️ Pilih folder dulu','error'); return; }
+  if (!db.adsplan) db.adsplan = [];
+  const entry = {
+    id: id||Date.now(), brand:gv('fads_brand'), bulan:gv('fads_bulan'),
+    nama:gv('fads_nama'), tujuan:gv('fads_tujuan'), budgetHari:parseFloat((gv('fads_budgetHari')||'0').replace(/\./g,''))||0,
+    durasi:gv('fads_durasi'), total:parseFloat((gv('fads_total')||'0').replace(/\./g,''))||0,
+    status:gv('fads_status'), notes:gv('fads_notes')
+  };
+  if (id) { const i=db.adsplan.findIndex(a=>a.id===id); if(i>=0) db.adsplan[i]=entry; }
+  else db.adsplan.push(entry);
+  await saveDB('adsplan');
+  closeModal(); toast('✅ Campaign disimpan!','success'); render();
+}
+
+// ─── ADD MODAL ───────────────────────────────────────────────
+function openAddModal() {
+  // pages with their own modals
+  if (currentPage === 'todos') {
+    const activeBrand = (currentFilter === 'all' || !BRANDS.includes(currentFilter)) ? BRANDS[0] : currentFilter;
+    openAddConten(activeBrand, new Date().toISOString().substring(0,7));
+    return;
+  }
+  if (currentPage === 'projects') {
+    const activeBrand = (currentFilter === 'all' || !BRANDS.includes(currentFilter)) ? BRANDS[0] : currentFilter;
+    openAddProject(activeBrand);
+    return;
+  }
+  if (currentPage === 'strategy')  { openEditStrategy(null); return; }
+  if (currentPage === 'analytics') { openEditAnalytics(null, BRANDS[0]); return; }
+  if (currentPage === 'adsplan')   { openEditAds(null, BRANDS[0]); return; }
+  if (['keu_buku','keuangan'].includes(currentPage)) { openAddTransaksi(keuBukuBrand); return; }
+
+  const bodies = {
+    todos: `
+      <div class="form-row">
+        <div class="form-group" style="flex:2">
+          <div class="form-label">To-do</div>
+          <input class="form-input" id="f_text" placeholder="Apa yang harus dikerjain?">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Brand</div>
+          ${brandSelect('f_brand')}
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <div class="form-label">Priority</div>
+          <select class="form-select" id="f_priority">
+            <option value="high">🔴 High</option>
+            <option value="med" selected>🟡 Medium</option>
+            <option value="low">⚫ Low</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:2">
+          <div class="form-label">Notes (opsional)</div>
+          <input class="form-input" id="f_notes" placeholder="Catatan tambahan...">
+        </div>
+      </div>`,
+
+    projects: `
+      <div class="form-row">
+        <div class="form-group" style="flex:2">
+          <div class="form-label">Nama Project</div>
+          <input class="form-input" id="f_nama" placeholder="Contoh: Rebranding Kolektiva 2026...">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Brand</div>
+          ${brandSelect('f_brand')}
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <div class="form-label">Status</div>
+          <select class="form-select" id="f_status">
+            <option value="planning">📋 Planning</option>
+            <option value="ongoing" selected>⚙️ Ongoing</option>
+            <option value="review">🔍 Review</option>
+            <option value="done">✅ Done</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <div class="form-label">Deadline</div>
+          <input class="form-input" id="f_deadline" placeholder="DD/MM/YYYY" maxlength="10" oninput="autoSlashDate(this)">
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="form-label">Deskripsi (opsional)</div>
+        <textarea class="form-textarea" id="f_deskripsi" placeholder="Scope, tujuan, notes project..."></textarea>
+      </div>`,
+
+    orders: `
+      <div class="form-row">
+        <div class="form-group" style="flex:2">
+          <div class="form-label">Nama Order / Project</div>
+          <input class="form-input" id="f_nama" placeholder="Contoh: Lanyard UIN...">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Brand</div>
+          ${brandSelect('f_brand')}
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <div class="form-label">Klien / Customer</div>
+          <input class="form-input" id="f_klien" placeholder="Nama klien...">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Nominal (Rp)</div>
+          <input class="form-input" id="f_nominal" type="number" placeholder="0">
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="form-label">Notes</div>
+        <textarea class="form-textarea" id="f_notes" placeholder="Detail order, deadline, dll..."></textarea>
+      </div>`,
+
+    keuangan: `
+      <div class="form-row">
+        <div class="form-group">
+          <div class="form-label">Tipe</div>
+          <select class="form-select" id="f_tipe">
+            <option value="masuk">💚 Pemasukan</option>
+            <option value="keluar">❤️ Pengeluaran</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <div class="form-label">Brand</div>
+          ${brandSelect('f_brand')}
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex:2">
+          <div class="form-label">Deskripsi</div>
+          <input class="form-input" id="f_deskripsi" placeholder="Contoh: DP Order Lanyard UIN...">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Nominal (Rp)</div>
+          <input class="form-input" id="f_nominal" type="number" placeholder="0">
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="form-label">Tanggal</div>
+        <input class="form-input" id="f_tanggal" placeholder="DD/MM/YYYY" maxlength="10" oninput="autoSlashDate(this)" value="${toDisplayDate(todayStr())}">
+      </div>`,
+
+    kontak: `
+      <div class="form-row">
+        <div class="form-group">
+          <div class="form-label">Nama</div>
+          <input class="form-input" id="f_nama" placeholder="Nama kontak...">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Peran</div>
+          <input class="form-input" id="f_peran" placeholder="Klien / Vendor / Partner...">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <div class="form-label">No. HP / WA</div>
+          <input class="form-input" id="f_hp" placeholder="081234567890">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Email (opsional)</div>
+          <input class="form-input" id="f_email" type="email" placeholder="email@...">
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="form-label">Brand Terkait</div>
+        ${brandSelect('f_brand', true)}
+      </div>`,
+  };
+
+  const titles = { todos:'Tambah To-do', projects:'Tambah Project', orders:'Tambah Order', keuangan:'Tambah Transaksi', kontak:'Tambah Kontak' };
+  if (!bodies[currentPage]) return;
+
+  document.getElementById('modalTitle').textContent = titles[currentPage];
+  document.getElementById('modalBody').innerHTML = bodies[currentPage];
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="submitModal()">💾 Simpan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+}
+
+function brandSelect(id, optional=false) {
+  const opts = BRANDS.map(b=>`<option value="${b}">${BRAND_LABEL[b]}</option>`).join('');
+  const all = optional ? `<option value="">Umum</option>` : '';
+  return `<select class="form-select" id="${id}">${all}${opts}</select>`;
+}
+
+function closeModal(e) {
+  if (e && e.target !== document.getElementById('modalBackdrop')) return;
+  document.getElementById('modalBackdrop').classList.add('hidden');
+}
+
+function gv(id) { const el = document.getElementById(id); return el ? el.value : ''; }
+
+async function submitModal() {
+  if (!dirHandle) { toast('⚠️ Pilih folder dulu', 'error'); return; }
+  let item;
+  const id = Date.now();
+
+  if (currentPage === 'orders') {
+    const nama = gv('f_nama').trim();
+    if (!nama) { toast('⚠️ Nama order tidak boleh kosong', 'error'); return; }
+    item = { id, nama, brand: gv('f_brand'), klien: gv('f_klien'), nominal: gv('f_nominal')||0, notes: gv('f_notes'), status: 'pending' };
+    db.orders.unshift(item);
+    await saveDB('orders');
+
+  } else if (currentPage === 'keuangan') {
+    const deskripsi = gv('f_deskripsi').trim();
+    if (!deskripsi) { toast('⚠️ Deskripsi tidak boleh kosong', 'error'); return; }
+    item = { id, tipe: gv('f_tipe'), brand: gv('f_brand'), deskripsi, nominal: gv('f_nominal')||0, tanggal: toStorageDate(gv('f_tanggal')) };
+    db.keuangan.unshift(item);
+    await saveDB('keuangan');
+
+  } else if (currentPage === 'kontak') {
+    const nama = gv('f_nama').trim();
+    if (!nama) { toast('⚠️ Nama tidak boleh kosong', 'error'); return; }
+    item = { id, nama, peran: gv('f_peran'), hp: gv('f_hp'), email: gv('f_email'), brand: gv('f_brand') };
+    db.kontak.push(item);
+    await saveDB('kontak');
+  }
+
+  document.getElementById('modalBackdrop').classList.add('hidden');
+  toast('✅ Tersimpan ke SSD!', 'success');
+  render();
+}
+
+// ─── DETAIL POPUPS ───────────────────────────────────────────
+function showTodoDetail(id) {
+  const t = db.todos.find(x=>x.id===id);
+  if (!t) return;
+  const HARI_NAMES = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+  const hari = t.tanggalPosting ? HARI_NAMES[new Date(t.tanggalPosting+'T00:00:00').getDay()] : '—';
+  const detailCard = (icon, label, value) => `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px">
+      <div class="form-label" style="margin-bottom:5px">${icon} ${label}</div>
+      <div style="font-size:13px;color:var(--text);line-height:1.6;word-break:break-word">${value||'—'}</div>
+    </div>`;
+
+  document.getElementById('modalTitle').textContent = '📋 Detail Konten';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <span class="pill pill-${t.brand}">${BRAND_LABEL[t.brand]||'—'}</span>
+        ${t.pilar?`<span class="pill-pilar" style="${getPilarStyle(t.pilar)};padding:3px 10px;border-radius:99px;font-size:11px">${esc(t.pilar)}</span>`:''}
+        ${t.format?`<span style="font-size:11px;color:var(--muted);background:var(--surface3);padding:2px 10px;border-radius:99px">${esc(t.format)}</span>`:''}
+        ${t.done?`<span class="pill pill-done">✅ Sudah Diposting</span>`:`<span class="pill pill-pending">⏳ Belum Diposting</span>`}
+      </div>
+
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px">
+        <div class="form-label" style="margin-bottom:6px">📝 Judul / Tema Konten</div>
+        <div style="font-size:15px;font-weight:600;color:var(--text);line-height:1.5">${esc(t.judul||t.konsep||'—')}</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+        ${detailCard('📅','Tanggal Posting', fmtTanggal(t.tanggalPosting))}
+        ${detailCard('📆','Hari', hari)}
+        ${detailCard('📆','Bulan', getBulanLabel(t.bulan))}
+      </div>
+
+      ${t.hook ? detailCard('🪝','Caption Hook', esc(t.hook)) : ''}
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        ${detailCard('📣','CTA', esc(t.cta))}
+        ${detailCard('🏷️','Hashtag Bucket', esc(t.hashtag))}
+      </div>
+
+      ${t.notes ? detailCard('📌','Notes', esc(t.notes)) : ''}
+    </div>
+  `;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-danger btn-sm" onclick="deleteItem('todos',${t.id});closeModal()">🗑️ Hapus</button>
+    <button class="btn btn-ghost" onclick="openEditConten(${t.id})">✏️ Edit</button>
+    <button class="btn btn-primary" onclick="toggleTodo(${t.id});closeModal()">${t.done?'↩️ Belum Diposting':'✅ Mark Posted'}</button>
+  `;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+}
+
+function openEditProject(id) {
+  const p = db.projects.find(x=>x.id===id);
+  if (!p) return;
+  const pct = p.progress||0;
+  document.getElementById('modalTitle').textContent = '✏️ Edit Project';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <span class="pill pill-${p.brand||'pratani'}">${BRAND_LABEL[p.brand]||'—'}</span>
+        <span class="pill pill-proj-${p.status}">${projStatusLabel(p.status)}</span>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex:2">
+          <div class="form-label">Nama Project</div>
+          <input class="form-input" id="ep_nama" value="${esc(p.nama||'')}">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Brand</div>
+          <select class="form-select" id="ep_brand">
+            ${BRANDS.map(b=>`<option value="${b}" ${b===p.brand?'selected':''}>${BRAND_LABEL[b]}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <div class="form-label">Tanggal Mulai</div>
+          <input class="form-input" id="ep_tanggalMulai" placeholder="DD/MM/YYYY" maxlength="10" oninput="autoSlashDate(this)" value="${toDisplayDate(p.tanggalMulai)}">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Deadline</div>
+          <input class="form-input" id="ep_deadline" placeholder="DD/MM/YYYY" maxlength="10" oninput="autoSlashDate(this)" value="${toDisplayDate(p.deadline)}">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Status</div>
+          <select class="form-select" id="ep_status">
+            ${['planning','ongoing','review','done'].map(s=>`<option value="${s}" ${s===p.status?'selected':''}>${projStatusLabel(s)}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <div class="form-label">Contact Person</div>
+          <input class="form-input" id="ep_contactPerson" value="${esc(p.contactPerson||'')}">
+        </div>
+        <div class="form-group">
+          <div class="form-label">No. HP / WA</div>
+          <input class="form-input" id="ep_contactHp" value="${esc(p.contactHp||'')}">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex:2">
+          <div class="form-label">Deskripsi</div>
+          <textarea class="form-textarea" id="ep_deskripsi">${esc(p.deskripsi||'')}</textarea>
+        </div>
+        <div class="form-group">
+          <div class="form-label">Nilai Project (Rp)</div>
+          <input class="form-input" id="ep_nilaiProyek" type="text" inputmode="numeric" value="${p.nilaiProyek?Number(p.nilaiProyek).toLocaleString('id-ID'):''}" oninput="hppFmtInput(this)">
+        </div>
+      </div>
+      <div>
+        <div class="form-label" style="margin-bottom:8px">Progress — <span id="ep_pct_label">${pct}%</span></div>
+        <input type="range" min="0" max="100" value="${pct}" style="width:100%;accent-color:var(--accent)"
+          oninput="document.getElementById('ep_pct_label').textContent=this.value+'%';document.getElementById('ep_pbar').style.width=this.value+'%'"
+          id="ep_slider">
+        <div class="progress-bar" style="height:8px;margin-top:8px">
+          <div class="progress-fill" id="ep_pbar" style="width:${pct}%"></div>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost btn-sm" onclick="openUploadProjectFile(${p.id})">📎 Files (${(p.files||[]).length})</button>
+    <button class="btn btn-danger btn-sm" onclick="deleteItem('projects',${p.id});closeModal()">🗑️</button>
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="saveEditProject(${p.id})">💾 Simpan</button>
+  `;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+}
+
+async function saveEditProject(id) {
+  if (!dirHandle) { toast('⚠️ Pilih folder dulu', 'error'); return; }
+  const p = db.projects.find(x=>x.id===id);
+  if (!p) return;
+  p.nama          = document.getElementById('ep_nama').value.trim();
+  p.brand         = document.getElementById('ep_brand').value;
+  p.tanggalMulai = toStorageDate(document.getElementById('ep_tanggalMulai').value);
+  p.deadline = toStorageDate(document.getElementById('ep_deadline').value);
+  p.status        = document.getElementById('ep_status').value;
+  p.contactPerson = document.getElementById('ep_contactPerson').value;
+  p.contactHp     = document.getElementById('ep_contactHp').value;
+  p.deskripsi     = document.getElementById('ep_deskripsi').value;
+  p.nilaiProyek   = Number(document.getElementById('ep_nilaiProyek').value)||0;
+  p.progress      = Number(document.getElementById('ep_slider').value);
+  await saveDB('projects');
+  document.getElementById('modalBackdrop').classList.add('hidden');
+  toast('✅ Project diperbarui!', 'success');
+  render();
+}
+
+// ─── TODO TOGGLE ─────────────────────────────────────────────
+async function toggleTodo(id) {
+  const t = db.todos.find(t=>t.id===id);
+  if (t) t.done = !t.done;
+  await saveDB('todos');
+  render();
+}
+
+// ─── PROJECT PROGRESS ────────────────────────────────────────
+
+// ─── ORDER STATUS ─────────────────────────────────────────────
+async function updateOrderStatus(id, status) {
+  const o = db.orders.find(o=>o.id===id);
+  if (o) o.status = status;
+  await saveDB('orders');
+  toast('✅ Status diperbarui', 'success');
+}
+
+// ─── DELETE ──────────────────────────────────────────────────
+// ─── TRASH SYSTEM ────────────────────────────────────────────
+// Soft delete: moves item to trash instead of destroying it
+async function deleteItem(table, id) {
+  const item = db[table]?.find(x => x.id === id);
+  if (!item) return;
+
+  // move to trash
+  db.trash.push({
+    id: Date.now() + Math.random(),
+    originalTable: table,
+    originalId: id,
+    item: JSON.parse(JSON.stringify(item)), // deep copy
+    deletedAt: new Date().toISOString(),
+    label: item.origName || item.judul || item.nama || item.text || item.peran || `Item #${id}`
+  });
+
+  db[table] = db[table].filter(x => x.id !== id);
+  await saveDB(table);
+  await saveDB('trash');
+  updateTrashBadge();
+  toast('🗑️ Dipindahkan ke Sampah', 'success');
+  render();
+}
+
+// Soft delete for folders — moves folder + all contents to trash recursively
+async function softDeleteFolder(id) {
+  function collectIds(fid) {
+    const kids = db.folders.filter(f => f.parentId === fid).map(f => f.id);
+    return [fid, ...kids.flatMap(k => collectIds(k))];
+  }
+  const allFolderIds = collectIds(id);
+  const rootFolder = db.folders.find(f => f.id === id);
+
+  // trash the root folder as a single "folder" entry
+  db.trash.push({
+    id: Date.now() + Math.random(),
+    originalTable: 'folder_tree',
+    originalId: id,
+    item: { folderIds: allFolderIds, folders: db.folders.filter(f => allFolderIds.includes(f.id)), files: db.dokumen.filter(d => allFolderIds.includes(d.folderId)) },
+    deletedAt: new Date().toISOString(),
+    label: `📁 ${rootFolder?.name || 'Folder'}`,
+    isFolder: true
+  });
+
+  db.dokumen = db.dokumen.filter(d => !allFolderIds.includes(d.folderId));
+  db.folders = db.folders.filter(f => !allFolderIds.includes(f.id));
+  if (currentFolderId && allFolderIds.includes(currentFolderId)) currentFolderId = null;
+
+  await saveDB('folders');
+  await saveDB('dokumen');
+  await saveDB('trash');
+  updateTrashBadge();
+  toast(`🗑️ Folder dipindahkan ke Sampah`, 'success');
+  render();
+}
+
+// Restore item from trash
+async function restoreTrashItem(trashId) {
+  const entry = db.trash.find(x => x.id === trashId);
+  if (!entry) return;
+
+  if (entry.isFolder) {
+    // restore folders and files
+    entry.item.folders.forEach(f => { if (!db.folders.find(x => x.id === f.id)) db.folders.push(f); });
+    entry.item.files.forEach(f => { if (!db.dokumen.find(x => x.id === f.id)) db.dokumen.push(f); });
+    await saveDB('folders');
+    await saveDB('dokumen');
+  } else {
+    const tbl = entry.originalTable;
+    if (!db[tbl]) db[tbl] = [];
+    if (!db[tbl].find(x => x.id === entry.originalId)) {
+      db[tbl].unshift(entry.item);
+    }
+    await saveDB(tbl);
+  }
+
+  db.trash = db.trash.filter(x => x.id !== trashId);
+  await saveDB('trash');
+  updateTrashBadge();
+  toast('↩️ Item dikembalikan!', 'success');
+  render();
+}
+
+// Permanent delete — removes from disk if file
+async function permanentDeleteItem(trashId) {
+  const entry = db.trash.find(x => x.id === trashId);
+  if (!entry) return;
+
+  // delete physical files from SSD
+  if (dirHandle) {
+    try {
+      const filesDir = await dirHandle.getDirectoryHandle('files', { create: false });
+      const filesToKill = entry.isFolder
+        ? entry.item.files.map(f => f.stored).filter(Boolean)
+        : [entry.item?.stored].filter(Boolean);
+
+      for (const storedName of filesToKill) {
+        try { await filesDir.removeEntry(storedName); } catch {}
+      }
+    } catch {}
+  }
+
+  db.trash = db.trash.filter(x => x.id !== trashId);
+  await saveDB('trash');
+  updateTrashBadge();
+  toast('💀 Dihapus permanen dari disk', 'success');
+  render();
+}
+
+// Empty entire trash — permanently delete everything
+async function emptyTrash() {
+  if (!db.trash.length) return;
+  document.getElementById('modalTitle').textContent = '⚠️ Kosongkan Sampah';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="text-align:center;padding:16px 0">
+      <div style="font-size:36px;margin-bottom:12px">🗑️</div>
+      <div style="font-size:14px;color:var(--text);font-weight:600;margin-bottom:8px">${db.trash.length} item akan dihapus permanen</div>
+      <div style="font-size:12px;color:var(--muted)">File yang tersimpan di disk akan ikut terhapus.<br>Tindakan ini <strong>tidak bisa dibatalkan</strong>.</div>
+    </div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-danger" onclick="confirmEmptyTrash()">🗑️ Hapus Semua Permanen</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+}
+
+async function confirmEmptyTrash() {
+  if (dirHandle) {
+    try {
+      const filesDir = await dirHandle.getDirectoryHandle('files', { create: false });
+      for (const entry of db.trash) {
+        const files = entry.isFolder
+          ? entry.item.files.map(f => f.stored).filter(Boolean)
+          : [entry.item?.stored].filter(Boolean);
+        for (const s of files) { try { await filesDir.removeEntry(s); } catch {} }
+      }
+    } catch {}
+  }
+  db.trash = [];
+  await saveDB('trash');
+  closeModal();
+  updateTrashBadge();
+  toast('💀 Sampah dikosongkan', 'success');
+  render();
+}
+
+function updateTrashBadge() {
+  const badge = document.getElementById('trashBadge');
+  if (!badge) return;
+  if (db.trash.length > 0) {
+    badge.textContent = db.trash.length;
+    badge.style.display = 'inline';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+// ─── RENDER SAMPAH ────────────────────────────────────────────
+function renderSampah() {
+  document.getElementById('addBtn').classList.add('hidden');
+
+  if (!db.trash.length) return `
+    <div class="trash-empty">
+      <div class="empty-icon">🗑️</div>
+      Sampah kosong<br>
+      <span style="font-size:12px">File yang dihapus akan muncul di sini</span>
+    </div>`;
+
+  const sorted = [...db.trash].sort((a,b) => new Date(b.deletedAt) - new Date(a.deletedAt));
+
+  const TABLE_LABEL = { todos:'Content Plan', projects:'Projects', orders:'Orders',
+    dokumen:'Dokumen', keuangan:'Keuangan', kontak:'Kontak', analytics:'Analytics',
+    adsplan:'Ads Plan', folder_tree:'Folder' };
+
+  const rows = sorted.map(t => {
+    const icon = t.isFolder ? '📂' : fileIcon(t.item?.ext || '');
+    const when = t.deletedAt ? new Date(t.deletedAt).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+    const from = TABLE_LABEL[t.originalTable] || t.originalTable;
+    const size = t.item?.size ? ` · ${fmtSize(t.item.size)}` : '';
+    return `
+      <div class="trash-item">
+        <div class="trash-item-icon">${icon}</div>
+        <div class="trash-item-info">
+          <div class="trash-item-name">${esc(t.label)}</div>
+          <div class="trash-item-meta">Dari: ${from}${size} · Dihapus ${when}</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="restoreTrashItem(${t.id})" title="Pulihkan">↩️ Pulihkan</button>
+        <button class="btn btn-danger btn-sm" onclick="confirmPermDelete(${t.id})" title="Hapus permanen">💀 Hapus</button>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="trash-toolbar">
+      <div style="font-size:13px;color:var(--muted)">${db.trash.length} item di sampah</div>
+      <div style="flex:1"></div>
+      <button class="btn btn-ghost btn-sm" onclick="restoreAllTrash()">↩️ Pulihkan Semua</button>
+      <button class="btn btn-danger btn-sm" onclick="emptyTrash()">🗑️ Kosongkan Sampah</button>
+    </div>
+    <div style="background:rgba(212,96,58,0.07);border:1px solid rgba(212,96,58,0.2);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--red);margin-bottom:14px">
+      ⚠️ Item di sampah <strong>belum terhapus dari disk</strong>. Hapus permanen untuk benar-benar membersihkan storage.
+    </div>
+    ${rows}`;
+}
+
+function confirmPermDelete(trashId) {
+  const entry = db.trash.find(x => x.id === trashId);
+  if (!entry) return;
+  document.getElementById('modalTitle').textContent = '⚠️ Hapus Permanen';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="text-align:center;padding:12px 0">
+      <div style="font-size:32px;margin-bottom:10px">💀</div>
+      <div style="font-size:13px;font-weight:600;margin-bottom:6px">"${esc(entry.label)}"</div>
+      <div style="font-size:12px;color:var(--muted)">File akan <strong>dihapus permanen dari disk</strong>.<br>Tidak bisa dipulihkan setelah ini.</div>
+    </div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-danger" onclick="closeModal();permanentDeleteItem(${trashId})">💀 Hapus Permanen</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+}
+
+async function restoreAllTrash() {
+  for (const entry of [...db.trash]) {
+    if (entry.isFolder) {
+      entry.item.folders.forEach(f => { if (!db.folders.find(x=>x.id===f.id)) db.folders.push(f); });
+      entry.item.files.forEach(f => { if (!db.dokumen.find(x=>x.id===f.id)) db.dokumen.push(f); });
+    } else {
+      const tbl = entry.originalTable;
+      if (db[tbl] && !db[tbl].find(x=>x.id===entry.originalId)) db[tbl].unshift(entry.item);
+    }
+  }
+  db.trash = [];
+  await Promise.all(['folders','dokumen','todos','projects','orders','keuangan','kontak','analytics','adsplan','trash'].map(t=>saveDB(t)));
+  updateTrashBadge();
+  toast('↩️ Semua item dipulihkan!', 'success');
+  render();
+}
+
+// ─── FILE HANDLING ───────────────────────────────────────────
+async function processFiles(files) {
+  // Legacy: used by project file upload area (not dokumen page)
+  if (!dirHandle) { toast('⚠️ Pilih folder dulu', 'error'); return; }
+  await processFmFiles(Array.from(files), currentFolderId);
+}
+
+
+
+// ─── FILTER ──────────────────────────────────────────────────
+function setFilter(f) {
+  currentFilter = f;
+  render();
+}
+
+// ─── UTILS ───────────────────────────────────────────────────
+function esc(str='') { return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtRp(n) { return 'Rp ' + Number(n||0).toLocaleString('id-ID'); }
+function fmtTimestamp(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  const tgl = d.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
+  const jam = d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+  return `${tgl}, ${jam}`;
+}
+function txnTimestampMeta(t) {
+  const hasEdit = !!(t.updated_at);
+  const createdStr = fmtTimestamp(t.created_at);
+  const updatedStr = hasEdit ? fmtTimestamp(t.updated_at) : null;
+  return { hasEdit, createdStr, updatedStr };
+}
+function fmtSize(n) { return n > 1024*1024 ? (n/1024/1024).toFixed(1)+'MB' : Math.round(n/1024)+'KB'; }
+const DIKOPI_CUTOFF_HOUR = 5; // jam 05:00 = ganti hari baru
+function todayStr() {
+  const now = new Date();
+  // Kalau jam masih sebelum cutoff, anggap masih "hari kemarin"
+  if (now.getHours() < DIKOPI_CUTOFF_HOUR) {
+    const yesterday = new Date(now.getTime() - 24*60*60*1000);
+    return yesterday.toISOString().split('T')[0];
+  }
+  return now.toISOString().split('T')[0];
+}
+function projStatusLabel(s) { return {planning:'📋 Planning',ongoing:'⚙️ Ongoing',review:'🔍 Review',done:'✅ Done'}[s]||s; }
+function statusLabel(s) { return {pending:'🕐 Pending',proses:'⚙️ Proses',done:'✅ Done',batal:'❌ Batal'}[s]||s; }
+function fileIcon(ext) {
+  const map = { pdf:'📄', doc:'📝', docx:'📝', xls:'📊', xlsx:'📊', png:'🖼️', jpg:'🖼️', jpeg:'🖼️', ppt:'📋', pptx:'📋', zip:'🗜️' };
+  return map[ext] || '📎';
+}
+
+function toast(msg, type='success') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+
+// ─── MODAL KEYBOARD HANDLER ────────────────────────────────────────────────
+// Enter = click primary btn (last .btn-primary in modalActions)
+// Escape = close modal
+// Tab inside modal = cycle between inputs naturally (browser default),
+//   but if focus is on last input → move to primary button, Enter fires it
+document.addEventListener('keydown', function(e) {
+  const backdrop = document.getElementById('modalBackdrop');
+  if (!backdrop || backdrop.classList.contains('hidden')) return;
+
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    closeModal();
+    return;
+  }
+
+  if (e.key === 'Enter') {
+    // Don't fire if inside a textarea (Enter = newline there)
+    if (e.target && e.target.tagName === 'TEXTAREA') return;
+    // Don't fire if target is already a button (let it click naturally)
+    if (e.target && e.target.tagName === 'BUTTON') return;
+
+    e.preventDefault();
+    const actions = document.getElementById('modalActions');
+    if (!actions) return;
+    // Click the primary button (last btn-primary, or first button if none)
+    const primary = actions.querySelector('.btn-primary') || actions.querySelector('button');
+    if (primary) primary.click();
+  }
+});
+
+function attachEvents() {} // kept for compatibility, logic moved above
+
+
+function updateDate() {
+  const d = new Date();
+  const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+  const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  document.getElementById('topDate').textContent = `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+// ─── INIT ─────────────────────────────────────────────────────
+async function init() {
+  updateDate();
+  // try to restore folder handle
+  const saved = await idbLoadHandle();
+  if (saved) {
+    try {
+      const perm = await saved.queryPermission({ mode:'readwrite' });
+      if (perm === 'granted') {
+        dirHandle = saved;
+        document.getElementById('folderPath').textContent = saved.name;
+        await loadAll();
+        updateTrashBadge();
+      } else {
+        // need to re-request — we'll show setup screen
+        dirHandle = null;
+      }
+    } catch { dirHandle = null; }
+  }
+  render();
+}
+
+init();
+
+// ─── ANALISIS SHIFT DIKOPI ────────────────────────────────────
+let shiftDate = new Date().toISOString().split('T')[0];
+
+function renderShiftAnalisis() {
+  document.getElementById('addBtn').classList.add('hidden');
+  const txns = getDikopiTxnsByDate(shiftDate);
+  const allDates = [...new Set((db.keu.dikopi||[])
+    .filter(t=>t.tipe==='masuk'&&t.kategori==='Penjualan Langsung'&&t.tanggal)
+    .map(t=>t.tanggal)
+  )].sort().reverse().slice(0,30);
+
+  const { omzet, hppTotal, margin, hasItemData, txnCount, itemsTotal, allItems } = calcMarginFromTxns(txns);
+  const s = getBonusSettings();
+  const feeDasar = s.aktif ? s.feeDasar : 0;
+  const bonus = (s.aktif && margin !== null) ? calcBonusBarista(margin, omzet) : 0;
+  const totalFee = feeDasar + bonus;
+  const marginBersih = margin !== null ? margin - totalFee : null;
+  const indikatorColor = marginBersih === null ? 'var(--muted)' : marginBersih >= 100000 ? '#4cc9a0' : marginBersih >= 50000 ? '#f5a623' : 'var(--red)';
+  const indikatorLabel = marginBersih === null ? '—' : marginBersih >= 100000 ? '🟢 Aman' : marginBersih >= 50000 ? '🟡 Tipis' : '🔴 Berisiko';
+
+  // Item breakdown
+  const itemMap = {};
+  allItems.forEach(i => {
+    if (!itemMap[i.resepId]) itemMap[i.resepId] = { nama:i.nama, qty:0, omzet:0, hpp:0 };
+    itemMap[i.resepId].qty += Number(i.qty)||1;
+    itemMap[i.resepId].omzet += (Number(i.hargaJual)||0)*(Number(i.qty)||1);
+    itemMap[i.resepId].hpp += (Number(i.hppSnapshot)||0)*(Number(i.qty)||1);
+  });
+  const itemRows = Object.values(itemMap).sort((a,b)=>b.omzet-a.omzet);
+
+  const dateOptions = allDates.map(d => {
+    const [y,mo,day] = d.split('-');
+    return `<option value="${d}" ${d===shiftDate?'selected':''}>${day}/${mo}/${y}</option>`;
+  }).join('');
+
+  const noDataMsg = txns.length === 0 ? `
+    <div class="empty" style="padding:40px">
+      <div class="empty-icon">📊</div>
+      Belum ada data penjualan untuk tanggal ini.<br>
+      <span style="font-size:11px">Catat penjualan dengan input per item agar margin terhitung otomatis.</span>
+    </div>` : '';
+
+  const simRows = s.aktif ? `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
+      <div style="background:var(--surface3);border-radius:8px;padding:12px">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Simulasi Distribusi Fee</div>
+        <div style="font-size:12px;line-height:2">
+          <div style="display:flex;justify-content:space-between"><span>Margin Kotor</span><span style="font-family:'DM Mono',monospace;color:${margin!==null?'#4cc9a0':'var(--muted)'}">${margin!==null?fmtRp(margin):'—'}</span></div>
+          <div style="display:flex;justify-content:space-between"><span>− Fee Dasar</span><span style="font-family:'DM Mono',monospace;color:var(--red)">${s.aktif?('−'+fmtRp(feeDasar)):'Nonaktif'}</span></div>
+          <div style="display:flex;justify-content:space-between"><span>− Bonus</span><span style="font-family:'DM Mono',monospace;color:var(--red)">${margin!==null?('−'+fmtRp(bonus)):'—'}</span></div>
+          <div style="border-top:1px solid var(--border);margin-top:6px;padding-top:6px;display:flex;justify-content:space-between;font-weight:700"><span>= Margin Bersih</span><span style="font-family:'DM Mono',monospace;color:${indikatorColor}">${marginBersih!==null?fmtRp(marginBersih):'—'}</span></div>
+        </div>
+      </div>
+      <div style="background:var(--surface3);border-radius:8px;padding:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px">
+        <div style="font-size:28px">${indikatorLabel.split(' ')[0]||'—'}</div>
+        <div style="font-size:14px;font-weight:700;color:${indikatorColor}">${indikatorLabel.split(' ').slice(1).join(' ')||'—'}</div>
+        <div style="font-size:11px;color:var(--muted);text-align:center">Status margin bersih<br>setelah pembayaran barista</div>
+      </div>
+    </div>` : '';
+
+  return `
+  <div style="max-width:900px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap">
+      <div class="form-group" style="margin-bottom:0;min-width:160px">
+        <div class="form-label">Tanggal Shift</div>
+        <select class="form-select" id="shift_date_sel" onchange="shiftDate=this.value;render()">
+          ${dateOptions || `<option value="${shiftDate}">${shiftDate}</option>`}
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <button class="btn btn-ghost btn-sm" onclick="goto('settings_bonus')">⚙️ Settings Barista</button>
+        <button class="btn btn-ghost btn-sm" onclick="goto('keu_buku')">📒 Buku Kas</button>
+      </div>
+    </div>
+
+    ${noDataMsg}
+    ${txns.length ? `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
+      <div class="keu-card">
+        <div class="keu-label">🧾 Jumlah Transaksi</div>
+        <div class="keu-val" style="font-size:20px;color:var(--accent)">${txnCount}</div>
+      </div>
+      <div class="keu-card">
+        <div class="keu-label">🛒 Total Item Terjual</div>
+        <div class="keu-val" style="font-size:20px;color:var(--accent)">${itemsTotal || '—'}</div>
+        ${!hasItemData?'<div style="font-size:9px;color:var(--muted);margin-top:3px">Input per item utk lihat qty</div>':''}
+      </div>
+      <div class="keu-card" style="border-color:rgba(76,201,160,0.3)">
+        <div class="keu-label">📈 Omzet Shift</div>
+        <div class="keu-val keu-green" style="font-size:20px">${fmtRp(omzet)}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
+      <div class="keu-card" style="border-color:rgba(245,166,35,0.3)">
+        <div class="keu-label">📦 HPP Shift</div>
+        <div class="keu-val" style="font-size:20px;color:#f5a623">${hasItemData?fmtRp(hppTotal):'—'}</div>
+      </div>
+      <div class="keu-card" style="border-color:${margin!==null&&margin>=0?'rgba(76,201,160,0.3)':'rgba(212,96,58,0.3)'}">
+        <div class="keu-label">💰 Margin Kotor</div>
+        <div class="keu-val" style="font-size:20px;color:${margin!==null&&margin>=0?'#4cc9a0':'var(--red)'}">${margin!==null?fmtRp(margin):'—'}</div>
+      </div>
+      <div class="keu-card" style="border-color:rgba(139,111,255,0.3)">
+        <div class="keu-label">👨‍🍳 Fee + Bonus Barista</div>
+        <div class="keu-val" style="font-size:20px;color:#9b82f5">${s.aktif?(fmtRp(totalFee)):'Nonaktif'}</div>
+        ${s.aktif?`<div style="font-size:9px;color:var(--muted);margin-top:3px">Dasar: ${fmtRp(feeDasar)} · Bonus: ${margin!==null?fmtRp(bonus):'—'}</div>`:''}
+      </div>
+    </div>
+
+    ${simRows}
+
+    ${itemRows.length ? `
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">📋 Breakdown per Menu
+        <span>${itemRows.length} menu · ${itemsTotal} item</span>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:var(--surface3)">
+          <th style="padding:8px 12px;text-align:left;color:var(--muted)">Menu</th>
+          <th style="padding:8px 12px;text-align:center;color:var(--muted)">Qty</th>
+          <th style="padding:8px 12px;text-align:right;color:var(--muted)">Omzet</th>
+          <th style="padding:8px 12px;text-align:right;color:var(--muted)">HPP</th>
+          <th style="padding:8px 12px;text-align:right;color:var(--muted)">Margin</th>
+          <th style="padding:8px 12px;text-align:right;color:var(--muted)">Margin%</th>
+        </tr></thead>
+        <tbody>
+          ${itemRows.map(r => {
+            const m = r.omzet - r.hpp;
+            const mpct = r.omzet ? Math.round(m/r.omzet*100) : 0;
+            return `<tr style="border-top:1px solid var(--border)">
+              <td style="padding:8px 12px;font-weight:600">${esc(r.nama)}</td>
+              <td style="padding:8px 12px;text-align:center;font-family:'DM Mono',monospace">${r.qty}</td>
+              <td style="padding:8px 12px;text-align:right;font-family:'DM Mono',monospace;color:#4cc9a0">${fmtRp(r.omzet)}</td>
+              <td style="padding:8px 12px;text-align:right;font-family:'DM Mono',monospace;color:#f5a623">${fmtRp(r.hpp)}</td>
+              <td style="padding:8px 12px;text-align:right;font-family:'DM Mono',monospace;color:${m>=0?'#4cc9a0':'var(--red)'}">${fmtRp(m)}</td>
+              <td style="padding:8px 12px;text-align:right;font-family:'DM Mono',monospace;color:${mpct>=50?'#4cc9a0':mpct>=30?'#f5a623':'var(--red)'}">${mpct}%</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>` : (!hasItemData ? `
+    <div class="card" style="margin-top:16px;border-color:rgba(245,166,35,0.2)">
+      <div style="padding:14px;font-size:12px;color:#f5a623;display:flex;gap:10px;align-items:flex-start">
+        <span style="font-size:18px">💡</span>
+        <div>
+          <div style="font-weight:600;margin-bottom:4px">Data HPP & Margin belum tersedia</div>
+          Penjualan ini dicatat tanpa input per item. Mulai sekarang, gunakan tombol <strong>+ Penjualan</strong> di Buku Kas dan input menu satu per satu agar margin terkalkulasi otomatis.
+        </div>
+      </div>
+    </div>` : '')}
+    ` : ''}
+  </div>`;
+}
+
+// ─── SETTINGS BONUS BARISTA ──────────────────────────────────
+function renderSettingsBonus() {
+  document.getElementById('addBtn').classList.add('hidden');
+  const s = getBonusSettings();
+  const rulesRows = s.rules.map((r,i) => `
+    <tr style="border-top:1px solid var(--border)">
+      <td style="padding:7px 10px"><input class="form-input" id="sb_min_${i}" type="text" inputmode="numeric" value="${r.minMargin}" oninput="hppFmtInput(this)" style="width:100%;font-size:12px"></td>
+      <td style="padding:7px 10px"><input class="form-input" id="sb_max_${i}" type="text" inputmode="numeric" value="${r.maxMargin===null?'':r.maxMargin}" placeholder="∞" oninput="hppFmtInput(this)" style="width:100%;font-size:12px"></td>
+      <td style="padding:7px 10px"><input class="form-input" id="sb_bonus_${i}" type="text" inputmode="numeric" value="${r.bonus}" oninput="hppFmtInput(this)" style="width:100%;font-size:12px"></td>
+      <td style="padding:7px 6px;text-align:center"><button onclick="removeBonusRule(${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px">×</button></td>
+    </tr>`).join('');
+
+  const isPercentage = s.bonusType === 'percentage';
+
+  return `
+  <div style="max-width:700px">
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title">⚙️ Konfigurasi Bonus Barista</div>
+      <div class="form-row" style="margin-bottom:14px">
+        <div class="form-group">
+          <div class="form-label">Status</div>
+          <select class="form-select" id="sb_aktif">
+            <option value="1" ${s.aktif?'selected':''}>✅ Aktif</option>
+            <option value="0" ${!s.aktif?'selected':''}>❌ Nonaktif</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <div class="form-label">Metode Perhitungan Bonus</div>
+          <select class="form-select" id="sb_metode">
+            <option value="margin" ${s.metode==='margin'?'selected':''}>📊 Berdasarkan Margin (default)</option>
+            <option value="omzet" ${s.metode==='omzet'?'selected':''}>💵 Berdasarkan Omzet</option>
+            <option value="profit" ${s.metode==='profit'?'selected':''}>💰 Berdasarkan Profit Bersih</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row" style="margin-bottom:14px">
+        <div class="form-group">
+          <div class="form-label">Tipe Bonus</div>
+          <select class="form-select" id="sb_bonus_type" onchange="toggleBonusTypeUI()">
+            <option value="flat" ${!isPercentage?'selected':''}>🎯 Flat (Rp per tier)</option>
+            <option value="percentage" ${isPercentage?'selected':''}>📈 Persentase dari Base</option>
+          </select>
+        </div>
+        <div class="form-group" style="max-width:200px">
+          <div class="form-label">Fee Dasar per Shift (Rp)</div>
+          <input class="form-input" id="sb_fee_dasar" type="text" inputmode="numeric" value="${s.feeDasar}" oninput="hppFmtInput(this)">
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">Fee ini selalu dibayarkan terlepas dari margin.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PERCENTAGE MODE UI -->
+    <div class="card" id="sb_pct_section" style="margin-bottom:16px;${isPercentage?'':'display:none'}border-color:rgba(78,205,196,0.3)">
+      <div class="card-title" style="color:#4ecdc4">📈 Konfigurasi Bonus Persentase</div>
+      <div class="form-row">
+        <div class="form-group">
+          <div class="form-label">Threshold (Rp) — Bonus mulai dihitung setelah ini</div>
+          <input class="form-input" id="sb_threshold" type="text" inputmode="numeric" value="${s.threshold}" oninput="hppFmtInput(this)">
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">Jika margin ≤ threshold → bonus = 0</div>
+        </div>
+        <div class="form-group" style="max-width:160px">
+          <div class="form-label">Rate Bonus (%)</div>
+          <input class="form-input" id="sb_bonus_rate" type="number" min="0" max="100" step="0.1" value="${s.bonusRate}" style="font-size:14px">
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">% dari (base − threshold)</div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:#4ecdc4;background:rgba(78,205,196,0.08);border-radius:6px;padding:8px 12px;margin-top:8px">
+        💡 Formula: Bonus = (Base − Threshold) × Rate%<br>
+        Contoh: Base Rp 123.000, Threshold Rp 50.000, Rate 5% → Bonus = Rp 3.650
+      </div>
+    </div>
+
+    <!-- FLAT MODE UI -->
+    <div class="card" id="sb_flat_section" style="margin-bottom:16px;${isPercentage?'display:none':''}">
+      <div class="card-title">🎯 Rule Bonus
+        <button class="btn btn-ghost btn-sm" onclick="addBonusRule()">+ Tambah Rule</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Bonus dihitung berdasarkan nilai base (margin/omzet) sesuai metode yang dipilih.</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px" id="sb_rules_table">
+        <thead><tr style="background:var(--surface3)">
+          <th style="padding:7px 10px;text-align:left;color:var(--muted)">Min Base (Rp)</th>
+          <th style="padding:7px 10px;text-align:left;color:var(--muted)">Max Base (Rp)</th>
+          <th style="padding:7px 10px;text-align:left;color:var(--muted)">Bonus (Rp)</th>
+          <th style="width:36px"></th>
+        </tr></thead>
+        <tbody id="sb_rules_tbody">${rulesRows}</tbody>
+      </table>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;border-color:rgba(139,111,255,0.3)">
+      <div class="card-title" style="color:#9b82f5">🧮 Simulasi Sekarang</div>
+      ${renderBonusSimulasi()}
+    </div>
+
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" onclick="saveBonusSettings()">💾 Simpan Settings</button>
+      <button class="btn btn-ghost" onclick="resetBonusSettings()">🔄 Reset ke Default</button>
+    </div>
+  </div>`;
+}
+
+function renderBonusSimulasi() {
+  const today = new Date().toISOString().split('T')[0];
+  const txns = getDikopiTxnsByDate(today);
+  const { omzet, margin, hasItemData } = calcMarginFromTxns(txns);
+  const s = getBonusSettings();
+  if (!txns.length) return '<div style="color:var(--muted);font-size:12px">Belum ada data hari ini untuk simulasi.</div>';
+  if (!hasItemData) return '<div style="color:#f5a623;font-size:12px">⚠️ Catat penjualan dengan input per item agar simulasi akurat.</div>';
+  const feeDasar = s.feeDasar;
+  const bonus = calcBonusBarista(margin, omzet);
+  const totalFee = feeDasar + bonus;
+  const bersih = margin - totalFee;
+  const color = bersih >= 100000 ? '#4cc9a0' : bersih >= 50000 ? '#f5a623' : 'var(--red)';
+  const status = bersih >= 100000 ? '🟢 Aman' : bersih >= 50000 ? '🟡 Tipis' : '🔴 Berisiko';
+  return `
+  <div style="font-size:12px;line-height:2.2">
+    <div style="display:flex;justify-content:space-between"><span>Margin Hari Ini</span><span style="font-family:'DM Mono',monospace;color:#4cc9a0">${fmtRp(margin)}</span></div>
+    <div style="display:flex;justify-content:space-between"><span>− Fee Dasar</span><span style="font-family:'DM Mono',monospace;color:var(--red)">−${fmtRp(feeDasar)}</span></div>
+    <div style="display:flex;justify-content:space-between"><span>− Bonus</span><span style="font-family:'DM Mono',monospace;color:var(--red)">−${fmtRp(bonus)}</span></div>
+    <div style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px;display:flex;justify-content:space-between;font-weight:700">
+      <span>= Margin Bersih</span>
+      <span style="font-family:'DM Mono',monospace;color:${color}">${fmtRp(bersih)} &nbsp; ${status}</span>
+    </div>
+  </div>`;
+}
+
+function toggleBonusTypeUI() {
+  const type = document.getElementById('sb_bonus_type')?.value;
+  const pctSection = document.getElementById('sb_pct_section');
+  const flatSection = document.getElementById('sb_flat_section');
+  if (!pctSection || !flatSection) return;
+  if (type === 'percentage') {
+    pctSection.style.display = '';
+    flatSection.style.display = 'none';
+  } else {
+    pctSection.style.display = 'none';
+    flatSection.style.display = '';
+  }
+}
+
+function addBonusRule() {
+  const s = getBonusSettings();
+  // Save current edits first
+  _syncBonusRulesFromUI(s);
+  s.rules.push({ minMargin: 0, maxMargin: null, bonus: 0 });
+  db.settings.bonus_barista = s;
+  render();
+}
+
+function removeBonusRule(idx) {
+  const s = getBonusSettings();
+  _syncBonusRulesFromUI(s);
+  s.rules.splice(idx, 1);
+  db.settings.bonus_barista = s;
+  render();
+}
+
+function _syncBonusRulesFromUI(s) {
+  const tbody = document.getElementById('sb_rules_tbody');
+  if (!tbody) return;
+  s.rules = s.rules.map((_,i) => ({
+    minMargin: parseFloat((document.getElementById('sb_min_'+i)?.value||'0').replace(/\./g,''))||0,
+    maxMargin: (() => { const v = (document.getElementById('sb_max_'+i)?.value||'').replace(/\./g,'').trim(); return v ? parseFloat(v)||0 : null; })(),
+    bonus: parseFloat((document.getElementById('sb_bonus_'+i)?.value||'0').replace(/\./g,''))||0
+  }));
+}
+
+async function saveBonusSettings() {
+  if (!dirHandle) { toast('⚠️ Pilih folder dulu','error'); return; }
+  const s = getBonusSettings();
+  _syncBonusRulesFromUI(s);
+  s.aktif = document.getElementById('sb_aktif')?.value === '1';
+  s.metode = document.getElementById('sb_metode')?.value || 'margin';
+  s.feeDasar = parseFloat((document.getElementById('sb_fee_dasar')?.value||'0').replace(/\./g,''))||0;
+  s.bonusType = document.getElementById('sb_bonus_type')?.value || 'flat';
+  s.threshold = parseFloat((document.getElementById('sb_threshold')?.value||'0').replace(/\./g,''))||0;
+  s.bonusRate = parseFloat(document.getElementById('sb_bonus_rate')?.value||'5')||5;
+  if (!db.settings) db.settings = {};
+  db.settings.bonus_barista = s;
+  await saveDB('settings');
+  toast('✅ Settings bonus barista disimpan!','success');
+  render();
+}
+
+async function resetBonusSettings() {
+  if (!confirm('Reset ke default settings?')) return;
+  if (!db.settings) db.settings = {};
+  db.settings.bonus_barista = JSON.parse(JSON.stringify(DEFAULT_BONUS_SETTINGS));
+  await saveDB('settings');
+  toast('🔄 Settings direset ke default','success');
+  render();
+}
+
