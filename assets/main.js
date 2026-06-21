@@ -7582,7 +7582,7 @@ function getResepChannels() {
   const all = [...new Set([...defaults, ...custom])];
   return all;
 }
-const CHANNEL_LABEL = { kedai:'🏃 CFD', cfd:'☕ Kedai', marketplace:'🛒 Marketplace' };
+const CHANNEL_LABEL = { kedai:'☕ Kedai', cfd:'🏃 CFD', marketplace:'🛒 Marketplace' };
 function getChannelLabel(ch) {
   const custom = db?.keu?._meta?.channelLabels?.[ch];
   if (custom) return custom;
