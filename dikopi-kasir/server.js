@@ -8,14 +8,57 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+
+// ── STATIC FILES & ROUTING ──────────────────────────────────────
+const publicPath = path.join(__dirname, 'public');
+app.use(express.static(publicPath));
+app.use('/public', express.static(publicPath));
+
+// Route khusus untuk menyajikan dikopi-event.html
+app.get(['/', '/dikopi-event', '/dikopi-event.html', '/event'], (req, res) => {
+  const filePath = path.join(publicPath, 'dikopi-event.html');
+  if (fs.existsSync(filePath)) {
+    res.sendFile(filePath);
+  } else {
+    res.status(404).send('❌ File public/dikopi-event.html tidak ditemukan di ' + filePath);
+  }
+});
 
 // Path ke database lokal #01 PRATANI HQ
 const HQ_KEU_PATH = path.join(__dirname, '..', '#DATA', 'keu.json');
 
-// ── CONFIG FIREBASE ADMIN / REST ENDPOINT ──────────────────────
-// Ganti dengan URL Realtime Database Anda (atau gunakan Firebase Admin SDK):
-const FIREBASE_DB_URL = process.env.FIREBASE_DB_URL || "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com";
+// ── CONFIG FIREBASE ADMIN SDK & REST FALLBACK ──────────────────
+const FIREBASE_DB_URL = process.env.FIREBASE_DB_URL || "https://aplikasi-kasir-dikopi-default-rtdb.firebaseio.com";
+const SERVICE_ACCOUNT_NAME = 'aplikasi-kasir-dikopi-firebase-adminsdk-fbsvc-fe1a1c0f62.json';
+const SERVICE_ACCOUNT_PATH = path.join(__dirname, SERVICE_ACCOUNT_NAME);
+
+let adminDb = null;
+
+try {
+  const admin = require('firebase-admin');
+  let keyPath = fs.existsSync(SERVICE_ACCOUNT_PATH) ? SERVICE_ACCOUNT_PATH : null;
+
+  // Auto-detect service account key jika nama file berbeda sedikit
+  if (!keyPath) {
+    const files = fs.readdirSync(__dirname);
+    const keyFile = files.find(f => f.includes('firebase-adminsdk') && f.endsWith('.json'));
+    if (keyFile) keyPath = path.join(__dirname, keyFile);
+  }
+
+  if (keyPath && fs.existsSync(keyPath)) {
+    const serviceAccount = JSON.parse(fs.readFileSync(keyPath, 'utf8'));
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+      databaseURL: FIREBASE_DB_URL
+    });
+    adminDb = admin.database();
+    console.log(`🔑 [FIREBASE ADMIN SDK] Inisialisasi Service Account berhasil dari (${path.basename(keyPath)})`);
+  } else {
+    console.warn(`⚠️ [FIREBASE ADMIN SDK] File key '${SERVICE_ACCOUNT_NAME}' belum ditemukan. Menggunakan REST API fallback.`);
+  }
+} catch (e) {
+  console.warn("⚠️ [FIREBASE ADMIN SDK] Paket firebase-admin belum diinstall. Menggunakan REST API fallback.");
+}
 
 /**
  * Endpoint /api/sync-event
@@ -27,12 +70,30 @@ app.post('/api/sync-event', async (req, res) => {
     let itemsToSync = [];
     let isCloudFetch = false;
 
-    // 1. Coba tarik transaksi dari Firebase Realtime DB via REST API
-    if (FIREBASE_DB_URL && !FIREBASE_DB_URL.includes("YOUR_PROJECT_ID")) {
+    // 1. Tarik data dari Firebase via Admin SDK (Privileged Access) atau REST API Fallback
+    if (adminDb) {
+      try {
+        const snapshot = await adminDb.ref('event_transactions').once('value');
+        const cloudData = snapshot.val();
+        if (cloudData) {
+          Object.keys(cloudData).forEach(key => {
+            const item = cloudData[key];
+            if (!item.synced) {
+              itemsToSync.push({ _cloudKey: key, ...item });
+            }
+          });
+          isCloudFetch = true;
+        }
+      } catch (adminErr) {
+        console.error("⚠️ Error saat query via Firebase Admin SDK:", adminErr.message);
+      }
+    }
+
+    // Fallback REST API jika Admin SDK belum mengembalikan data
+    if (itemsToSync.length === 0 && !adminDb && FIREBASE_DB_URL) {
       try {
         const fetchRes = await fetch(`${FIREBASE_DB_URL}/event_transactions.json`);
         const cloudData = await fetchRes.json();
-        
         if (cloudData) {
           Object.keys(cloudData).forEach(key => {
             const item = cloudData[key];
@@ -61,18 +122,14 @@ app.post('/api/sync-event', async (req, res) => {
     }
 
     // 3. Pastikan file #DATA/keu.json tersedia
-    if (!fs.existsSync(HQ_KEU_PATH)) {
-      // jika dipanggil dari subfolder atau folder terpisah, coba fallback path lokal
-      const fallbackPath = path.join(__dirname, '#DATA', 'keu.json');
-      if (!fs.existsSync(fallbackPath)) {
-        return res.status(404).json({
-          success: false,
-          message: `File database #DATA/keu.json tidak ditemukan di path: ${HQ_KEU_PATH}`
-        });
-      }
+    const activeKeuPath = fs.existsSync(HQ_KEU_PATH) ? HQ_KEU_PATH : path.join(__dirname, '#DATA', 'keu.json');
+    if (!fs.existsSync(activeKeuPath)) {
+      return res.status(404).json({
+        success: false,
+        message: `File database #DATA/keu.json tidak ditemukan di path: ${activeKeuPath}`
+      });
     }
 
-    const activeKeuPath = fs.existsSync(HQ_KEU_PATH) ? HQ_KEU_PATH : path.join(__dirname, '#DATA', 'keu.json');
     const rawKeu = fs.readFileSync(activeKeuPath, 'utf8');
     const keuData = rawKeu ? JSON.parse(rawKeu) : { kolektiva: [], dikopi: [], studio: [] };
 
@@ -101,18 +158,22 @@ app.post('/api/sync-event', async (req, res) => {
     fs.writeFileSync(activeKeuPath, JSON.stringify(keuData, null, 2), 'utf8');
 
     // 6. Tandai data di Cloud DB sebagai synced: true
-    if (isCloudFetch && FIREBASE_DB_URL) {
+    if (isCloudFetch) {
       await Promise.all(itemsToSync.map(async (item) => {
         if (item._cloudKey) {
           try {
-            await fetch(`${FIREBASE_DB_URL}/event_transactions/${item._cloudKey}.json`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
+            if (adminDb) {
+              await adminDb.ref(`event_transactions/${item._cloudKey}`).update({
                 synced: true,
                 synced_at: nowIso
-              })
-            });
+              });
+            } else {
+              await fetch(`${FIREBASE_DB_URL}/event_transactions/${item._cloudKey}.json`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ synced: true, synced_at: nowIso })
+              });
+            }
           } catch(patchErr) {
             console.error(`Gagal update synced flag untuk key ${item._cloudKey}:`, patchErr.message);
           }
