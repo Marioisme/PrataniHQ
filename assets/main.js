@@ -44,6 +44,22 @@ function getBonusSettings() {
     })) : def.rules
   };
 }
+// ── SETTING GLOBAL: KOMISI MARKETPLACE (ShopeeFood, dll) ─────
+// Satu-satunya tempat untuk update rate komisi marketplace.
+// Kalau tarif ShopeeFood berubah, cukup ubah di sini (atau nanti
+// via UI Settings kalau sudah dibuatkan halamannya) — TIDAK per-produk.
+const DEFAULT_MARKETPLACE_COMMISSION = { rate: 25 }; // persen, dari Harga Jual
+function getMarketplaceCommissionRate() {
+  const s = db.settings && db.settings.marketplace_commission;
+  const rate = s && s.rate !== undefined ? Number(s.rate) : DEFAULT_MARKETPLACE_COMMISSION.rate;
+  return (isNaN(rate) || rate < 0) ? DEFAULT_MARKETPLACE_COMMISSION.rate : rate;
+}
+function marketplaceMarginBadge(margin) {
+  if (margin >= 50) return { color:'#4cc9a0', bg:'rgba(76,201,160,0.14)', label:'Sehat' };
+  if (margin >= 45) return { color:'#d4e157', bg:'rgba(212,225,87,0.14)', label:'Deket Target' };
+  if (margin >= 35) return { color:'#ff9f43', bg:'rgba(255,159,67,0.14)', label:'Perlu Naik' };
+  return { color:'var(--red)', bg:'rgba(255,71,87,0.14)', label:'Kritis' };
+}
 function calcBonusBarista(margin, omzet) {
   const s = getBonusSettings();
   if (!s.aktif) return 0;
@@ -58,7 +74,20 @@ function calcBonusBarista(margin, omzet) {
   return rule ? rule.bonus : 0;
 }
 function getDikopiTxnsByDate(dateStr) {
-  return (db.keu.dikopi||[]).filter(t => t.tanggal === dateStr && t.tipe === 'masuk' && t.kategori === 'Penjualan Langsung');
+  return (db.keu.dikopi||[]).filter(t => {
+    if (t.tipe !== 'masuk' || t.kategori !== 'Penjualan Langsung') return false;
+    const isKasir = t._source === 'kasir' || t._source === 'kasir_event';
+    // Kasir yang belum pernah diedit: pakai cutoff logic dari created_at
+    if (isKasir && t.created_at && !t.updated_at) {
+      const dt = new Date(t.created_at);
+      const effDate = dt.getHours() < DIKOPI_CUTOFF_HOUR
+        ? new Date(dt.getTime() - 86400000).toISOString().split('T')[0]
+        : dt.toISOString().split('T')[0];
+      return effDate === dateStr;
+    }
+    // Manual atau kasir yang sudah diedit: ikut t.tanggal dari form
+    return t.tanggal === dateStr;
+  });
 }
 function calcMarginFromTxns(txns) {
   let omzet=0, hppTotal=0, itemsTotal=0, hasItemData=false, allItems=[];
@@ -269,7 +298,6 @@ async function importTodosFromJSON(input) {
         updated++;
       });
       await saveDB('strategy');
-      if (currentPage === 'strategy') { strategyBrand = newEntries[0].brand; }
       render();
       toast(`✅ Strategy ${newEntries.map(e=>BRAND_LABEL[e.brand]||e.brand).join(', ')} berhasil diimport!`, 'success');
       return;
@@ -341,8 +369,6 @@ const PAGE_TITLES = {
   keuangan:'Keuangan', keu_dashboard:'💰 Dashboard Keuangan', keu_buku:'📒 Buku Kas',
   keu_bulanan:'📅 Rekap Bulanan', keu_tahunan:'📆 Rekap Tahunan', keu_nota:'🗂️ Dokumen & Nota', keu_hutang:'💳 Hutang & Cicilan',
   kontak:'Kontak', hpp:'🧮 Kalkulator HPP', resep:'☕ Resep Dikopi', produk_kolektiva:'🛍️ Produk Kolektiva',
-  shift_analisis:'📈 Analisis Shift Dikopi', settings_bonus:'⚙️ Settings Bonus Barista',
-  kontak:'Kontak', hpp:'🧮 Kalkulator HPP',
   strategy:'Strategy', analytics:'Analytics', adsplan:'Ads Plan', sampah:'🗑️ Sampah',
   gen_invoice:'Invoice', gen_penawaran:'Surat Penawaran', gen_rab:'RAB',
   gen_mou:'MoU', gen_bast:'BAST', gen_kwitansi:'Kwitansi'
@@ -354,7 +380,7 @@ function goto(page) {
   if (page !== 'dokumen') currentFolderId = null;
   document.querySelectorAll('.nav-item').forEach(el => {
     const txt = el.textContent.trim().toLowerCase();
-    const map = { 'dashboard':'dashboard','content plan':'todos','to-do list':'todolist','projects':'projects','dokumen':'dokumen','keuangan':'keuangan','kontak':'kontak','kalkulator hpp':'hpp','strategy':'strategy','analytics':'analytics','ads plan':'adsplan' };
+    const map = { 'dashboard':'dashboard','content plan':'todos','to-do list':'todolist','projects':'projects','dokumen':'dokumen','keuangan':'keuangan','kontak':'kontak','kalkulator hpp':'hpp' };
     el.classList.toggle('active', map[txt] === page);
   });
   // sampah custom element
@@ -420,12 +446,7 @@ function render() {
       break;
     case 'kontak':    c.innerHTML = renderKontak();    break;
     case 'hpp':       c.innerHTML = renderHPP();       break;
-    case 'strategy':  c.innerHTML = renderStrategy();  break;
-    case 'analytics': c.innerHTML = renderAnalytics(); break;
-    case 'adsplan':   c.innerHTML = renderAdsplan();   break;
     case 'sampah':    c.innerHTML = renderSampah();    break;
-    case 'shift_analisis': c.innerHTML = renderShiftAnalisis(); break;
-    case 'settings_bonus': c.innerHTML = renderSettingsBonus(); break;
     case 'gen_invoice':    c.innerHTML = renderGenInvoice();    break;
     case 'gen_penawaran': c.innerHTML = renderGenPenawaran();         break;
     case 'gen_rab':      c.innerHTML = renderGenDok(currentPage);     break;
@@ -625,7 +646,6 @@ function renderDikopiHariIniCards() {
       <div class="card-title" style="color:var(--dikopi)">☕ Dikopi Hari Ini
         <span style="display:flex;align-items:center;gap:8px">
           <span style="font-size:11px;color:var(--muted)">${txnCount} transaksi${itemsTotal?' · '+itemsTotal+' item':''}</span>
-          <button class="btn btn-ghost btn-sm" onclick="goto('shift_analisis')" style="font-size:11px;padding:2px 8px">📈 Detail Shift</button>
         </span>
       </div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
@@ -960,11 +980,24 @@ function fmtTanggal(str) {
 
 // auto-insert slashes as user types: 25 → 25/ → 25/12 → 25/12/
 function autoSlashDate(el) {
-  let v = el.value.replace(/[^\d]/g,'');
+  const cursorBefore = el.selectionStart;
+  const oldVal = el.value;
+  let digits = oldVal.replace(/[^\d]/g,'');
+  let v = digits;
   if (v.length > 2) v = v.slice(0,2)+'/'+v.slice(2);
   if (v.length > 5) v = v.slice(0,5)+'/'+v.slice(5);
   if (v.length > 10) v = v.slice(0,10);
+  if (v === oldVal) return; // nothing changed, don\'t touch cursor
   el.value = v;
+  // Hitung cursor baru berdasarkan jumlah digit sebelum posisi lama
+  const slashesBeforeCursor = (oldVal.slice(0, cursorBefore).match(/\//g)||[]).length;
+  const digitsBeforeCursor  = cursorBefore - slashesBeforeCursor;
+  let newCursor = 0, digitCount = 0;
+  while (newCursor < v.length && digitCount < digitsBeforeCursor) {
+    if (v[newCursor] !== '/') digitCount++;
+    newCursor++;
+  }
+  el.setSelectionRange(newCursor, newCursor);
 }
 
 // DD/MM/YYYY → YYYY-MM-DD (for storage/sorting)
@@ -2319,7 +2352,22 @@ function renderKeuBuku() {
 
 // ── DIKOPI BUKU KAS — mode kasir harian ──────────────────────
 function renderDikopiBuku() {
-  const allTxns = [...(db.keu['dikopi']||[])].filter(t=>t.tanggal?.startsWith(keuBukuPeriode)).sort((a,b)=>a.tanggal.localeCompare(b.tanggal));
+  // Untuk kasir: effective date pakai created_at + cutoff; untuk manual: pakai t.tanggal
+  function txnEffectiveDate(t) {
+    const isKasir = t._source === 'kasir' || t._source === 'kasir_event';
+    // Kalau kasir sudah pernah diedit manual (ada updated_at), ikut t.tanggal dari form
+    if (isKasir && t.created_at && !t.updated_at) {
+      const dt = new Date(t.created_at);
+      return dt.getHours() < DIKOPI_CUTOFF_HOUR
+        ? new Date(dt.getTime() - 86400000).toISOString().split('T')[0]
+        : dt.toISOString().split('T')[0];
+    }
+    // Manual input atau kasir yang sudah diedit: pakai tanggal dari form
+    return t.tanggal;
+  }
+  const allTxns = [...(db.keu['dikopi']||[])]
+    .filter(t => txnEffectiveDate(t)?.startsWith(keuBukuPeriode))
+    .sort((a,b) => (txnEffectiveDate(a)||'').localeCompare(txnEffectiveDate(b)||''));
   const meta = db.keu._meta || {};
   const saldoCashAwal = Number(meta[`dikopi_cash_${keuBukuPeriode}`]||0);
   const saldoRekAwal  = Number(meta[`dikopi_rek_${keuBukuPeriode}`]||0);
@@ -2424,20 +2472,9 @@ function renderDikopiBuku() {
       <button class="btn btn-ghost btn-sm" style="border-color:#c0392b;color:#c0392b;position:relative" onclick="openDikopiDistribusiLaba()" title="Pembagian keuntungan kepada pemilik. Tidak mempengaruhi profit bulan berjalan.">💰 Distribusi Laba</button>
     </div>`;
 
-  // Business day grouping — transaksi sebelum jam 05:00 masuk ke hari sebelumnya
-  function businessDay(t) {
-    if (!t.created_at) return t.tanggal; // fallback ke tanggal tersimpan
-    const dt = new Date(t.created_at);
-    if (dt.getHours() < DIKOPI_CUTOFF_HOUR) {
-      const prev = new Date(dt.getTime() - 24*60*60*1000);
-      return prev.toISOString().split('T')[0];
-    }
-    return dt.toISOString().split('T')[0];
-  }
-
   // Day blocks
   const byDate = {};
-  allTxns.forEach(t=>{ const d=businessDay(t); if(!byDate[d])byDate[d]=[]; byDate[d].push(t); });
+  allTxns.forEach(t=>{ const d=txnEffectiveDate(t); if(!byDate[d])byDate[d]=[]; byDate[d].push(t); });
 
   const dayBlocks = Object.keys(byDate).sort().reverse().map(date=>{
     const dayTxns = byDate[date];
@@ -4387,6 +4424,14 @@ function renderTodolist() {
           </div>
           <div style="font-family:'DM Mono',monospace;font-size:12px;color:${allDone?'#4cc9a0':'var(--muted)'};font-weight:600">${overallPct}%</div>
           <div class="tdl-progress-bar" style="width:80px"><div class="tdl-progress-fill" style="width:${overallPct}%"></div></div>
+          <div style="position:relative;display:inline-block" id="tdlDlMenu_${set.id}">
+            <button class="btn btn-ghost btn-sm" onclick="tdlToggleDlMenu(${set.id})" title="Download">⬇️</button>
+            <div id="tdlDlDropdown_${set.id}" style="display:none;position:absolute;right:0;top:110%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;min-width:130px;z-index:99;box-shadow:0 4px 16px rgba(0,0,0,.3)">
+              <div class="tdl-dl-opt" onclick="tdlDownload(${set.id},'json')">📦 JSON</div>
+              <div class="tdl-dl-opt" onclick="tdlDownload(${set.id},'md')">📝 Markdown</div>
+              <div class="tdl-dl-opt" onclick="tdlDownload(${set.id},'pdf')">📄 PDF</div>
+            </div>
+          </div>
           <button class="btn btn-ghost btn-sm" onclick="tdlDeleteSet(${set.id})" title="Hapus">🗑️</button>
         </div>
         ${archiveBanner}
@@ -4422,6 +4467,229 @@ function renderTodolist() {
     </div>` : '';
 
   return brandTabs + activeHtml + archivedHtml;
+}
+
+function tdlToggleDlMenu(setId) {
+  const dd = document.getElementById('tdlDlDropdown_' + setId);
+  if (!dd) return;
+  const open = dd.style.display === 'block';
+  // close all other dropdowns
+  document.querySelectorAll('[id^="tdlDlDropdown_"]').forEach(el => el.style.display = 'none');
+  dd.style.display = open ? 'none' : 'block';
+  if (!open) {
+    const close = (e) => {
+      if (!dd.contains(e.target)) { dd.style.display = 'none'; document.removeEventListener('click', close); }
+    };
+    setTimeout(() => document.addEventListener('click', close), 50);
+  }
+}
+
+function tdlDownload(setId, format) {
+  // close dropdown
+  document.querySelectorAll('[id^="tdlDlDropdown_"]').forEach(el => el.style.display = 'none');
+
+  const set = db.todolist.find(x => x.id === setId);
+  if (!set) { toast('❌ Set tidak ditemukan', 'error'); return; }
+
+  const statusOf = (row, sheet) => {
+    if (row._status) return row._status;
+    if (sheet.statusCol >= 0) return tdlParseStatus(row.cells[sheet.statusCol] || '');
+    return 'pending';
+  };
+
+  const safeName = (set.title || 'todolist').replace(/[^a-zA-Z0-9_\- ]/g, '').trim().replace(/\s+/g, '_');
+  const dateStr  = new Date().toISOString().split('T')[0];
+  const fileName = `${safeName}_${dateStr}`;
+
+  // ── JSON ──────────────────────────────────────────────────
+  if (format === 'json') {
+    const payload = {
+      title:      set.title,
+      brand:      set.brand,
+      uploadedAt: set.uploadedAt,
+      exportedAt: new Date().toISOString(),
+      archived:   set.archived || false,
+      sheets: set.sheets.map(sh => ({
+        title:     sh.title || sh.name || 'Sheet',
+        columns:   sh.columns || [],
+        statusCol: sh.statusCol,
+        rows: sh.rows.map(row => ({
+          ...row,
+          _status: statusOf(row, sh)
+        }))
+      }))
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    tdlTriggerDownload(blob, fileName + '.json');
+    toast('✅ JSON didownload!', 'success');
+    return;
+  }
+
+  // ── Markdown ───────────────────────────────────────────────
+  if (format === 'md') {
+    let md = `# ${set.title || 'To-Do List'}\n`;
+    md += `**Brand:** ${BRAND_LABEL[set.brand] || set.brand}  \n`;
+    md += `**Upload:** ${set.uploadedAt || '—'}  \n`;
+    md += `**Export:** ${new Date().toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric' })}  \n\n`;
+
+    set.sheets.forEach(sh => {
+      const cols = sh.columns || [];
+      md += `## ${sh.title || sh.name || 'Sheet'}\n\n`;
+
+      if (!sh.rows || !sh.rows.length) { md += '_Tidak ada data._\n\n'; return; }
+
+      // build table header (non-status cols + Status)
+      const nonStatusCols = cols.filter((_, i) => i !== sh.statusCol);
+      const headerCols = [...nonStatusCols, 'Status'];
+      md += '| ' + headerCols.map(c => c || '—').join(' | ') + ' |\n';
+      md += '| ' + headerCols.map(() => '---').join(' | ') + ' |\n';
+
+      sh.rows.forEach(row => {
+        const cells = row.cells || [];
+        const nonStatusCells = cols.map((_, i) => ({ idx: i, val: cells[i] || '' }))
+          .filter(x => x.idx !== sh.statusCol)
+          .map(x => x.val.replace(/\|/g, '\\|').replace(/\n/g, ' '));
+        const status = statusOf(row, sh);
+        const statusEmoji = status === 'done' ? '✅ Done' : status === 'skip' ? '⏭️ Skip' : '⬜ Pending';
+        md += '| ' + [...nonStatusCells, statusEmoji].join(' | ') + ' |\n';
+      });
+      md += '\n';
+    });
+
+    const blob = new Blob([md], { type: 'text/markdown' });
+    tdlTriggerDownload(blob, fileName + '.md');
+    toast('✅ Markdown didownload!', 'success');
+    return;
+  }
+
+  // ── PDF ────────────────────────────────────────────────────
+  if (format === 'pdf') {
+    if (typeof window.jspdf === 'undefined' && typeof window.jsPDF === 'undefined') {
+      toast('⚠️ jsPDF belum load, coba lagi sebentar', 'error');
+      return;
+    }
+    const { jsPDF } = window.jspdf || window;
+    const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+    const W = 210, MARGIN = 14, CW = W - MARGIN * 2;
+    let y = 16;
+
+    const addPage = () => { doc.addPage(); y = 16; };
+    const checkY = (needed = 10) => { if (y + needed > 280) addPage(); };
+
+    // title
+    doc.setFontSize(16); doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30, 45, 78);
+    doc.text(set.title || 'To-Do List', MARGIN, y); y += 7;
+
+    doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 100, 100);
+    const meta = `Brand: ${BRAND_LABEL[set.brand] || set.brand}   Upload: ${set.uploadedAt || '—'}   Export: ${dateStr}`;
+    doc.text(meta, MARGIN, y); y += 5;
+
+    // divider
+    doc.setDrawColor(180, 180, 180);
+    doc.line(MARGIN, y, W - MARGIN, y); y += 6;
+
+    set.sheets.forEach((sh, si) => {
+      checkY(14);
+      // sheet heading
+      doc.setFontSize(12); doc.setFont('helvetica', 'bold');
+      doc.setTextColor(46, 156, 255);
+      doc.text(sh.title || sh.name || `Sheet ${si + 1}`, MARGIN, y); y += 6;
+
+      if (!sh.rows || !sh.rows.length) {
+        doc.setFontSize(9); doc.setFont('helvetica', 'italic'); doc.setTextColor(140,140,140);
+        doc.text('Tidak ada data.', MARGIN, y); y += 6; return;
+      }
+
+      const cols = sh.columns || [];
+      const nonStatusIdxs = cols.map((_, i) => i).filter(i => i !== sh.statusCol);
+      const colNames = nonStatusIdxs.map(i => cols[i]);
+
+      // auto column widths: status fixed 22mm, split rest evenly
+      const statusW = 22;
+      const restW   = (CW - statusW) / (colNames.length || 1);
+      const colWidths = [...colNames.map(() => restW), statusW];
+      const allColNames = [...colNames, 'Status'];
+
+      // header row
+      checkY(8);
+      doc.setFillColor(30, 45, 78); doc.setTextColor(255, 255, 255);
+      doc.setFontSize(8); doc.setFont('helvetica', 'bold');
+      let x = MARGIN;
+      allColNames.forEach((cn, ci) => {
+        doc.rect(x, y - 4.5, colWidths[ci], 7, 'F');
+        doc.text(String(cn || '').substring(0, 20), x + 2, y);
+        x += colWidths[ci];
+      });
+      y += 4;
+
+      // data rows
+      sh.rows.forEach((row, ri) => {
+        const cells = row.cells || [];
+        const status = statusOf(row, sh);
+        const statusLabel = status === 'done' ? 'Done' : status === 'skip' ? 'Skip' : 'Pending';
+
+        // estimate row height (multiline)
+        const rowVals = nonStatusIdxs.map(i => String(cells[i] || ''));
+        const lineHeights = rowVals.map((v, ci) => {
+          const lines = doc.splitTextToSize(v, colWidths[ci] - 3);
+          return lines.length;
+        });
+        const maxLines = Math.max(1, ...lineHeights);
+        const rowH = maxLines * 4.5 + 3;
+
+        checkY(rowH);
+
+        // alternating bg
+        if (ri % 2 === 1) {
+          doc.setFillColor(240, 244, 252);
+          doc.rect(MARGIN, y - 3.5, CW, rowH, 'F');
+        }
+
+        doc.setTextColor(40, 40, 40);
+        doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+
+        x = MARGIN;
+        rowVals.forEach((v, ci) => {
+          const lines = doc.splitTextToSize(v, colWidths[ci] - 3);
+          doc.text(lines, x + 2, y);
+          x += colWidths[ci];
+        });
+
+        // status badge color
+        const sColor = status === 'done' ? [76, 201, 160] : status === 'skip' ? [120, 120, 120] : [255, 165, 50];
+        doc.setFillColor(...sColor);
+        doc.roundedRect(x + 2, y - 3, statusW - 4, 5, 1.5, 1.5, 'F');
+        doc.setTextColor(255, 255, 255); doc.setFontSize(7); doc.setFont('helvetica', 'bold');
+        doc.text(statusLabel, x + (statusW / 2), y, { align: 'center' });
+
+        y += rowH;
+      });
+      y += 4;
+    });
+
+    // page numbers
+    const totalPages = doc.getNumberOfPages();
+    for (let p = 1; p <= totalPages; p++) {
+      doc.setPage(p);
+      doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(150, 150, 150);
+      doc.text(`Halaman ${p} / ${totalPages}  ·  PrataniHQ Export`, W / 2, 292, { align: 'center' });
+    }
+
+    doc.save(fileName + '.pdf');
+    toast('✅ PDF didownload!', 'success');
+    return;
+  }
+}
+
+function tdlTriggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 async function tdlImportJSON(input) {
@@ -7576,6 +7844,18 @@ async function deleteCicilan(hutangId, cicilanId) {
 let resepActiveId = null;
 let resepActiveChannel = 'kedai';
 
+const RESEP_GROUPS_DEFAULT = [
+  { key:'Coffee',      label:'☕ Coffee' },
+  { key:'Non Coffee',  label:'🥤 Non Coffee' },
+  { key:'Manual Brew', label:'🫗 Manual Brew' },
+  { key:'Snack',       label:'🍪 Snack' },
+];
+
+function getResepGroups() {
+  const stored = db.keu._meta?.resepGroups;
+  return (stored && stored.length) ? stored : RESEP_GROUPS_DEFAULT.map(g=>({...g}));
+}
+
 function getResepChannels() {
   const custom = (db.keu._meta?.dikopiChannels) || [];
   const defaults = ['kedai','cfd','marketplace'];
@@ -7611,6 +7891,15 @@ function bahanHargaPerSatuan(b) {
 
 // Hitung HPP satu resep
 function hitungHPPResep(resep) {
+  // Combo: sum HPP dari semua member resep × qty
+  if (resep.isCombo && resep.comboItems?.length) {
+    return resep.comboItems.reduce((sum, ci) => {
+      const member = db.resep.find(r => r.id === ci.resepId);
+      if (!member) return sum;
+      return sum + hitungHPPResep(member) * (ci.qty || 1);
+    }, 0);
+  }
+  // Normal: hitung dari ingredients
   let total = 0;
   (resep.ingredients||[]).forEach(ing => {
     const b = db.bahan.find(x=>x.id===ing.bahanId);
@@ -7626,7 +7915,6 @@ function resepHasWarning(resep) {
   const currentHPP = hitungHPPResep(resep);
   return Math.abs(currentHPP - resep.hppSnapshot) > 50; // threshold Rp 50
 }
-
 async function initBahan() {
   if (!db.bahan.length) {
     db.bahan = BAHAN_DEFAULT.map((b,i) => ({ ...b, id: Date.now()+i, createdAt: new Date().toISOString() }));
@@ -7704,12 +7992,7 @@ function renderResep() {
   const resepDetail = activeResep ? renderResepDetail(activeResep) : `
     <div class="empty"><div class="empty-icon">☕</div>Pilih atau buat resep di kiri</div>`;
 
-  const RESEP_GROUPS = [
-    { key:'Coffee',      label:'☕ Coffee' },
-    { key:'Non Coffee',  label:'🥤 Non Coffee' },
-    { key:'Manual Brew', label:'🫗 Manual Brew' },
-    { key:'Snack',       label:'🍪 Snack' },
-  ];
+  const RESEP_GROUPS = getResepGroups();
   const grouped = RESEP_GROUPS.map(g=>({
     ...g, items: channelResep.filter(r=>(r.kategori||'Coffee')===g.key)
   })).filter(g=>g.items.length>0);
@@ -7720,7 +8003,7 @@ function renderResep() {
       ${g.items.map(r => {
         const hpp = hitungHPPResep(r);
         const warn = resepHasWarning(r);
-        return '<div class="resep-card ' + (r.id===resepActiveId?'active':'') + '" draggable="true" ondragstart="resepDragStart(event,' + r.id + ')" ondragover="resepDragOver(event,' + r.id + ')" ondragleave="resepDragLeave(event)" ondrop="resepDrop(event,' + r.id + ',\'' + g.key + '\')" onclick="resepActiveId=' + r.id + ';render()" style="cursor:grab;user-select:none"><div style="display:flex;align-items:center;gap:6px"><span style="color:var(--muted);font-size:11px">⠿</span><div class=\"resep-nama\">' + esc(r.nama) + ' ' + (warn?'⚠️':'') + '</div></div><div class=\"resep-meta\"><span style=\"color:#4cc9a0\">HPP ' + fmtRp(hpp) + '</span>' + (r.hargaJual?'<span style=\"color:var(--accent)\">Jual ' + fmtRp(r.hargaJual) + '</span>':'') + '</div></div>';
+        return '<div class="resep-card ' + (r.id===resepActiveId?'active':'') + '" draggable="true" ondragstart="resepDragStart(event,' + r.id + ')" ondragover="resepDragOver(event,' + r.id + ')" ondragleave="resepDragLeave(event)" ondrop="resepDrop(event,' + r.id + ',\'' + g.key + '\')" onclick="resepActiveId=' + r.id + ';render()" style="cursor:grab;user-select:none"><div style="display:flex;align-items:center;gap:6px"><span style="color:var(--muted);font-size:11px">⠿</span><div class=\"resep-nama\">' + (r.isCombo?'<span style="font-size:9px;padding:1px 5px;border-radius:99px;background:rgba(255,121,0,0.15);color:#ff7900;font-weight:700;margin-right:4px">COMBO</span>':'') + esc(r.nama) + ' ' + (warn?'⚠️':'') + '</div></div><div class=\"resep-meta\"><span style=\"color:#4cc9a0\">HPP ' + fmtRp(hpp) + '</span>' + (r.hargaJual?'<span style=\"color:var(--accent)\">Jual ' + fmtRp(r.hargaJual) + '</span>':'') + '</div></div>';
       }).join('')}
     </div>`).join('') : '';
 
@@ -7749,7 +8032,11 @@ function renderResep() {
       <div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
           <div style="font-size:11px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)">Menu Resep</div>
-          <button class="btn btn-primary btn-sm" onclick="openAddResep()">+ Resep</button>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-ghost btn-sm" onclick="openManageResepKategori()" title="Kelola Kategori">⚙️</button>
+            <button class="btn btn-ghost btn-sm" onclick="openAddCombo()" title="Buat Bundle/Combo">🎁 Combo</button>
+            <button class="btn btn-primary btn-sm" onclick="openAddResep()">+ Resep</button>
+          </div>
         </div>
         ${resepList || `<div style="font-size:12px;color:var(--muted);text-align:center;padding:20px 0">Belum ada resep</div>`}
       </div>
@@ -7787,10 +8074,85 @@ function renderResep() {
 
 function renderResepDetail(r) {
   const hpp = hitungHPPResep(r);
-  const margin = r.hargaJual ? Math.round((r.hargaJual-hpp)/r.hargaJual*100) : 0;
+  const isMarketplace = (r.channel||'') === 'marketplace';
+  const komisiRate = isMarketplace ? getMarketplaceCommissionRate() : 0;
+  const komisiRp = isMarketplace && r.hargaJual ? Math.round(r.hargaJual * (komisiRate/100)) : 0;
+  const netSetelahKomisi = isMarketplace && r.hargaJual ? Math.round(r.hargaJual * (1 - komisiRate/100)) : (r.hargaJual||0);
+  // Margin: kalau marketplace, dihitung dari net setelah komisi. Kalau bukan, dihitung normal dari harga jual.
+  const margin = r.hargaJual ? Math.round(((isMarketplace ? netSetelahKomisi : r.hargaJual) - hpp) / r.hargaJual * 100) : 0;
   const markup = r.hargaJual ? Math.round((r.hargaJual-hpp)/hpp*100) : 0;
+  // Profit/cup: kalau marketplace, dihitung setelah komisi dipotong
+  const profitCup = isMarketplace ? (netSetelahKomisi - hpp) : (r.hargaJual - hpp);
+  const mpBadge = isMarketplace ? marketplaceMarginBadge(margin) : null;
   const warn = resepHasWarning(r);
 
+  // ── COMBO: tampilkan member list ──────────────────────────
+  if (r.isCombo) {
+    const memberRows = (r.comboItems||[]).map((ci, idx) => {
+      const member = db.resep.find(x => x.id === ci.resepId);
+      if (!member) return `<div style="color:var(--muted);font-size:12px;padding:6px 0">⚠️ Resep #${ci.resepId} tidak ditemukan (mungkin dihapus)</div>`;
+      const mHpp = hitungHPPResep(member);
+      return `<div class="ingredient-row">
+        <div class="ing-nama">🎯 ${esc(member.nama)}</div>
+        <div class="ing-qty" style="color:var(--accent)">×${ci.qty||1}</div>
+        <div class="ing-hpp" style="color:var(--muted)">HPP ${fmtRp(mHpp)}/pcs</div>
+        <div style="font-family:'DM Mono',monospace;font-size:12px;color:#4cc9a0;white-space:nowrap">${fmtRp(mHpp*(ci.qty||1))}</div>
+        <div style="display:flex;gap:4px;align-items:center">
+          <button class="tbl-action-btn tbl-del" onclick="removeComboItem(${r.id},${ci.resepId})" title="Hapus dari bundle">✕</button>
+        </div>
+      </div>`;
+    }).join('');
+
+    const warnMsg = warn ? `<div class="resep-warning" style="margin-bottom:12px"><span>⚠️</span><div>HPP member berubah — total HPP sekarang <strong>${fmtRp(hpp)}</strong> (snapshot: ${fmtRp(r.hppSnapshot||0)}). Cek harga jual!</div></div>` : '';
+
+    return `<div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:11px;padding:2px 8px;border-radius:99px;background:rgba(255,121,0,0.12);color:#ff7900;font-family:'DM Mono',monospace;font-weight:700">COMBO</span>
+          <div style="font-size:16px;font-weight:700">${esc(r.nama)}</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm" onclick="openEditCombo(${r.id})">✏️ Edit</button>
+          <button class="btn btn-ghost btn-sm" onclick="openAddComboItem(${r.id})">+ Menu</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteResep(${r.id})">🗑️</button>
+        </div>
+      </div>
+      ${warnMsg}
+      <div class="strategy-section-title">📦 Isi Bundle</div>
+      <div style="margin-bottom:4px">${memberRows||'<div style="color:var(--muted);font-size:12px;padding:8px 0">Belum ada menu — klik + Menu</div>'}</div>
+      <div class="hpp-cup-box">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          <div>
+            <div style="font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:4px">HPP Bundle</div>
+            <div style="font-size:22px;font-weight:800;font-family:'DM Mono',monospace;color:#4cc9a0">${fmtRp(hpp)}</div>
+          </div>
+          <div>
+            <div style="font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:4px">Harga Jual</div>
+            <div style="font-size:22px;font-weight:800;font-family:'DM Mono',monospace;color:var(--accent)">${r.hargaJual?fmtRp(r.hargaJual):'—'}</div>
+          </div>
+          <div>
+            <div style="font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:4px">Margin</div>
+            <div style="font-size:22px;font-weight:800;font-family:'DM Mono',monospace;color:${margin>=50?'#4cc9a0':margin>=30?'#f5a623':'var(--red)'}">
+              ${r.hargaJual?margin+'%':'—'}
+            </div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace">
+          HPP normal total: ${fmtRp(hpp)} · Diskon implied: ${r.hargaJual&&hpp?fmtRp(hpp-r.hargaJual):'—'}
+        </div>
+        <div style="margin-top:12px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Update harga bundle:</div>
+          <div style="display:flex;gap:8px">
+            <input class="form-input" id="resep_hj_${r.id}" type="text" inputmode="numeric" value="${r.hargaJual?Number(r.hargaJual).toLocaleString('id-ID'):''}" placeholder="0" style="flex:1;font-size:13px" oninput="hppFmtInput(this)">
+            <button class="btn btn-primary btn-sm" onclick="saveResepHargaJual(${r.id})">Simpan</button>
+          </div>
+        </div>
+      </div>
+      ${r.catatan?`<div style="font-size:12px;color:var(--muted);margin-top:10px;padding:8px 12px;background:rgba(46,156,255,0.04);border-radius:8px">${esc(r.catatan)}</div>`:''}
+    </div>`;
+  }
+
+  // ── NORMAL RESEP ──────────────────────────────────────────
   const ingRows = (r.ingredients||[]).map(ing => {
     const b = db.bahan.find(x=>x.id===ing.bahanId);
     if (!b) return '';
@@ -7830,7 +8192,7 @@ function renderResepDetail(r) {
     <div style="margin-bottom:4px">${ingRows||'<div style="color:var(--muted);font-size:12px;padding:8px 0">Belum ada bahan — klik + Bahan</div>'}</div>
 
     <div class="hpp-cup-box">
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+      <div style="display:grid;grid-template-columns:${isMarketplace?'1fr 1fr 1fr 1fr 1.3fr':'1fr 1fr 1fr'};gap:12px;margin-bottom:12px">
         <div>
           <div style="font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:4px">HPP/cup</div>
           <div style="font-size:22px;font-weight:800;font-family:'DM Mono',monospace;color:#4cc9a0">${fmtRp(hpp)}</div>
@@ -7839,16 +8201,27 @@ function renderResepDetail(r) {
           <div style="font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:4px">Harga Jual</div>
           <div style="font-size:22px;font-weight:800;font-family:'DM Mono',monospace;color:var(--accent)">${r.hargaJual?fmtRp(r.hargaJual):'—'}</div>
         </div>
+        ${isMarketplace ? `
+        <div>
+          <div style="font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:4px">Komisi (${komisiRate}%)</div>
+          <div style="font-size:22px;font-weight:800;font-family:'DM Mono',monospace;color:var(--red)">${r.hargaJual?'−'+fmtRp(komisiRp):'—'}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:4px">Net Setelah Komisi</div>
+          <div style="font-size:22px;font-weight:800;font-family:'DM Mono',monospace;color:var(--text)">${r.hargaJual?fmtRp(netSetelahKomisi):'—'}</div>
+        </div>` : ''}
         <div>
           <div style="font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:4px">Margin</div>
-          <div style="font-size:22px;font-weight:800;font-family:'DM Mono',monospace;color:${margin>=50?'#4cc9a0':margin>=30?'#f5a623':'var(--red)'}">
+          <div style="font-size:22px;font-weight:800;font-family:'DM Mono',monospace;color:${isMarketplace?(mpBadge?mpBadge.color:'var(--red)'):(margin>=50?'#4cc9a0':margin>=30?'#f5a623':'var(--red)')}">
             ${r.hargaJual?margin+'%':'—'}
           </div>
+          ${isMarketplace && r.hargaJual ? `<div style="display:inline-block;margin-top:4px;font-size:9px;font-weight:700;padding:2px 8px;border-radius:99px;background:${mpBadge.bg};color:${mpBadge.color}">${mpBadge.label}</div>` : ''}
         </div>
       </div>
       <div style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace">
         Markup: ${r.hargaJual?markup+'%':'—'} ·
-        Profit/cup: ${r.hargaJual?fmtRp(r.hargaJual-hpp):'—'}
+        Profit/cup: ${r.hargaJual?fmtRp(profitCup):'—'}
+        ${isMarketplace?` <span style="color:var(--muted);opacity:0.7">(setelah komisi ${komisiRate}%)</span>`:''}
       </div>
       <div style="margin-top:12px">
         <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Update harga jual:</div>
@@ -7874,12 +8247,7 @@ function openAddResep() {
       </div>
       <div class="form-group">
         <div class="form-label">Kategori</div>
-        <select class="form-select" id="r_kategori">
-          <option value="Coffee">☕ Coffee</option>
-          <option value="Non Coffee">🥤 Non Coffee</option>
-          <option value="Manual Brew">🫗 Manual Brew</option>
-          <option value="Snack">🍪 Snack</option>
-        </select>
+        <select class="form-select" id="r_kategori">${getResepGroups().map(g=>`<option value="${g.key}">${g.label}</option>`).join('')}</select>
       </div>
     </div>
     <div class="form-row">
@@ -7924,6 +8292,247 @@ async function submitAddResep() {
   closeModal(); toast('✅ Resep ditambahkan!','success'); render();
 }
 
+// ─── COMBO / BUNDLE ──────────────────────────────────────────
+function openAddCombo() {
+  const channels = getResepChannels();
+  document.getElementById('modalTitle').textContent = '🎁 Buat Bundle / Combo';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px">
+      Bundle menggabungkan HPP beberapa menu jadi 1 paket. Harga jual bisa lebih murah dari total normalnya.
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:2">
+        <div class="form-label">Nama Bundle *</div>
+        <input class="form-input" id="cb_nama" placeholder="Bundle Hemat, Paket Pagi, dll...">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Kategori</div>
+        <select class="form-select" id="cb_kategori">
+          ${getResepGroups().map(g=>`<option value="${g.key}">${g.label}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Channel</div>
+        <select class="form-select" id="cb_channel">
+          ${channels.map(ch=>`<option value="${ch}" ${ch===resepActiveChannel?'selected':''}>${getChannelLabel(ch)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <div class="form-label">Harga Jual Bundle (Rp)</div>
+        <input class="form-input" id="cb_harga" type="text" inputmode="numeric" placeholder="0" oninput="hppFmtInput(this)">
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Isi Bundle</div>
+      <div id="cb_items_list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <div class="form-group" style="flex:1;margin-bottom:0">
+          <select class="form-select" id="cb_pick_resep">
+            <option value="">— Pilih menu —</option>
+            ${db.resep.filter(r=>!r.isCombo&&(r.channel||'kedai')===(document.getElementById('cb_channel')?.value||resepActiveChannel))
+              .map(r=>`<option value="${r.id}" data-hpp="${hitungHPPResep(r)}">${esc(r.nama)} (HPP ${fmtRp(hitungHPPResep(r))})</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group" style="width:70px;margin-bottom:0">
+          <input class="form-input" id="cb_pick_qty" type="number" min="1" value="1" style="text-align:center">
+        </div>
+        <button class="btn btn-ghost btn-sm" style="margin-bottom:0" onclick="cbAddItem()">+ Tambah</button>
+      </div>
+      <div id="cb_hpp_preview" style="margin-top:10px;font-size:12px;color:var(--muted);font-family:'DM Mono',monospace"></div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Catatan</div>
+      <textarea class="form-textarea" id="cb_catatan" placeholder="Keterangan promo, syarat, dll..." style="height:60px"></textarea>
+    </div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="submitAddCombo()">🎁 Simpan Bundle</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  window._cbItems = []; // temp state
+  setTimeout(()=>document.getElementById('cb_nama')?.focus(), 80);
+}
+
+function cbAddItem() {
+  const sel = document.getElementById('cb_pick_resep');
+  const resepId = parseInt(sel?.value);
+  const qty = parseInt(document.getElementById('cb_pick_qty')?.value||'1')||1;
+  if (!resepId) { toast('Pilih menu dulu','error'); return; }
+  if (!window._cbItems) window._cbItems = [];
+  const existing = window._cbItems.find(x=>x.resepId===resepId);
+  if (existing) { existing.qty += qty; }
+  else { window._cbItems.push({ resepId, qty }); }
+  _cbRefreshItemsList();
+}
+
+function cbRemoveItem(resepId) {
+  window._cbItems = (window._cbItems||[]).filter(x=>x.resepId!==resepId);
+  _cbRefreshItemsList();
+}
+
+function _cbRefreshItemsList() {
+  const list = document.getElementById('cb_items_list');
+  if (!list) return;
+  const items = window._cbItems||[];
+  let totalHpp = 0;
+  list.innerHTML = items.map(ci => {
+    const r = db.resep.find(x=>x.id===ci.resepId);
+    if (!r) return '';
+    const hpp = hitungHPPResep(r) * ci.qty;
+    totalHpp += hpp;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px">
+      <span style="font-size:13px;flex:1">🎯 ${esc(r.nama)}</span>
+      <span style="font-size:11px;color:var(--muted)">×${ci.qty}</span>
+      <span style="font-size:12px;font-family:'DM Mono',monospace;color:#4cc9a0">${fmtRp(hpp)}</span>
+      <button class="tbl-action-btn tbl-del" onclick="cbRemoveItem(${ci.resepId})">✕</button>
+    </div>`;
+  }).join('');
+  const preview = document.getElementById('cb_hpp_preview');
+  if (preview) {
+    const hargaJual = parseFloat((document.getElementById('cb_harga')?.value||'0').replace(/\./g,''))||0;
+    const margin = hargaJual && totalHpp ? Math.round((hargaJual-totalHpp)/hargaJual*100) : null;
+    preview.innerHTML = items.length
+      ? `Total HPP Bundle: <span style="color:#4cc9a0;font-weight:700">${fmtRp(totalHpp)}</span>`
+        + (hargaJual ? ` · Margin: <span style="color:${margin>=50?'#4cc9a0':margin>=30?'#f5a623':'var(--red)'};">${margin}%</span>` : '')
+      : '';
+  }
+}
+
+async function submitAddCombo() {
+  const nama = (document.getElementById('cb_nama')?.value||'').trim();
+  if (!nama) { toast('⚠️ Nama bundle tidak boleh kosong','error'); return; }
+  const items = window._cbItems||[];
+  if (items.length < 2) { toast('⚠️ Bundle minimal 2 menu','error'); return; }
+  const item = {
+    id: Date.now(), nama,
+    isCombo: true,
+    comboItems: items,
+    kategori: document.getElementById('cb_kategori')?.value || 'Coffee',
+    channel: document.getElementById('cb_channel')?.value || resepActiveChannel || 'kedai',
+    hargaJual: parseFloat((document.getElementById('cb_harga')?.value||'0').replace(/\./g,''))||0,
+    catatan: document.getElementById('cb_catatan')?.value||'',
+    ingredients: [],
+    hppSnapshot: 0,
+    createdAt: new Date().toISOString()
+  };
+  // snapshot HPP saat ini
+  item.hppSnapshot = hitungHPPResep(item);
+  db.resep.push(item);
+  await saveDB('resep');
+  resepActiveId = item.id;
+  window._cbItems = [];
+  closeModal(); toast('🎁 Bundle berhasil dibuat!','success'); render();
+}
+
+function openEditCombo(id) {
+  const r = db.resep.find(x=>x.id===id);
+  if (!r || !r.isCombo) return;
+  const channels = getResepChannels();
+  document.getElementById('modalTitle').textContent = '✏️ Edit Bundle';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="form-row">
+      <div class="form-group" style="flex:2">
+        <div class="form-label">Nama Bundle *</div>
+        <input class="form-input" id="cb_nama" value="${esc(r.nama)}">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Kategori</div>
+        <select class="form-select" id="cb_kategori">
+          ${getResepGroups().map(g=>`<option value="${g.key}" ${r.kategori===g.key?'selected':''}>${g.label}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Channel</div>
+        <select class="form-select" id="cb_channel">
+          ${channels.map(ch=>`<option value="${ch}" ${(r.channel||'kedai')===ch?'selected':''}>${getChannelLabel(ch)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <div class="form-label">Harga Jual Bundle (Rp)</div>
+        <input class="form-input" id="cb_harga" type="text" inputmode="numeric" value="${r.hargaJual?Number(r.hargaJual).toLocaleString('id-ID'):''}" placeholder="0" oninput="hppFmtInput(this)">
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Catatan</div>
+      <textarea class="form-textarea" id="cb_catatan" style="height:60px">${esc(r.catatan||'')}</textarea>
+    </div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="saveEditCombo(${id})">Simpan</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+}
+
+async function saveEditCombo(id) {
+  const r = db.resep.find(x=>x.id===id);
+  if (!r) return;
+  const nama = (document.getElementById('cb_nama')?.value||'').trim();
+  if (!nama) { toast('⚠️ Nama tidak boleh kosong','error'); return; }
+  r.nama     = nama;
+  r.kategori = document.getElementById('cb_kategori')?.value || r.kategori;
+  r.channel  = document.getElementById('cb_channel')?.value || r.channel;
+  r.hargaJual = parseFloat((document.getElementById('cb_harga')?.value||'0').replace(/\./g,''))||0;
+  r.catatan  = document.getElementById('cb_catatan')?.value||'';
+  r.hppSnapshot = hitungHPPResep(r);
+  await saveDB('resep');
+  closeModal(); toast('✅ Bundle diperbarui!','success'); render();
+}
+
+function openAddComboItem(comboId) {
+  const combo = db.resep.find(x=>x.id===comboId);
+  if (!combo) return;
+  const existingIds = (combo.comboItems||[]).map(x=>x.resepId);
+  const candidates = db.resep.filter(r => !r.isCombo && r.id !== comboId && !existingIds.includes(r.id));
+  document.getElementById('modalTitle').textContent = '+ Tambah Menu ke Bundle';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Menambah menu ke <strong>${esc(combo.nama)}</strong></div>
+    <div class="form-row">
+      <div class="form-group" style="flex:1">
+        <div class="form-label">Pilih Menu</div>
+        <select class="form-select" id="aci_resep">
+          <option value="">— Pilih menu —</option>
+          ${candidates.map(r=>`<option value="${r.id}">
+            ${esc(r.nama)} · HPP ${fmtRp(hitungHPPResep(r))} · ${getChannelLabel(r.channel||'kedai')}
+          </option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group" style="width:80px">
+        <div class="form-label">Qty</div>
+        <input class="form-input" id="aci_qty" type="number" min="1" value="1" style="text-align:center">
+      </div>
+    </div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="saveAddComboItem(${comboId})">+ Tambah</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+}
+
+async function saveAddComboItem(comboId) {
+  const combo = db.resep.find(x=>x.id===comboId);
+  if (!combo) return;
+  const resepId = parseInt(document.getElementById('aci_resep')?.value||'0');
+  const qty = parseInt(document.getElementById('aci_qty')?.value||'1')||1;
+  if (!resepId) { toast('Pilih menu dulu','error'); return; }
+  if (!combo.comboItems) combo.comboItems = [];
+  const existing = combo.comboItems.find(x=>x.resepId===resepId);
+  if (existing) { existing.qty += qty; }
+  else { combo.comboItems.push({ resepId, qty }); }
+  combo.hppSnapshot = hitungHPPResep(combo);
+  await saveDB('resep');
+  closeModal(); toast('✅ Menu ditambahkan ke bundle!','success'); render();
+}
+
+async function removeComboItem(comboId, resepId) {
+  const combo = db.resep.find(x=>x.id===comboId);
+  if (!combo) return;
+  combo.comboItems = (combo.comboItems||[]).filter(x=>x.resepId!==resepId);
+  combo.hppSnapshot = hitungHPPResep(combo);
+  await saveDB('resep');
+  toast('Item dihapus dari bundle','success'); render();
+}
+
 function openEditResep(id) {
   const r = db.resep.find(x=>x.id===id);
   if (!r) return;
@@ -7939,12 +8548,7 @@ function openEditResep(id) {
       </div>
       <div class="form-group">
         <div class="form-label">Kategori</div>
-        <select class="form-select" id="r_kategori">
-          <option value="Coffee" ${kat==='Coffee'?'selected':''}>☕ Coffee</option>
-          <option value="Non Coffee" ${kat==='Non Coffee'?'selected':''}>🥤 Non Coffee</option>
-          <option value="Manual Brew" ${kat==='Manual Brew'?'selected':''}>🫗 Manual Brew</option>
-          <option value="Snack" ${kat==='Snack'?'selected':''}>🍪 Snack</option>
-        </select>
+        <select class="form-select" id="r_kategori">${getResepGroups().map(g=>`<option value="${g.key}" ${kat===g.key?'selected':''}>${g.label}</option>`).join('')}</select>
       </div>
     </div>
     <div class="form-row">
@@ -8257,6 +8861,144 @@ async function deleteChannel(ch) {
   closeModal(); toast('Channel dihapus','success'); render();
 }
 
+// ─── MANAGE RESEP KATEGORI ───────────────────────────────────
+let _rkatDragIdx = null;
+
+function openManageResepKategori() {
+  document.getElementById('modalTitle').textContent = '🗂️ Kelola Kategori Resep';
+  _renderManageResepKategoriBody();
+  document.getElementById('modalActions').innerHTML =
+    `<button class="btn btn-ghost" onclick="closeModal()">Tutup</button>`;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+}
+
+function _renderManageResepKategoriBody() {
+  const groups = getResepGroups();
+  document.getElementById('modalBody').innerHTML = `
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px">Drag ⠿ untuk ubah urutan. Kategori dengan resep tidak bisa dihapus.</div>
+    <div id="rkatList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px">
+      ${groups.map((g, i) => {
+        const count = db.resep.filter(r => (r.kategori || 'Coffee') === g.key).length;
+        return `<div class="rkat-row" draggable="true"
+          ondragstart="rkatDragStart(event,${i})"
+          ondragover="rkatDragOver(event,${i})"
+          ondragleave="rkatDragLeave(event)"
+          ondrop="rkatDrop(event,${i})"
+          data-idx="${i}"
+          style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;cursor:grab">
+          <span style="color:var(--muted);font-size:14px;cursor:grab">⠿</span>
+          <span style="flex:1;font-size:13px">${esc(g.label)}</span>
+          <span style="font-size:10px;color:var(--muted);font-family:'DM Mono',monospace">${count} resep</span>
+          <button class="tbl-action-btn tbl-edit" onclick="openEditResepKategori(${i})">✏️</button>
+          <button class="tbl-action-btn tbl-del" onclick="deleteResepKategori(${i})" ${count > 0 ? 'disabled title="Masih ada resep di kategori ini"' : ''} style="${count > 0 ? 'opacity:0.3;cursor:not-allowed' : ''}">🗑️</button>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="display:flex;gap:8px;align-items:flex-end">
+      <div class="form-group" style="flex:1;margin-bottom:0">
+        <div class="form-label">Emoji + Nama Kategori Baru</div>
+        <input class="form-input" id="rkat_new" placeholder="🍵 Teh, 🧋 Boba, dll...">
+      </div>
+      <button class="btn btn-primary btn-sm" style="margin-bottom:0" onclick="addResepKategori()">+ Tambah</button>
+    </div>`;
+}
+
+function rkatDragStart(e, idx) {
+  _rkatDragIdx = idx;
+  e.currentTarget.style.opacity = '0.4';
+  e.dataTransfer.effectAllowed = 'move';
+}
+function rkatDragOver(e, idx) {
+  e.preventDefault();
+  if (_rkatDragIdx === idx) return;
+  e.currentTarget.style.background = 'rgba(46,156,255,0.12)';
+  e.currentTarget.style.borderColor = 'var(--accent)';
+}
+function rkatDragLeave(e) {
+  e.currentTarget.style.background = 'var(--surface2)';
+  e.currentTarget.style.borderColor = 'var(--border)';
+}
+async function rkatDrop(e, toIdx) {
+  e.preventDefault();
+  e.currentTarget.style.background = 'var(--surface2)';
+  e.currentTarget.style.borderColor = 'var(--border)';
+  if (_rkatDragIdx === null || _rkatDragIdx === toIdx) { _rkatDragIdx = null; return; }
+  const groups = getResepGroups();
+  const moved = groups.splice(_rkatDragIdx, 1)[0];
+  groups.splice(toIdx, 0, moved);
+  _rkatDragIdx = null;
+  if (!db.keu._meta) db.keu._meta = {};
+  db.keu._meta.resepGroups = groups;
+  await saveKeu();
+  _renderManageResepKategoriBody();
+  render();
+}
+
+function openEditResepKategori(idx) {
+  const groups = getResepGroups();
+  const g = groups[idx];
+  document.getElementById('modalTitle').textContent = '✏️ Edit Kategori';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="form-group">
+      <div class="form-label">Emoji + Nama Label</div>
+      <input class="form-input" id="rkat_edit_label" value="${esc(g.label)}" placeholder="☕ Coffee">
+    </div>
+    <div class="form-group">
+      <div class="form-label">Key (internal, tidak boleh duplikat)</div>
+      <input class="form-input" id="rkat_edit_key" value="${esc(g.key)}" placeholder="Coffee">
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">⚠️ Ubah key hanya jika perlu — resep yang pakai key lama tidak akan tampil di kategori ini.</div>`;
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="openManageResepKategori()">Batal</button>
+    <button class="btn btn-primary" onclick="saveEditResepKategori(${idx})">Simpan</button>`;
+}
+
+async function saveEditResepKategori(idx) {
+  const label = (document.getElementById('rkat_edit_label')?.value || '').trim();
+  const key   = (document.getElementById('rkat_edit_key')?.value || '').trim();
+  if (!label || !key) { toast('Label dan key tidak boleh kosong', 'error'); return; }
+  const groups = getResepGroups();
+  // cek duplikat key (kecuali diri sendiri)
+  if (groups.some((g, i) => g.key === key && i !== idx)) { toast('Key sudah dipakai kategori lain', 'error'); return; }
+  groups[idx] = { key, label };
+  if (!db.keu._meta) db.keu._meta = {};
+  db.keu._meta.resepGroups = groups;
+  await saveKeu();
+  toast('✅ Kategori diperbarui!', 'success');
+  openManageResepKategori();
+  render();
+}
+
+async function addResepKategori() {
+  const raw = (document.getElementById('rkat_new')?.value || '').trim();
+  if (!raw) { toast('Nama tidak boleh kosong', 'error'); return; }
+  // Auto-generate key dari nama (strip emoji, trim, title-case)
+  const key = raw.replace(/\p{Emoji_Presentation}/gu, '').trim() || raw;
+  const groups = getResepGroups();
+  if (groups.some(g => g.key === key)) { toast('Kategori dengan key ini sudah ada', 'error'); return; }
+  groups.push({ key, label: raw });
+  if (!db.keu._meta) db.keu._meta = {};
+  db.keu._meta.resepGroups = groups;
+  await saveKeu();
+  toast(`✅ Kategori "${raw}" ditambahkan!`, 'success');
+  _renderManageResepKategoriBody();
+  render();
+}
+
+async function deleteResepKategori(idx) {
+  const groups = getResepGroups();
+  const g = groups[idx];
+  const count = db.resep.filter(r => (r.kategori || 'Coffee') === g.key).length;
+  if (count > 0) { toast('Hapus atau pindah resep di kategori ini dulu', 'error'); return; }
+  groups.splice(idx, 1);
+  if (!db.keu._meta) db.keu._meta = {};
+  db.keu._meta.resepGroups = groups;
+  await saveKeu();
+  toast(`Kategori "${g.label}" dihapus`, 'success');
+  _renderManageResepKategoriBody();
+  render();
+}
+
 function openAddBahan() {
   document.getElementById('modalTitle').textContent = '+ Bahan Baku Baru';
   document.getElementById('modalBody').innerHTML = `
@@ -8384,464 +9126,6 @@ async function deleteBahan(id) {
   toast('🗑️ Bahan dihapus','success'); render();
 }
 
-// ─── STRATEGY ────────────────────────────────────────────────
-let strategyBrand = 'dikopi';
-let strategyCollapsed = {};
-function toggleBrandSection(key) { strategyCollapsed[key] = !strategyCollapsed[key]; render(); }
-
-function renderStrategy() {
-  document.getElementById('addBtn').classList.remove('hidden');
-
-  const b = strategyBrand;
-  const saved = (db.strategy || []).find(s => s.brand === b) || null;
-  const info         = saved?.info         || null;
-  const pilars       = saved?.pilars       || [];
-  const hashtags     = saved?.hashtags     || [];
-  const targetAud    = saved?.targetAudience || [];
-  const kpi          = saved?.kpi          || [];
-
-  const brandTabs = BRANDS.map(x => `
-    <button class="filter-btn ${x===b?'active':''}" onclick="strategyBrand='${x}';render()">${BRAND_LABEL[x]}</button>
-  `).join('');
-
-  const topbar = `
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
-    <div class="filter-row" style="margin-bottom:0">${brandTabs}</div>
-    <button class="btn btn-ghost btn-sm" onclick="openEditStrategy('${b}')">✏️ Edit Strategy</button>
-  </div>`;
-
-  if (!saved) return topbar + `
-    <div class="empty" style="margin-top:40px">
-      <div class="empty-icon">🎯</div>
-      Belum ada strategy untuk ${BRAND_LABEL[b]}<br>
-      <button class="btn btn-primary btn-sm" style="margin-top:14px" onclick="openEditStrategy('${b}')">+ Setup Strategy</button>
-      <div style="font-size:11px;color:var(--muted);margin-top:10px">atau import file JSON strategy via tombol 📥 Import di sidebar</div>
-    </div>`;
-
-  // ── OVERVIEW CARDS ────────────────────────────────────────
-  const overviewSection = info ? `
-    <div class="strategy-section-title">📋 Overview</div>
-    <div class="strategy-grid" style="margin-bottom:24px">
-      <div class="strategy-card"><div class="strategy-card-label">🎯 Target Audience</div><div class="strategy-card-value">${esc(info.target||'—')}</div></div>
-      <div class="strategy-card"><div class="strategy-card-label">🗣️ Tone of Voice</div><div class="strategy-card-value">${esc(info.tone||'—')}</div></div>
-      <div class="strategy-card"><div class="strategy-card-label">🕐 Best Posting Time</div><div class="strategy-card-value">${esc(info.posting||'—')}</div></div>
-      <div class="strategy-card"><div class="strategy-card-label">📊 Target Frekuensi</div><div class="strategy-card-value">${esc(info.freq||'—')}</div></div>
-    </div>` : '';
-
-  // ── PILARS ────────────────────────────────────────────────
-  const pilarSection = pilars.length ? `
-    <div class="strategy-section-title">📌 Konten Pilar</div>
-    <div class="strategy-grid" style="margin-bottom:24px">
-      ${pilars.map((p,i) => `
-        <div class="strategy-card">
-          <div class="strategy-card-label" style="color:var(--${b})">Pilar ${i+1}</div>
-          <div style="font-weight:600;font-size:13px;margin-bottom:6px;color:var(--text)">${esc(p.nama)}</div>
-          <div class="strategy-card-value" style="color:var(--text2)">${esc(p.desc)}</div>
-        </div>`).join('')}
-    </div>` : '';
-
-  // ── TARGET AUDIENCE TABLE ─────────────────────────────────
-  const audienceSection = targetAud.length ? `
-    <div class="strategy-section-title">👥 Target Audience Segmentation</div>
-    <div class="analytics-wrap" style="margin-bottom:24px">
-      <table class="analytics-table" style="table-layout:auto">
-        <thead><tr>
-          <th>Segment</th><th>Usia</th><th>Platform</th>
-          <th>Pain Point</th><th>Produk</th><th>Pendekatan Konten</th>
-        </tr></thead>
-        <tbody>
-          ${targetAud.map(a => `<tr>
-            <td style="font-weight:600;font-size:12px;min-width:130px">${esc(a.segment)}</td>
-            <td style="font-family:'DM Mono',monospace;font-size:11px;white-space:nowrap">${esc(a.usia)}</td>
-            <td style="font-size:11px;white-space:nowrap">${esc(a.platform)}</td>
-            <td style="font-size:11px;color:var(--text2)">${esc(a.painPoint)}</td>
-            <td style="font-size:11px">${esc(a.produk)}</td>
-            <td style="font-size:11px;color:var(--text2)">${esc(a.pendekatan)}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
-    </div>` : '';
-
-  // ── KPI TABLE ─────────────────────────────────────────────
-  const kpiSection = kpi.length ? `
-    <div class="strategy-section-title">📊 KPI Target Bulan Ini</div>
-    <div class="analytics-wrap" style="margin-bottom:24px">
-      <table class="analytics-table" style="table-layout:auto">
-        <thead><tr>
-          <th>Metrik</th><th>Target Min</th><th>Target Ideal</th>
-          <th>Cara Ukur</th><th>Frekuensi</th><th>Notes</th>
-        </tr></thead>
-        <tbody>
-          ${kpi.map(k => `<tr>
-            <td style="font-weight:600;font-size:12px">${esc(k.metrik)}</td>
-            <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${esc(k.targetMin)}</td>
-            <td style="font-family:'DM Mono',monospace;font-size:11px;color:#4cc9a0;font-weight:600">${esc(k.targetIdeal)}</td>
-            <td style="font-size:11px;color:var(--text2)">${esc(k.caraUkur)}</td>
-            <td style="font-size:11px;white-space:nowrap">${esc(k.frekuensi)}</td>
-            <td style="font-size:11px;color:var(--text2)">${esc(k.notes)}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
-    </div>` : '';
-
-  // ── HASHTAG ───────────────────────────────────────────────
-  const hashtagSection = hashtags.length ? `
-    <div class="strategy-section-title">🏷️ Hashtag Bucket</div>
-    <div style="margin-bottom:24px">
-      ${hashtags.map(h => `<div class="hashtag-tier">
-        <div class="hashtag-tier-label">${esc(h.tier)}</div>
-        <div class="hashtag-tags">${h.tags.split(' ').filter(t=>t).map(t=>`<span class="hashtag-tag">${esc(t)}</span>`).join('')}</div>
-      </div>`).join('')}
-    </div>` : '';
-
-  return topbar + overviewSection + pilarSection + audienceSection + kpiSection + hashtagSection;
-}
-
-function openEditStrategy(brand) {
-  const b = brand || strategyBrand || BRANDS[0];
-  const saved = (db.strategy || []).find(s => s.brand === b) || {};
-  document.getElementById('modalTitle').textContent = `✏️ Edit Strategy — ${BRAND_LABEL[b]}`;
-  document.getElementById('modalBody').innerHTML = `
-    <div class="form-group" style="margin-bottom:12px">
-      <div class="form-label">Brand</div>
-      <select class="form-select" id="es_brand">
-        ${BRANDS.map(x=>`<option value="${x}" ${x===b?'selected':''}>${BRAND_LABEL[x]}</option>`).join('')}
-      </select>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><div class="form-label">Target Audience (singkat)</div><textarea class="form-textarea" id="es_target">${esc(saved.info?.target||'')}</textarea></div>
-      <div class="form-group"><div class="form-label">Tone of Voice</div><textarea class="form-textarea" id="es_tone">${esc(saved.info?.tone||'')}</textarea></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><div class="form-label">Best Posting Time</div><input class="form-input" id="es_posting" value="${esc(saved.info?.posting||'')}"></div>
-      <div class="form-group"><div class="form-label">Target Frekuensi</div><input class="form-input" id="es_freq" value="${esc(saved.info?.freq||'')}"></div>
-    </div>
-    <div class="form-group">
-      <div class="form-label">Konten Pilar <span style="color:var(--muted);font-weight:400">(per baris: Nama Pilar | Deskripsi)</span></div>
-      <textarea class="form-textarea" id="es_pilars" style="min-height:90px" placeholder="Portfolio & Hasil | Konten showcase hasil produksi...">${(saved.pilars||[]).map(p=>`${p.nama} | ${p.desc}`).join('\n')}</textarea>
-    </div>
-    <div class="form-group">
-      <div class="form-label">Hashtag Bucket <span style="color:var(--muted);font-weight:400">(per baris: Label Tier | #tag1 #tag2 ...)</span></div>
-      <textarea class="form-textarea" id="es_hashtags" style="min-height:70px" placeholder="Tier 1 — Mega | #kopi #coffee...">${(saved.hashtags||[]).map(h=>`${h.tier} | ${h.tags}`).join('\n')}</textarea>
-    </div>
-    <div style="font-size:11px;color:var(--muted);padding:8px 10px;background:var(--surface2);border-radius:8px;line-height:1.6">
-      💡 <strong>Target Audience segmentation & KPI</strong> diisi otomatis via Import JSON dari file Excel strategy. 
-      Klik <strong>📥 Import Konten JSON</strong> di sidebar dan pilih file <code>*_strategy_import.json</code>.
-    </div>`;
-  document.getElementById('modalActions').innerHTML = `
-    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
-    <button class="btn btn-primary" onclick="saveStrategy()">💾 Simpan</button>`;
-  document.getElementById('modalBackdrop').classList.remove('hidden');
-}
-
-async function saveStrategy() {
-  if (!dirHandle) { toast('⚠️ Pilih folder dulu','error'); return; }
-  const b = gv('es_brand');
-  const existing = (db.strategy||[]).find(s=>s.brand===b) || {};
-  const info = { target:gv('es_target'), tone:gv('es_tone'), posting:gv('es_posting'), freq:gv('es_freq') };
-  const pilars = gv('es_pilars').split('\n').filter(l=>l.trim()).map(l=>{
-    const [nama,...rest]=l.split('|'); return {nama:nama.trim(), desc:rest.join('|').trim()};
-  });
-  const hashtags = gv('es_hashtags').split('\n').filter(l=>l.trim()).map(l=>{
-    const [tier,...rest]=l.split('|'); return {tier:tier.trim(), tags:rest.join('|').trim()};
-  });
-  if (!db.strategy) db.strategy = [];
-  const idx = db.strategy.findIndex(s=>s.brand===b);
-  // preserve targetAudience & kpi from existing (only editable via import)
-  const entry = { brand:b, info, pilars, hashtags,
-    targetAudience: existing.targetAudience||[],
-    kpi: existing.kpi||[] };
-  if (idx>=0) db.strategy[idx]=entry; else db.strategy.push(entry);
-  await saveDB('strategy');
-  strategyBrand = b;
-  closeModal();
-  toast('✅ Strategy disimpan!','success');
-  render();
-}
-
-// ─── ANALYTICS ───────────────────────────────────────────────
-let analyticsCollapsed = {};
-function toggleAnalytics(key) { analyticsCollapsed[key] = !analyticsCollapsed[key]; render(); }
-
-function renderAnalytics() {
-  document.getElementById('addBtn').classList.remove('hidden');
-
-  const brandBlocks = BRANDS.map(b => {
-    const entries = [...(db.analytics||[])].filter(a=>a.brand===b).sort((x,y)=>(x.tanggal||'').localeCompare(y.tanggal||''));
-    const key = 'ana_' + b;
-    const collapsed = analyticsCollapsed[key] ?? (b !== 'dikopi');
-
-    // group by month
-    const byMonth = {};
-    entries.forEach(a => {
-      const mk = (a.tanggal||'unset').substring(0,7);
-      if (!byMonth[mk]) byMonth[mk] = [];
-      byMonth[mk].push(a);
-    });
-
-    const monthBlocks = Object.keys(byMonth).sort().map(mk => {
-      const mItems = byMonth[mk];
-      const mkLabel = mk === 'unset' ? 'Tanpa Tanggal' : getBulanLabel(mk);
-      const mCollapsed = analyticsCollapsed[`${key}_${mk}`] ?? false;
-      const rows = mItems.map(a => {
-        const er = a.reach ? ((((a.likes||0)+(a.comments||0)+(a.saves||0)+(a.shares||0))/a.reach)*100).toFixed(1)+'%' : '—';
-        return `<tr>
-          <td class="metric-num">${fmtTanggal(a.tanggal)}</td>
-          <td>${esc(a.judul||'—')}</td>
-          <td>${esc(a.pilar||'—')}</td>
-          <td>${esc(a.format||'—')}</td>
-          <td class="metric-num">${a.likes||'—'}</td>
-          <td class="metric-num">${a.comments||'—'}</td>
-          <td class="metric-num">${a.saves||'—'}</td>
-          <td class="metric-num">${a.shares||'—'}</td>
-          <td class="metric-num">${a.reach||'—'}</td>
-          <td class="metric-num">${er}</td>
-          <td style="font-size:11px;color:var(--text2)">${esc(a.notes||'')}</td>
-          <td>
-            <button class="tbl-action-btn tbl-edit" onclick="openEditAnalytics(${a.id})">✏️</button>
-            <button class="tbl-action-btn tbl-del" onclick="deleteItem('analytics',${a.id})">🗑️</button>
-          </td>
-        </tr>`;
-      }).join('');
-
-      return `
-        <div class="month-collapse-hdr" onclick="toggleAnalytics('${key}_${mk}')">
-          <span style="font-weight:600;font-size:13px">${mkLabel} <span style="color:var(--muted);font-size:11px;font-weight:400">· ${mItems.length} post</span></span>
-          <span style="font-size:12px;color:var(--muted)">${mCollapsed?'▸':'▾'}</span>
-        </div>
-        ${mCollapsed ? '' : `<div class="analytics-wrap">
-          <table class="analytics-table">
-            <thead><tr>
-              <th style="width:7%">Tgl</th><th style="width:14%">Judul</th><th style="width:8%">Pilar</th>
-              <th style="width:8%">Format</th><th style="width:5%">♥</th><th style="width:5%">💬</th>
-              <th style="width:5%">🔖</th><th style="width:5%">↗</th><th style="width:7%">Reach</th>
-              <th style="width:6%">ER%</th><th style="width:18%">Notes</th><th style="width:7%">Aksi</th>
-            </tr></thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>`}`;
-    }).join('');
-
-    return `<div class="brand-section">
-      <div class="brand-section-header ${collapsed?'collapsed':''}" onclick="toggleBrandSection('${key}')">
-        <div class="brand-section-title"><span style="color:var(--${b})">${BRAND_LABEL[b]}</span>
-          <span style="font-size:11px;color:var(--muted);font-weight:400">${entries.length} data</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px">
-          ${!collapsed ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openEditAnalytics(null,'${b}')">+ Tambah</button>` : ''}
-          <span class="brand-section-chevron">▾</span>
-        </div>
-      </div>
-      ${collapsed ? '' : `<div class="brand-section-body">
-        ${entries.length ? monthBlocks : `<div class="empty"><div class="empty-icon">📊</div>Belum ada data analytics<br><button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="openEditAnalytics(null,'${b}')">+ Tambah Data</button></div>`}
-      </div>`}
-    </div>`;
-  }).join('');
-
-  return `<div class="page-topbar"><div style="font-size:13px;color:var(--muted)">Input metrics mingguan per post — track ER%, reach, saves</div></div>${brandBlocks}`;
-}
-
-function openEditAnalytics(id, brand) {
-  const existing = id ? (db.analytics||[]).find(a=>a.id===id) : null;
-  const b = existing?.brand || brand || BRANDS[0];
-  document.getElementById('modalTitle').textContent = id ? '✏️ Edit Analytics' : '+ Tambah Data Analytics';
-  document.getElementById('modalBody').innerHTML = `
-    <div class="form-row">
-      <div class="form-group">
-        <div class="form-label">Brand</div>
-        <select class="form-select" id="fa_brand">${BRANDS.map(x=>`<option value="${x}" ${x===b?'selected':''}>${BRAND_LABEL[x]}</option>`).join('')}</select>
-      </div>
-      <div class="form-group">
-        <div class="form-label">Tanggal Post</div>
-        <input class="form-input" id="fa_tanggal" placeholder="DD/MM/YYYY" maxlength="10" oninput="autoSlashDate(this)" value="${toDisplayDate(existing?.tanggal||'')}">
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group" style="flex:2">
-        <div class="form-label">Judul Konten</div>
-        <input class="form-input" id="fa_judul" value="${esc(existing?.judul||'')}">
-      </div>
-      <div class="form-group">
-        <div class="form-label">Pilar</div>
-        ${pilarSelect('fa_pilar', existing?.pilar||'')}
-      </div>
-      <div class="form-group">
-        <div class="form-label">Format</div>
-        <select class="form-select" id="fa_format">
-          ${['','Reels','Carousel','Single Post','Story','Video'].map(f=>`<option ${f===(existing?.format||'')?'selected':''}>${f}</option>`).join('')}
-        </select>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><div class="form-label">❤️ Likes</div><input class="form-input" id="fa_likes" type="number" value="${existing?.likes||''}"></div>
-      <div class="form-group"><div class="form-label">💬 Comments</div><input class="form-input" id="fa_comments" type="number" value="${existing?.comments||''}"></div>
-      <div class="form-group"><div class="form-label">🔖 Saves</div><input class="form-input" id="fa_saves" type="number" value="${existing?.saves||''}"></div>
-      <div class="form-group"><div class="form-label">↗ Shares</div><input class="form-input" id="fa_shares" type="number" value="${existing?.shares||''}"></div>
-      <div class="form-group"><div class="form-label">👁 Reach</div><input class="form-input" id="fa_reach" type="number" value="${existing?.reach||''}"></div>
-    </div>
-    <div class="form-group">
-      <div class="form-label">Notes / Insight</div>
-      <textarea class="form-textarea" id="fa_notes">${esc(existing?.notes||'')}</textarea>
-    </div>`;
-  document.getElementById('modalActions').innerHTML = `
-    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
-    <button class="btn btn-primary" onclick="saveAnalytics(${id||'null'})">💾 Simpan</button>`;
-  document.getElementById('modalBackdrop').classList.remove('hidden');
-}
-
-async function saveAnalytics(id) {
-  if (!dirHandle) { toast('⚠️ Pilih folder dulu','error'); return; }
-  if (!db.analytics) db.analytics = [];
-  const entry = {
-    id: id || Date.now(),
-    brand: gv('fa_brand'), tanggal: toStorageDate(gv('fa_tanggal')),
-    judul: gv('fa_judul'), pilar: gv('fa_pilar'), format: gv('fa_format'),
-    likes: Number(gv('fa_likes'))||0, comments: Number(gv('fa_comments'))||0,
-    saves: Number(gv('fa_saves'))||0, shares: Number(gv('fa_shares'))||0,
-    reach: Number(gv('fa_reach'))||0, notes: gv('fa_notes')
-  };
-  if (id) { const i=db.analytics.findIndex(a=>a.id===id); if(i>=0) db.analytics[i]=entry; }
-  else db.analytics.push(entry);
-  await saveDB('analytics');
-  closeModal(); toast('✅ Data analytics disimpan!','success'); render();
-}
-
-// ─── ADS PLAN ────────────────────────────────────────────────
-let adsCollapsed = {};
-
-function renderAdsplan() {
-  document.getElementById('addBtn').classList.remove('hidden');
-
-  const brandBlocks = BRANDS.map(b => {
-    const campaigns = [...(db.adsplan||[])].filter(a=>a.brand===b).sort((x,y)=>(x.startDate||'').localeCompare(y.startDate||''));
-    const key = 'ads_' + b;
-    const collapsed = adsCollapsed[key] ?? (b !== 'dikopi');
-
-    const totalBudget = campaigns.reduce((s,c)=>s+Number(c.total||0),0);
-    const active = campaigns.filter(c=>c.status==='active').length;
-
-    // group by month
-    const byMonth = {};
-    campaigns.forEach(c => {
-      const mk = (c.bulan||'unset');
-      if (!byMonth[mk]) byMonth[mk] = [];
-      byMonth[mk].push(c);
-    });
-
-    const monthBlocks = Object.keys(byMonth).sort().map(mk => {
-      const mItems = byMonth[mk];
-      const mkLabel = mk==='unset' ? 'Tanpa Bulan' : getBulanLabel(mk);
-      const mCollapsed = adsCollapsed[`${key}_${mk}`] ?? false;
-      const cards = mItems.map(c => {
-        const statusCls = c.status==='active'?'ads-status-active':c.status==='done'?'ads-status-done':'ads-status-planned';
-        const statusLabel = c.status==='active'?'🟢 Active':c.status==='done'?'✅ Done':'🔵 Planned';
-        return `<div class="ads-campaign">
-          <div style="flex:1">
-            <div class="ads-campaign-name">${esc(c.nama)}</div>
-            <div class="ads-campaign-meta">${esc(c.tujuan||'—')} · ${esc(c.durasi||'')} · Budget/hari: ${c.budgetHari?'Rp'+Number(c.budgetHari).toLocaleString('id'):'-'}</div>
-          </div>
-          <span class="ads-budget-pill">Rp ${Number(c.total||0).toLocaleString('id')}</span>
-          <span class="ads-status-pill ${statusCls}">${statusLabel}</span>
-          <button class="tbl-action-btn tbl-edit" onclick="openEditAds(${c.id})">✏️</button>
-          <button class="tbl-action-btn tbl-del" onclick="deleteItem('adsplan',${c.id})">🗑️</button>
-        </div>`;
-      }).join('');
-
-      return `
-        <div class="month-collapse-hdr" onclick="toggleAnalytics('${key}_${mk}')">
-          <span style="font-weight:600;font-size:13px">${mkLabel} <span style="color:var(--muted);font-size:11px;font-weight:400">· ${mItems.length} campaign</span></span>
-          <span style="font-size:12px;color:var(--muted)">${mCollapsed?'▸':'▾'}</span>
-        </div>
-        ${mCollapsed ? '' : cards}`;
-    }).join('');
-
-    return `<div class="brand-section">
-      <div class="brand-section-header ${collapsed?'collapsed':''}" onclick="adsCollapsed['${key}']=!adsCollapsed['${key}'];render()">
-        <div class="brand-section-title">
-          <span style="color:var(--${b})">${BRAND_LABEL[b]}</span>
-          ${active ? `<span style="font-size:11px;color:var(--accent);font-weight:400">${active} active</span>` : ''}
-        </div>
-        <div style="display:flex;align-items:center;gap:10px">
-          ${!collapsed ? `<span style="font-family:'DM Mono',monospace;font-size:11px;color:#4cc9a0">Total: Rp${totalBudget.toLocaleString('id')}</span>` : ''}
-          ${!collapsed ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openEditAds(null,'${b}')">+ Campaign</button>` : ''}
-          <span class="brand-section-chevron">▾</span>
-        </div>
-      </div>
-      ${collapsed ? '' : `<div class="brand-section-body">
-        ${campaigns.length ? monthBlocks : `<div class="empty"><div class="empty-icon">📢</div>Belum ada campaign ads<br><button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="openEditAds(null,'${b}')">+ Tambah Campaign</button></div>`}
-      </div>`}
-    </div>`;
-  }).join('');
-
-  return `<div class="page-topbar"><div style="font-size:13px;color:var(--muted)">Track semua campaign Meta Ads per brand, per bulan</div></div>${brandBlocks}`;
-}
-
-function openEditAds(id, brand) {
-  const existing = id ? (db.adsplan||[]).find(a=>a.id===id) : null;
-  const b = existing?.brand || brand || BRANDS[0];
-  document.getElementById('modalTitle').textContent = id ? '✏️ Edit Campaign' : '+ Tambah Campaign Ads';
-  document.getElementById('modalBody').innerHTML = `
-    <div class="form-row">
-      <div class="form-group">
-        <div class="form-label">Brand</div>
-        <select class="form-select" id="fads_brand">${BRANDS.map(x=>`<option value="${x}" ${x===b?'selected':''}>${BRAND_LABEL[x]}</option>`).join('')}</select>
-      </div>
-      <div class="form-group">
-        <div class="form-label">Bulan</div>
-        <input class="form-input" id="fads_bulan" type="month" value="${existing?.bulan||new Date().toISOString().substring(0,7)}">
-      </div>
-    </div>
-    <div class="form-group">
-      <div class="form-label">Nama Campaign</div>
-      <input class="form-input" id="fads_nama" value="${esc(existing?.nama||'')}" placeholder="Campaign 1: Brand Awareness Dikopi">
-    </div>
-    <div class="form-group">
-      <div class="form-label">Tujuan Campaign</div>
-      <select class="form-select" id="fads_tujuan">
-        ${['Brand Awareness / Reach','Conversion / DM Order','Traffic / Awareness','Engagement / Reach','Retarget + Conversion'].map(t=>`<option ${t===(existing?.tujuan||'')?'selected':''}>${t}</option>`).join('')}
-      </select>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><div class="form-label">Budget / Hari (Rp)</div><input class="form-input" id="fads_budgetHari" type="text" inputmode="numeric" value="${existing?.budgetHari?Number(existing.budgetHari).toLocaleString('id-ID'):''}" oninput="hppFmtInput(this)"></div>
-      <div class="form-group"><div class="form-label">Durasi</div><input class="form-input" id="fads_durasi" value="${esc(existing?.durasi||'')}" placeholder="14 hari"></div>
-      <div class="form-group"><div class="form-label">Total Budget (Rp)</div><input class="form-input" id="fads_total" type="text" inputmode="numeric" value="${existing?.total?Number(existing.total).toLocaleString('id-ID'):''}" oninput="hppFmtInput(this)"></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <div class="form-label">Status</div>
-        <select class="form-select" id="fads_status">
-          <option value="planned" ${(existing?.status||'planned')==='planned'?'selected':''}>🔵 Planned</option>
-          <option value="active" ${existing?.status==='active'?'selected':''}>🟢 Active</option>
-          <option value="done" ${existing?.status==='done'?'selected':''}>✅ Done</option>
-        </select>
-      </div>
-      <div class="form-group" style="flex:2">
-        <div class="form-label">Catatan</div>
-        <input class="form-input" id="fads_notes" value="${esc(existing?.notes||'')}" placeholder="Target audience, insight, dll">
-      </div>
-    </div>`;
-  document.getElementById('modalActions').innerHTML = `
-    <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
-    <button class="btn btn-primary" onclick="saveAds(${id||'null'})">💾 Simpan</button>`;
-  document.getElementById('modalBackdrop').classList.remove('hidden');
-}
-
-async function saveAds(id) {
-  if (!dirHandle) { toast('⚠️ Pilih folder dulu','error'); return; }
-  if (!db.adsplan) db.adsplan = [];
-  const entry = {
-    id: id||Date.now(), brand:gv('fads_brand'), bulan:gv('fads_bulan'),
-    nama:gv('fads_nama'), tujuan:gv('fads_tujuan'), budgetHari:parseFloat((gv('fads_budgetHari')||'0').replace(/\./g,''))||0,
-    durasi:gv('fads_durasi'), total:parseFloat((gv('fads_total')||'0').replace(/\./g,''))||0,
-    status:gv('fads_status'), notes:gv('fads_notes')
-  };
-  if (id) { const i=db.adsplan.findIndex(a=>a.id===id); if(i>=0) db.adsplan[i]=entry; }
-  else db.adsplan.push(entry);
-  await saveDB('adsplan');
-  closeModal(); toast('✅ Campaign disimpan!','success'); render();
-}
-
-// ─── ADD MODAL ───────────────────────────────────────────────
 function openAddModal() {
   // pages with their own modals
   if (currentPage === 'todos') {
@@ -8854,9 +9138,6 @@ function openAddModal() {
     openAddProject(activeBrand);
     return;
   }
-  if (currentPage === 'strategy')  { openEditStrategy(null); return; }
-  if (currentPage === 'analytics') { openEditAnalytics(null, BRANDS[0]); return; }
-  if (currentPage === 'adsplan')   { openEditAds(null, BRANDS[0]); return; }
   if (['keu_buku','keuangan'].includes(currentPage)) { openAddTransaksi(keuBukuBrand); return; }
 
   const bodies = {
@@ -9581,350 +9862,4 @@ async function init() {
 }
 
 init();
-
-// ─── ANALISIS SHIFT DIKOPI ────────────────────────────────────
-let shiftDate = new Date().toISOString().split('T')[0];
-
-function renderShiftAnalisis() {
-  document.getElementById('addBtn').classList.add('hidden');
-  const txns = getDikopiTxnsByDate(shiftDate);
-  const allDates = [...new Set((db.keu.dikopi||[])
-    .filter(t=>t.tipe==='masuk'&&t.kategori==='Penjualan Langsung'&&t.tanggal)
-    .map(t=>t.tanggal)
-  )].sort().reverse().slice(0,30);
-
-  const { omzet, hppTotal, margin, hasItemData, txnCount, itemsTotal, allItems } = calcMarginFromTxns(txns);
-  const s = getBonusSettings();
-  const feeDasar = s.aktif ? s.feeDasar : 0;
-  const bonus = (s.aktif && margin !== null) ? calcBonusBarista(margin, omzet) : 0;
-  const totalFee = feeDasar + bonus;
-  const marginBersih = margin !== null ? margin - totalFee : null;
-  const indikatorColor = marginBersih === null ? 'var(--muted)' : marginBersih >= 100000 ? '#4cc9a0' : marginBersih >= 50000 ? '#f5a623' : 'var(--red)';
-  const indikatorLabel = marginBersih === null ? '—' : marginBersih >= 100000 ? '🟢 Aman' : marginBersih >= 50000 ? '🟡 Tipis' : '🔴 Berisiko';
-
-  // Item breakdown
-  const itemMap = {};
-  allItems.forEach(i => {
-    if (!itemMap[i.resepId]) itemMap[i.resepId] = { nama:i.nama, qty:0, omzet:0, hpp:0 };
-    itemMap[i.resepId].qty += Number(i.qty)||1;
-    itemMap[i.resepId].omzet += (Number(i.hargaJual)||0)*(Number(i.qty)||1);
-    itemMap[i.resepId].hpp += (Number(i.hppSnapshot)||0)*(Number(i.qty)||1);
-  });
-  const itemRows = Object.values(itemMap).sort((a,b)=>b.omzet-a.omzet);
-
-  const dateOptions = allDates.map(d => {
-    const [y,mo,day] = d.split('-');
-    return `<option value="${d}" ${d===shiftDate?'selected':''}>${day}/${mo}/${y}</option>`;
-  }).join('');
-
-  const noDataMsg = txns.length === 0 ? `
-    <div class="empty" style="padding:40px">
-      <div class="empty-icon">📊</div>
-      Belum ada data penjualan untuk tanggal ini.<br>
-      <span style="font-size:11px">Catat penjualan dengan input per item agar margin terhitung otomatis.</span>
-    </div>` : '';
-
-  const simRows = s.aktif ? `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
-      <div style="background:var(--surface3);border-radius:8px;padding:12px">
-        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Simulasi Distribusi Fee</div>
-        <div style="font-size:12px;line-height:2">
-          <div style="display:flex;justify-content:space-between"><span>Margin Kotor</span><span style="font-family:'DM Mono',monospace;color:${margin!==null?'#4cc9a0':'var(--muted)'}">${margin!==null?fmtRp(margin):'—'}</span></div>
-          <div style="display:flex;justify-content:space-between"><span>− Fee Dasar</span><span style="font-family:'DM Mono',monospace;color:var(--red)">${s.aktif?('−'+fmtRp(feeDasar)):'Nonaktif'}</span></div>
-          <div style="display:flex;justify-content:space-between"><span>− Bonus</span><span style="font-family:'DM Mono',monospace;color:var(--red)">${margin!==null?('−'+fmtRp(bonus)):'—'}</span></div>
-          <div style="border-top:1px solid var(--border);margin-top:6px;padding-top:6px;display:flex;justify-content:space-between;font-weight:700"><span>= Margin Bersih</span><span style="font-family:'DM Mono',monospace;color:${indikatorColor}">${marginBersih!==null?fmtRp(marginBersih):'—'}</span></div>
-        </div>
-      </div>
-      <div style="background:var(--surface3);border-radius:8px;padding:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px">
-        <div style="font-size:28px">${indikatorLabel.split(' ')[0]||'—'}</div>
-        <div style="font-size:14px;font-weight:700;color:${indikatorColor}">${indikatorLabel.split(' ').slice(1).join(' ')||'—'}</div>
-        <div style="font-size:11px;color:var(--muted);text-align:center">Status margin bersih<br>setelah pembayaran barista</div>
-      </div>
-    </div>` : '';
-
-  return `
-  <div style="max-width:900px">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap">
-      <div class="form-group" style="margin-bottom:0;min-width:160px">
-        <div class="form-label">Tanggal Shift</div>
-        <select class="form-select" id="shift_date_sel" onchange="shiftDate=this.value;render()">
-          ${dateOptions || `<option value="${shiftDate}">${shiftDate}</option>`}
-        </select>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:16px">
-        <button class="btn btn-ghost btn-sm" onclick="goto('settings_bonus')">⚙️ Settings Barista</button>
-        <button class="btn btn-ghost btn-sm" onclick="goto('keu_buku')">📒 Buku Kas</button>
-      </div>
-    </div>
-
-    ${noDataMsg}
-    ${txns.length ? `
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
-      <div class="keu-card">
-        <div class="keu-label">🧾 Jumlah Transaksi</div>
-        <div class="keu-val" style="font-size:20px;color:var(--accent)">${txnCount}</div>
-      </div>
-      <div class="keu-card">
-        <div class="keu-label">🛒 Total Item Terjual</div>
-        <div class="keu-val" style="font-size:20px;color:var(--accent)">${itemsTotal || '—'}</div>
-        ${!hasItemData?'<div style="font-size:9px;color:var(--muted);margin-top:3px">Input per item utk lihat qty</div>':''}
-      </div>
-      <div class="keu-card" style="border-color:rgba(76,201,160,0.3)">
-        <div class="keu-label">📈 Omzet Shift</div>
-        <div class="keu-val keu-green" style="font-size:20px">${fmtRp(omzet)}</div>
-      </div>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
-      <div class="keu-card" style="border-color:rgba(245,166,35,0.3)">
-        <div class="keu-label">📦 HPP Shift</div>
-        <div class="keu-val" style="font-size:20px;color:#f5a623">${hasItemData?fmtRp(hppTotal):'—'}</div>
-      </div>
-      <div class="keu-card" style="border-color:${margin!==null&&margin>=0?'rgba(76,201,160,0.3)':'rgba(212,96,58,0.3)'}">
-        <div class="keu-label">💰 Margin Kotor</div>
-        <div class="keu-val" style="font-size:20px;color:${margin!==null&&margin>=0?'#4cc9a0':'var(--red)'}">${margin!==null?fmtRp(margin):'—'}</div>
-      </div>
-      <div class="keu-card" style="border-color:rgba(139,111,255,0.3)">
-        <div class="keu-label">👨‍🍳 Fee + Bonus Barista</div>
-        <div class="keu-val" style="font-size:20px;color:#9b82f5">${s.aktif?(fmtRp(totalFee)):'Nonaktif'}</div>
-        ${s.aktif?`<div style="font-size:9px;color:var(--muted);margin-top:3px">Dasar: ${fmtRp(feeDasar)} · Bonus: ${margin!==null?fmtRp(bonus):'—'}</div>`:''}
-      </div>
-    </div>
-
-    ${simRows}
-
-    ${itemRows.length ? `
-    <div class="card" style="margin-top:16px">
-      <div class="card-title">📋 Breakdown per Menu
-        <span>${itemRows.length} menu · ${itemsTotal} item</span>
-      </div>
-      <table style="width:100%;border-collapse:collapse;font-size:12px">
-        <thead><tr style="background:var(--surface3)">
-          <th style="padding:8px 12px;text-align:left;color:var(--muted)">Menu</th>
-          <th style="padding:8px 12px;text-align:center;color:var(--muted)">Qty</th>
-          <th style="padding:8px 12px;text-align:right;color:var(--muted)">Omzet</th>
-          <th style="padding:8px 12px;text-align:right;color:var(--muted)">HPP</th>
-          <th style="padding:8px 12px;text-align:right;color:var(--muted)">Margin</th>
-          <th style="padding:8px 12px;text-align:right;color:var(--muted)">Margin%</th>
-        </tr></thead>
-        <tbody>
-          ${itemRows.map(r => {
-            const m = r.omzet - r.hpp;
-            const mpct = r.omzet ? Math.round(m/r.omzet*100) : 0;
-            return `<tr style="border-top:1px solid var(--border)">
-              <td style="padding:8px 12px;font-weight:600">${esc(r.nama)}</td>
-              <td style="padding:8px 12px;text-align:center;font-family:'DM Mono',monospace">${r.qty}</td>
-              <td style="padding:8px 12px;text-align:right;font-family:'DM Mono',monospace;color:#4cc9a0">${fmtRp(r.omzet)}</td>
-              <td style="padding:8px 12px;text-align:right;font-family:'DM Mono',monospace;color:#f5a623">${fmtRp(r.hpp)}</td>
-              <td style="padding:8px 12px;text-align:right;font-family:'DM Mono',monospace;color:${m>=0?'#4cc9a0':'var(--red)'}">${fmtRp(m)}</td>
-              <td style="padding:8px 12px;text-align:right;font-family:'DM Mono',monospace;color:${mpct>=50?'#4cc9a0':mpct>=30?'#f5a623':'var(--red)'}">${mpct}%</td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
-    </div>` : (!hasItemData ? `
-    <div class="card" style="margin-top:16px;border-color:rgba(245,166,35,0.2)">
-      <div style="padding:14px;font-size:12px;color:#f5a623;display:flex;gap:10px;align-items:flex-start">
-        <span style="font-size:18px">💡</span>
-        <div>
-          <div style="font-weight:600;margin-bottom:4px">Data HPP & Margin belum tersedia</div>
-          Penjualan ini dicatat tanpa input per item. Mulai sekarang, gunakan tombol <strong>+ Penjualan</strong> di Buku Kas dan input menu satu per satu agar margin terkalkulasi otomatis.
-        </div>
-      </div>
-    </div>` : '')}
-    ` : ''}
-  </div>`;
-}
-
-// ─── SETTINGS BONUS BARISTA ──────────────────────────────────
-function renderSettingsBonus() {
-  document.getElementById('addBtn').classList.add('hidden');
-  const s = getBonusSettings();
-  const rulesRows = s.rules.map((r,i) => `
-    <tr style="border-top:1px solid var(--border)">
-      <td style="padding:7px 10px"><input class="form-input" id="sb_min_${i}" type="text" inputmode="numeric" value="${r.minMargin}" oninput="hppFmtInput(this)" style="width:100%;font-size:12px"></td>
-      <td style="padding:7px 10px"><input class="form-input" id="sb_max_${i}" type="text" inputmode="numeric" value="${r.maxMargin===null?'':r.maxMargin}" placeholder="∞" oninput="hppFmtInput(this)" style="width:100%;font-size:12px"></td>
-      <td style="padding:7px 10px"><input class="form-input" id="sb_bonus_${i}" type="text" inputmode="numeric" value="${r.bonus}" oninput="hppFmtInput(this)" style="width:100%;font-size:12px"></td>
-      <td style="padding:7px 6px;text-align:center"><button onclick="removeBonusRule(${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px">×</button></td>
-    </tr>`).join('');
-
-  const isPercentage = s.bonusType === 'percentage';
-
-  return `
-  <div style="max-width:700px">
-    <div class="card" style="margin-bottom:16px">
-      <div class="card-title">⚙️ Konfigurasi Bonus Barista</div>
-      <div class="form-row" style="margin-bottom:14px">
-        <div class="form-group">
-          <div class="form-label">Status</div>
-          <select class="form-select" id="sb_aktif">
-            <option value="1" ${s.aktif?'selected':''}>✅ Aktif</option>
-            <option value="0" ${!s.aktif?'selected':''}>❌ Nonaktif</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <div class="form-label">Metode Perhitungan Bonus</div>
-          <select class="form-select" id="sb_metode">
-            <option value="margin" ${s.metode==='margin'?'selected':''}>📊 Berdasarkan Margin (default)</option>
-            <option value="omzet" ${s.metode==='omzet'?'selected':''}>💵 Berdasarkan Omzet</option>
-            <option value="profit" ${s.metode==='profit'?'selected':''}>💰 Berdasarkan Profit Bersih</option>
-          </select>
-        </div>
-      </div>
-      <div class="form-row" style="margin-bottom:14px">
-        <div class="form-group">
-          <div class="form-label">Tipe Bonus</div>
-          <select class="form-select" id="sb_bonus_type" onchange="toggleBonusTypeUI()">
-            <option value="flat" ${!isPercentage?'selected':''}>🎯 Flat (Rp per tier)</option>
-            <option value="percentage" ${isPercentage?'selected':''}>📈 Persentase dari Base</option>
-          </select>
-        </div>
-        <div class="form-group" style="max-width:200px">
-          <div class="form-label">Fee Dasar per Shift (Rp)</div>
-          <input class="form-input" id="sb_fee_dasar" type="text" inputmode="numeric" value="${s.feeDasar}" oninput="hppFmtInput(this)">
-          <div style="font-size:11px;color:var(--muted);margin-top:4px">Fee ini selalu dibayarkan terlepas dari margin.</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- PERCENTAGE MODE UI -->
-    <div class="card" id="sb_pct_section" style="margin-bottom:16px;${isPercentage?'':'display:none'}border-color:rgba(78,205,196,0.3)">
-      <div class="card-title" style="color:#4ecdc4">📈 Konfigurasi Bonus Persentase</div>
-      <div class="form-row">
-        <div class="form-group">
-          <div class="form-label">Threshold (Rp) — Bonus mulai dihitung setelah ini</div>
-          <input class="form-input" id="sb_threshold" type="text" inputmode="numeric" value="${s.threshold}" oninput="hppFmtInput(this)">
-          <div style="font-size:11px;color:var(--muted);margin-top:4px">Jika margin ≤ threshold → bonus = 0</div>
-        </div>
-        <div class="form-group" style="max-width:160px">
-          <div class="form-label">Rate Bonus (%)</div>
-          <input class="form-input" id="sb_bonus_rate" type="number" min="0" max="100" step="0.1" value="${s.bonusRate}" style="font-size:14px">
-          <div style="font-size:11px;color:var(--muted);margin-top:4px">% dari (base − threshold)</div>
-        </div>
-      </div>
-      <div style="font-size:12px;color:#4ecdc4;background:rgba(78,205,196,0.08);border-radius:6px;padding:8px 12px;margin-top:8px">
-        💡 Formula: Bonus = (Base − Threshold) × Rate%<br>
-        Contoh: Base Rp 123.000, Threshold Rp 50.000, Rate 5% → Bonus = Rp 3.650
-      </div>
-    </div>
-
-    <!-- FLAT MODE UI -->
-    <div class="card" id="sb_flat_section" style="margin-bottom:16px;${isPercentage?'display:none':''}">
-      <div class="card-title">🎯 Rule Bonus
-        <button class="btn btn-ghost btn-sm" onclick="addBonusRule()">+ Tambah Rule</button>
-      </div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Bonus dihitung berdasarkan nilai base (margin/omzet) sesuai metode yang dipilih.</div>
-      <table style="width:100%;border-collapse:collapse;font-size:12px" id="sb_rules_table">
-        <thead><tr style="background:var(--surface3)">
-          <th style="padding:7px 10px;text-align:left;color:var(--muted)">Min Base (Rp)</th>
-          <th style="padding:7px 10px;text-align:left;color:var(--muted)">Max Base (Rp)</th>
-          <th style="padding:7px 10px;text-align:left;color:var(--muted)">Bonus (Rp)</th>
-          <th style="width:36px"></th>
-        </tr></thead>
-        <tbody id="sb_rules_tbody">${rulesRows}</tbody>
-      </table>
-    </div>
-
-    <div class="card" style="margin-bottom:16px;border-color:rgba(139,111,255,0.3)">
-      <div class="card-title" style="color:#9b82f5">🧮 Simulasi Sekarang</div>
-      ${renderBonusSimulasi()}
-    </div>
-
-    <div style="display:flex;gap:10px">
-      <button class="btn btn-primary" onclick="saveBonusSettings()">💾 Simpan Settings</button>
-      <button class="btn btn-ghost" onclick="resetBonusSettings()">🔄 Reset ke Default</button>
-    </div>
-  </div>`;
-}
-
-function renderBonusSimulasi() {
-  const today = new Date().toISOString().split('T')[0];
-  const txns = getDikopiTxnsByDate(today);
-  const { omzet, margin, hasItemData } = calcMarginFromTxns(txns);
-  const s = getBonusSettings();
-  if (!txns.length) return '<div style="color:var(--muted);font-size:12px">Belum ada data hari ini untuk simulasi.</div>';
-  if (!hasItemData) return '<div style="color:#f5a623;font-size:12px">⚠️ Catat penjualan dengan input per item agar simulasi akurat.</div>';
-  const feeDasar = s.feeDasar;
-  const bonus = calcBonusBarista(margin, omzet);
-  const totalFee = feeDasar + bonus;
-  const bersih = margin - totalFee;
-  const color = bersih >= 100000 ? '#4cc9a0' : bersih >= 50000 ? '#f5a623' : 'var(--red)';
-  const status = bersih >= 100000 ? '🟢 Aman' : bersih >= 50000 ? '🟡 Tipis' : '🔴 Berisiko';
-  return `
-  <div style="font-size:12px;line-height:2.2">
-    <div style="display:flex;justify-content:space-between"><span>Margin Hari Ini</span><span style="font-family:'DM Mono',monospace;color:#4cc9a0">${fmtRp(margin)}</span></div>
-    <div style="display:flex;justify-content:space-between"><span>− Fee Dasar</span><span style="font-family:'DM Mono',monospace;color:var(--red)">−${fmtRp(feeDasar)}</span></div>
-    <div style="display:flex;justify-content:space-between"><span>− Bonus</span><span style="font-family:'DM Mono',monospace;color:var(--red)">−${fmtRp(bonus)}</span></div>
-    <div style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px;display:flex;justify-content:space-between;font-weight:700">
-      <span>= Margin Bersih</span>
-      <span style="font-family:'DM Mono',monospace;color:${color}">${fmtRp(bersih)} &nbsp; ${status}</span>
-    </div>
-  </div>`;
-}
-
-function toggleBonusTypeUI() {
-  const type = document.getElementById('sb_bonus_type')?.value;
-  const pctSection = document.getElementById('sb_pct_section');
-  const flatSection = document.getElementById('sb_flat_section');
-  if (!pctSection || !flatSection) return;
-  if (type === 'percentage') {
-    pctSection.style.display = '';
-    flatSection.style.display = 'none';
-  } else {
-    pctSection.style.display = 'none';
-    flatSection.style.display = '';
-  }
-}
-
-function addBonusRule() {
-  const s = getBonusSettings();
-  // Save current edits first
-  _syncBonusRulesFromUI(s);
-  s.rules.push({ minMargin: 0, maxMargin: null, bonus: 0 });
-  db.settings.bonus_barista = s;
-  render();
-}
-
-function removeBonusRule(idx) {
-  const s = getBonusSettings();
-  _syncBonusRulesFromUI(s);
-  s.rules.splice(idx, 1);
-  db.settings.bonus_barista = s;
-  render();
-}
-
-function _syncBonusRulesFromUI(s) {
-  const tbody = document.getElementById('sb_rules_tbody');
-  if (!tbody) return;
-  s.rules = s.rules.map((_,i) => ({
-    minMargin: parseFloat((document.getElementById('sb_min_'+i)?.value||'0').replace(/\./g,''))||0,
-    maxMargin: (() => { const v = (document.getElementById('sb_max_'+i)?.value||'').replace(/\./g,'').trim(); return v ? parseFloat(v)||0 : null; })(),
-    bonus: parseFloat((document.getElementById('sb_bonus_'+i)?.value||'0').replace(/\./g,''))||0
-  }));
-}
-
-async function saveBonusSettings() {
-  if (!dirHandle) { toast('⚠️ Pilih folder dulu','error'); return; }
-  const s = getBonusSettings();
-  _syncBonusRulesFromUI(s);
-  s.aktif = document.getElementById('sb_aktif')?.value === '1';
-  s.metode = document.getElementById('sb_metode')?.value || 'margin';
-  s.feeDasar = parseFloat((document.getElementById('sb_fee_dasar')?.value||'0').replace(/\./g,''))||0;
-  s.bonusType = document.getElementById('sb_bonus_type')?.value || 'flat';
-  s.threshold = parseFloat((document.getElementById('sb_threshold')?.value||'0').replace(/\./g,''))||0;
-  s.bonusRate = parseFloat(document.getElementById('sb_bonus_rate')?.value||'5')||5;
-  if (!db.settings) db.settings = {};
-  db.settings.bonus_barista = s;
-  await saveDB('settings');
-  toast('✅ Settings bonus barista disimpan!','success');
-  render();
-}
-
-async function resetBonusSettings() {
-  if (!confirm('Reset ke default settings?')) return;
-  if (!db.settings) db.settings = {};
-  db.settings.bonus_barista = JSON.parse(JSON.stringify(DEFAULT_BONUS_SETTINGS));
-  await saveDB('settings');
-  toast('🔄 Settings direset ke default','success');
-  render();
-}
 

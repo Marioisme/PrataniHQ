@@ -1,0 +1,188 @@
+{
+  "title": "Kolektiva Next Phase To-Do",
+  "brand": "kolektiva",
+  "uploadedAt": "2026-06-22",
+  "exportedAt": "2026-06-22T00:00:00.000Z",
+  "archived": false,
+  "sheets": [
+    {
+      "title": "Master To-Do",
+      "columns": ["#", "FASE", "TASK", "DETAIL / BRIEF", "PRIORITAS", "STATUS", "DEADLINE", "PIC"],
+      "statusCol": 5,
+      "rows": [
+        {
+          "cells": ["1", "CONVERSION", "Audit semua inquiry yang masuk", "List semua inquiry yang udah masuk: dari mana datangnya, produk apa yang ditanya, dan kenapa ga closing. Cari polanya — apakah mereka ghosting, keberatan harga, atau ga ada follow up dari lo. Catat di spreadsheet.", "🔴 Urgent", "⬜ Belum", "1-2 hari", "Owner"],
+          "id": 1, "_status": "pending"
+        },
+        {
+          "cells": ["2", "CONVERSION", "Bikin script follow up inquiry (3 skenario)", "Buat template WA untuk 3 skenario: (1) prospect ghosting setelah tanya harga, (2) prospect bilang 'nanti ya', (3) prospect minta waktu mikir. Tone: helpful, bukan ngejar-ngejar. Simpan sebagai quick reply WA Business.", "🔴 Urgent", "⬜ Belum", "2-3 hari", "Owner"],
+          "id": 2, "_status": "pending"
+        },
+        {
+          "cells": ["3", "CONVERSION", "Kirim Quotation resmi ke inquiry berikutnya", "Inquiry berikutnya apapun — langsung kirim Quotation resmi, bukan balas harga via chat biasa. Vendor lain balas angka, lo kirim dokumen. Ini bukan formalitas, ini positioning.", "🔴 Urgent", "⬜ Belum", "Segera setelah ada inquiry", "Owner"],
+          "id": 3, "_status": "pending"
+        },
+        {
+          "cells": ["4", "CONVERSION", "Bikin price list internal", "Price list yang lo pegang sendiri — bukan untuk disebarkan. Isi: HPP per produk, margin target, harga jual minimum, batas diskon maksimal. Tanpa ini lo ga bisa jawab inquiry dengan konsisten.", "🔴 Urgent", "⬜ Belum", "3-5 hari", "Owner"],
+          "id": 4, "_status": "pending"
+        },
+        {
+          "cells": ["5", "CONVERSION", "Dokumentasikan sales flow", "Mapping dari DM masuk sampai deal closed: step berapa, pesan apa, dokumen apa dikirim kapan. Sekarang masih ad hoc — harus distandardisasi biar konsisten. Bisa di Notion atau Google Docs.", "🔴 Urgent", "⬜ Belum", "3-5 hari", "Owner"],
+          "id": 5, "_status": "pending"
+        },
+        {
+          "cells": ["6", "OPERASIONAL", "Test semua dokumen template end-to-end", "Simulasi order fiktif lengkap — dari RAB sampai Kwitansi. Cek apakah ada field yang kurang, format aneh, atau alur yang ga masuk akal. Jangan tunggu customer real buat nemuin error.", "🔴 Urgent", "⬜ Belum", "3-5 hari", "Owner"],
+          "id": 6, "_status": "pending"
+        },
+        {
+          "cells": ["7", "OPERASIONAL", "Setup nomor WA Business terpisah untuk Kolektiva", "Lo masih sharing nomor WA dengan brand lain. Beli SIM card baru, dedicated untuk Kolektiva. Mixing brand di satu nomor WA unprofessional dan bikin tracking inquiry berantakan.", "🟠 Tinggi", "⬜ Belum", "1 minggu", "Owner"],
+          "id": 7, "_status": "pending"
+        },
+        {
+          "cells": ["8", "OPERASIONAL", "Upgrade Carrd / bio link dengan branding Kolektiva penuh", "Kalau sekarang masih Linktree polos, upgrade ke Carrd dengan branding Kolektiva — warna navy/cream/terracotta, logo iK, CTA jelas: WA, Katalog, Instagram, Portfolio.", "🟠 Tinggi", "⬜ Belum", "1 minggu", "Owner + Studio Recehan"],
+          "id": 8, "_status": "pending"
+        },
+        {
+          "cells": ["9", "KONTEN", "Buat content plan bulan pertama (30 brief)", "Extend dari 6 post pertama jadi 30 brief lengkap. Ratio: 10 Produk · 8 Dokumen · 6 Suasana · 4 People · 2 Proses. Tiap brief harus ada: format, visual direction, caption hook, hashtag set, jam posting.", "🟠 Tinggi", "⬜ Belum", "1 minggu", "Owner"],
+          "id": 9, "_status": "pending"
+        },
+        {
+          "cells": ["10", "KONTEN", "Produksi konten testimoni pertama", "Lo punya history dari SNM/Evercraft. Ambil 2-3 project lama yang paling kuat, minta izin customer lama, reframe jadi testimoni Kolektiva. Ini social proof yang paling dibutuhkan sekarang.", "🟠 Tinggi", "⬜ Belum", "1 minggu", "Owner"],
+          "id": 10, "_status": "pending"
+        },
+        {
+          "cells": ["11", "KONTEN", "Buat konten price transparency", "Panitia sering ghosting karena takut harga mahal dan malu nanya. Buat konten range harga realistis per produk — bukan fixed price, tapi 'mulai dari Rp X untuk qty Y'. Filter prospect sekaligus trust builder.", "🟠 Tinggi", "⬜ Belum", "1 minggu", "Owner + Studio Recehan"],
+          "id": 11, "_status": "pending"
+        },
+        {
+          "cells": ["12", "KONTEN", "Mulai konten series 'Dokumen Kolektiva' (5 post)", "Satu post per dokumen — RAB, MoU, Invoice, BAST, Kwitansi. Bukan cuma nyebut dokumennya, tapi jelasin KENAPA dokumen itu penting buat panitia. Edukasi dulu, jualan nanti. Target: save rate tinggi.", "🟠 Tinggi", "⬜ Belum", "2 minggu", "Owner + Studio Recehan"],
+          "id": 12, "_status": "pending"
+        },
+        {
+          "cells": ["13", "KONTEN", "Buat konten behind the scene produksi real", "Dokumentasi project yang sedang berjalan — bukan simulasi. Video atau foto proses: sablon, bordir, QC, packing. Autentik lebih kuat dari yang staged.", "🟡 Normal", "⬜ Belum", "Saat ada project aktif", "Owner"],
+          "id": 13, "_status": "pending"
+        },
+        {
+          "cells": ["14", "GROWTH", "Mapping organisasi kampus & sekolah di Brebes", "List semua BEM, HIMA, OSIS, UKM yang ada di Brebes dan sekitarnya. Cari kontak via IG atau langsung. Ini prospecting list pertama untuk outreach aktif.", "🟠 Tinggi", "⬜ Belum", "1 minggu", "Owner"],
+          "id": 14, "_status": "pending"
+        },
+        {
+          "cells": ["15", "GROWTH", "Rutinitas engage di konten organisasi kampus", "Setiap hari 15 menit: comment genuinely di postingan OSIS, BEM, HIMA — bukan spam, tapi interaksi real. Minimal 5 comment per hari. Algoritma IG akan asosiasiin akun lo dengan circle organisasi.", "🟡 Normal", "⬜ Belum", "Mulai sekarang, ongoing", "Owner"],
+          "id": 15, "_status": "routine"
+        },
+        {
+          "cells": ["16", "GROWTH", "Formalkan & announce referral system", "Formalisasi sistem komisi 5% dari nilai project untuk yang refer customer baru. Mekanisme simpel: referrer sebut nama mereka saat inquiry. Announce via Stories minimal 1x.", "🟡 Normal", "⬜ Belum", "2 minggu", "Owner"],
+          "id": 16, "_status": "pending"
+        },
+        {
+          "cells": ["17", "GROWTH", "Outreach aktif ke 5 organisasi per minggu", "Jangan cuma tunggu dari konten organik. DM langsung ke pengurus organisasi yang lo udah mapping di task #14. Pesan singkat, bukan promosi — tawarkan konsultasi gratis dulu.", "🟡 Normal", "⬜ Belum", "Setelah mapping selesai, ongoing", "Owner"],
+          "id": 17, "_status": "pending"
+        }
+      ]
+    },
+    {
+      "title": "Conversion Fix",
+      "columns": ["#", "TASK", "TEMPLATE / ISI", "KAPAN DIPAKAI", "STATUS"],
+      "statusCol": 4,
+      "rows": [
+        {
+          "cells": ["1", "Follow up: Prospect ghosting setelah tanya harga", "Halo [nama]! Mau follow up soal pertanyaan kamu kemarin tentang [produk]. Kalau ada yang mau didiskusiin soal budget atau spesifikasi, gw siap bantu — ga ada salahnya tanya dulu sebelum mutusin. 🙏", "H+2 setelah prospect ga bales", "⬜ Belum"],
+          "id": 1, "_status": "pending"
+        },
+        {
+          "cells": ["2", "Follow up: Prospect bilang 'nanti ya'", "Halo [nama]! Santai aja, ga buru-buru. Tapi kalau boleh tau, event-nya kira-kira kapan? Gw mau bantu pastiin timeline produksi kamu aman, soalnya custom apparel butuh waktu minimal [X minggu].", "H+3 setelah prospect bilang nanti", "⬜ Belum"],
+          "id": 2, "_status": "pending"
+        },
+        {
+          "cells": ["3", "Follow up: Prospect minta waktu mikir", "Halo [nama]! Boleh gw kirim quotation resminya dulu? Jadi kamu bisa langsung liat breakdown harganya dan lebih gampang untuk dipertimbangin. Dokumennya juga bisa langsung dipake buat RAB organisasi kamu.", "H+2 setelah prospect minta mikir", "⬜ Belum"],
+          "id": 3, "_status": "pending"
+        }
+      ]
+    },
+    {
+      "title": "Content Plan — 30 Brief",
+      "columns": ["#", "JUDUL KONTEN", "FORMAT", "PILAR", "BRIEF VISUAL", "BRIEF CAPTION / HOOK", "HASHTAG SET", "JAM POSTING", "DEADLINE", "STATUS"],
+      "statusCol": 9,
+      "rows": [
+        {
+          "cells": ["7", "Range Harga Kaos Custom Kolektiva", "Carousel 5 slide", "Produk", "Slide 1: Cover bold 'Berapa sih harga kaos custom?' Slide 2-4: tabel range harga per qty (30/50/100 pcs). Slide 5: CTA DM untuk harga pasti. Warm palette.", "Hook: 'Panitia sering ghosting vendor karena takut nanya harga — padahal ga semahal yang lo kira.' Kasih range harga realistis. Akhiri: DM untuk hitung bareng.", "Set B Portfolio", "12.00-13.00", "Minggu 1", "⬜ Belum"],
+          "id": 7, "_status": "pending"
+        },
+        {
+          "cells": ["8", "Testimoni Project [Nama Organisasi]", "Single Image", "Portfolio", "Screenshot testimoni + foto hasil produk di-overlay. Tambahkan context: nama organisasi, produk, qty. Warm palette.", "Hook: 'Mereka order [X pcs] [produk] untuk [event] — ini hasilnya.' Bukan sekadar repost, tapi ceritain konteks projectnya.", "Set B Portfolio", "19.00-20.00", "Minggu 1", "⬜ Belum"],
+          "id": 8, "_status": "pending"
+        },
+        {
+          "cells": ["9", "Dokumen Series #1 — Apa itu RAB?", "Carousel 4-5 slide", "Dokumen", "Slide 1: Hook visual 'RAB bukan cuma formalitas.' Slide 2: definisi RAB. Slide 3: kapan RAB dibutuhkan. Slide 4: contoh tampilan RAB Kolektiva (blur nominal). Slide 5: CTA.", "Hook: 'Berapa banyak panitia yang ngajuin LPJ tanpa RAB dari vendor? Banyak. Dan itu masalah.' Edukasi tone, bukan hard sell. Save-worthy.", "Set C Edukasi", "07.00-09.00", "Minggu 2", "⬜ Belum"],
+          "id": 9, "_status": "pending"
+        },
+        {
+          "cells": ["10", "Dokumen Series #2 — Apa itu MoU/SPK?", "Carousel 4-5 slide", "Dokumen", "Visual sama dengan series #1, konsisten. Slide 1: Hook 'Pernah kena vendor kabur? Mungkin karena ga ada ini.' Slide 2-4: penjelasan MoU/SPK dan fungsi perlindungannya.", "Hook: 'MoU bukan cuma tanda tangan di kertas — ini yang melindungi budget organisasi kamu kalau vendor bermasalah.' Tone: empati, panitia-centric.", "Set C Edukasi", "07.00-09.00", "Minggu 2", "⬜ Belum"],
+          "id": 10, "_status": "pending"
+        },
+        {
+          "cells": ["11", "Dokumen Series #3 — Invoice vs Kwitansi", "Carousel 4-5 slide", "Dokumen", "Visual sama dengan series sebelumnya. Jelasin perbedaan Invoice dan Kwitansi — banyak panitia yang ga tau bedanya.", "Hook: 'Invoice dan Kwitansi itu beda. Kalau lo ga tau bedanya, LPJ kamu mungkin selama ini salah dokumen.' Edukasi, bukan menghakimi.", "Set C Edukasi", "07.00-09.00", "Minggu 2", "⬜ Belum"],
+          "id": 11, "_status": "pending"
+        },
+        {
+          "cells": ["12", "Dokumen Series #4 — Apa itu BAST?", "Carousel 4-5 slide", "Dokumen", "Visual konsisten dengan series. Focus: BAST sebagai bukti serah terima yang sering dilupakan.", "Hook: 'Barang udah sampe, tapi kalau ga ada BAST — di mata LPJ kamu, barang itu belum ada.' Powerful statement untuk panitia yang pernah kena masalah audit.", "Set C Edukasi", "07.00-09.00", "Minggu 3", "⬜ Belum"],
+          "id": 12, "_status": "pending"
+        },
+        {
+          "cells": ["13", "Dokumen Series #5 — Paket Dokumen Lengkap Kolektiva", "Carousel 6 slide", "Dokumen", "Slide 1: 'Semua dokumen yang lo butuh untuk LPJ — udah include.' Slide 2-6: satu per satu dokumen yang Kolektiva sediakan. Slide terakhir: CTA.", "Hook: 'Vendor lain kasih barang. Kolektiva kasih barang + bukti.' Ini closing post dari series dokumen. Hard CTA boleh di sini.", "Set C Edukasi", "07.00-09.00", "Minggu 3", "⬜ Belum"],
+          "id": 13, "_status": "pending"
+        },
+        {
+          "cells": ["14", "Behind The Scene — Proses QC Produk", "Reels 30-45 detik", "Proses", "Video QC: cek jahitan, cek sablon/bordir, packing rapi. Text overlay per step. Musik upbeat.", "Hook: 'Sebelum barang sampe ke tangan kamu, ini yang kita lakuin.' Humanizing + trust building.", "Set B Portfolio", "19.00-20.00", "Saat ada project aktif", "⬜ Belum"],
+          "id": 14, "_status": "pending"
+        },
+        {
+          "cells": ["15", "Konten Interaktif — Poll Desain Kaos", "Stories + Feed repost", "Interaktif", "Tampilkan 2 opsi desain kaos (bisa mockup). Minta audience pilih yang lebih keren. Repost hasil ke feed.", "Hook: 'Mana yang lebih lo suka buat kaos organisasi?' Engagement bait yang relevan dengan target audience.", "Set A Awareness", "19.00-21.00", "Minggu 2", "⬜ Belum"],
+          "id": 15, "_status": "pending"
+        }
+      ]
+    },
+    {
+      "title": "KPI Tracker",
+      "columns": ["METRIK", "TARGET MIN", "TARGET IDEAL", "MINGGU 1", "MINGGU 2", "MINGGU 3", "MINGGU 4", "CATATAN & CARA UKUR", "STATUS"],
+      "statusCol": 8,
+      "rows": [
+        {
+          "cells": ["Inquiry to Closing Rate", "20%", "50%", "", "", "", "", "Hitung: jumlah closing / jumlah inquiry x 100. Ukur mingguan. Ini metrik utama fase ini.", "⬜ Pending"],
+          "id": 1, "_status": "routine"
+        },
+        {
+          "cells": ["Jumlah Inquiry per Minggu", "2 inquiry", "8 inquiry", "", "", "", "", "Tracking manual. Catat semua yang DM/WA dan nanya soal order, bukan cuma yang closing.", "⬜ Pending"],
+          "id": 2, "_status": "routine"
+        },
+        {
+          "cells": ["Dokumen Terkirim ke Prospect", "1/minggu", "3/minggu", "", "", "", "", "Hitung berapa kali lo kirim Quotation/RAB resmi ke prospect. Kalau 0 — artinya lo masih jawab via chat biasa.", "⬜ Pending"],
+          "id": 3, "_status": "routine"
+        },
+        {
+          "cells": ["Followers Growth", "+50 followers", "+200 followers", "", "", "", "", "IG Insights > Followers. Ukur setiap Senin pagi.", "⬜ Pending"],
+          "id": 4, "_status": "routine"
+        },
+        {
+          "cells": ["Save Rate per Post", "10 saves", "40 saves", "", "", "", "", "Prioritas: konten dokumen series. Save rate tinggi = konten edukasi berhasil.", "⬜ Pending"],
+          "id": 5, "_status": "routine"
+        },
+        {
+          "cells": ["Project Closing per Bulan", "1 project", "4 project", "", "", "", "", "Revenue driver utama. Catat di spreadsheet order tracking.", "⬜ Pending"],
+          "id": 6, "_status": "routine"
+        }
+      ]
+    },
+    {
+      "title": "Growth — Prospecting",
+      "columns": ["#", "NAMA ORGANISASI", "JENIS", "PLATFORM", "KONTAK / USERNAME", "STATUS OUTREACH", "CATATAN"],
+      "statusCol": 5,
+      "rows": [
+        {
+          "cells": ["1", "[Isi setelah mapping]", "-", "-", "-", "⬜ Belum Dikontак", "-"],
+          "id": 1, "_status": "pending"
+        }
+      ]
+    }
+  ]
+}

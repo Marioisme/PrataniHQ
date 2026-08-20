@@ -1,0 +1,26 @@
+[
+  {
+    "id": 1782234660617,
+    "nama": "Gelas",
+    "tanggal": "2026-06-22",
+    "nominal": 65000,
+    "sumber": "cash",
+    "keterangan": ""
+  },
+  {
+    "id": 1782752000599,
+    "nama": "Beli Lampu",
+    "tanggal": "2026-06-29",
+    "nominal": 150000,
+    "sumber": "cash",
+    "keterangan": ""
+  },
+  {
+    "id": 1782752296709,
+    "nama": "rak",
+    "tanggal": "2026-06-29",
+    "nominal": 120000,
+    "sumber": "cash",
+    "keterangan": ""
+  }
+]

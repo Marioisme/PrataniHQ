@@ -12,26 +12,28 @@
     "id": 1779034145985,
     "nama": "Susu Diamond Plain",
     "satuan": "ml",
-    "hargaBeli": 18000,
+    "hargaBeli": 22000,
     "qtyBeli": 1000,
-    "createdAt": "2026-05-17T16:09:05.985Z"
+    "createdAt": "2026-05-17T16:09:05.985Z",
+    "updatedAt": "2026-06-21T16:23:39.845Z"
   },
   {
     "id": 1779034629196,
     "nama": "SKM",
     "satuan": "ml",
-    "hargaBeli": 20000,
-    "qtyBeli": 535,
-    "createdAt": "2026-05-17T16:17:09.196Z"
+    "hargaBeli": 23000,
+    "qtyBeli": 1000,
+    "createdAt": "2026-05-17T16:17:09.196Z",
+    "updatedAt": "2026-06-23T16:18:38.616Z"
   },
   {
     "id": 1779034688640,
     "nama": "Bubuk Matcha",
     "satuan": "gram",
-    "hargaBeli": 31000,
+    "hargaBeli": 43000,
     "qtyBeli": 500,
     "createdAt": "2026-05-17T16:18:08.640Z",
-    "updatedAt": "2026-06-05T12:23:42.423Z"
+    "updatedAt": "2026-06-27T16:13:27.160Z"
   },
   {
     "id": 1779034872085,
@@ -84,11 +86,12 @@
   },
   {
     "id": 1779204212833,
-    "nama": "Sirup ALmond",
+    "nama": "Sirup Almond",
     "satuan": "ml",
     "hargaBeli": 81000,
     "qtyBeli": 650,
-    "createdAt": "2026-05-19T15:23:32.833Z"
+    "createdAt": "2026-05-19T15:23:32.833Z",
+    "updatedAt": "2026-06-22T13:35:13.066Z"
   },
   {
     "id": 1779204853975,
@@ -127,10 +130,10 @@
     "id": 1779554270749,
     "nama": "Bubuk Hazelnut",
     "satuan": "gram",
-    "hargaBeli": 31000,
+    "hargaBeli": 41000,
     "qtyBeli": 500,
     "createdAt": "2026-05-23T16:37:50.749Z",
-    "updatedAt": "2026-06-05T12:23:32.209Z"
+    "updatedAt": "2026-06-27T16:15:24.552Z"
   },
   {
     "id": 1779554428619,
@@ -173,5 +176,94 @@
     "qtyBeli": 40,
     "createdAt": "2026-06-05T12:28:02.813Z",
     "updatedAt": "2026-06-05T12:29:09.555Z"
+  },
+  {
+    "id": 1782057408099,
+    "nama": "NESCAFE",
+    "satuan": "ml",
+    "hargaBeli": 6500,
+    "qtyBeli": 500,
+    "createdAt": "2026-06-21T15:56:48.099Z"
+  },
+  {
+    "id": 1782135464429,
+    "nama": "SIRUP JERUK FREIS",
+    "satuan": "ml",
+    "hargaBeli": 15000,
+    "qtyBeli": 460,
+    "createdAt": "2026-06-22T13:37:44.429Z"
+  },
+  {
+    "id": 1782231358886,
+    "nama": "Roti",
+    "satuan": "pcs",
+    "hargaBeli": 10000,
+    "qtyBeli": 20,
+    "createdAt": "2026-06-23T16:15:58.886Z"
+  },
+  {
+    "id": 1782231424432,
+    "nama": "Keju",
+    "satuan": "gram",
+    "hargaBeli": 7000,
+    "qtyBeli": 30,
+    "createdAt": "2026-06-23T16:17:04.432Z"
+  },
+  {
+    "id": 1782231468974,
+    "nama": "Cokelat Elmer",
+    "satuan": "gram",
+    "hargaBeli": 18000,
+    "qtyBeli": 250,
+    "createdAt": "2026-06-23T16:17:48.974Z"
+  },
+  {
+    "id": 1782231558222,
+    "nama": "BlueBand",
+    "satuan": "gram",
+    "hargaBeli": 10000,
+    "qtyBeli": 200,
+    "createdAt": "2026-06-23T16:19:18.222Z",
+    "updatedAt": "2026-06-23T16:38:31.258Z"
+  },
+  {
+    "id": 1782751003302,
+    "nama": "Telang",
+    "satuan": "gram",
+    "hargaBeli": 45000,
+    "qtyBeli": 100,
+    "createdAt": "2026-06-29T16:36:43.302Z"
+  },
+  {
+    "id": 1782916063868,
+    "nama": "Rosella",
+    "satuan": "gram",
+    "hargaBeli": 32000,
+    "qtyBeli": 250,
+    "createdAt": "2026-07-01T14:27:43.868Z"
+  },
+  {
+    "id": 1782916295476,
+    "nama": "MIE SEDAP GORENG",
+    "satuan": "pcs",
+    "hargaBeli": 3500,
+    "qtyBeli": 1,
+    "createdAt": "2026-07-01T14:31:35.476Z"
+  },
+  {
+    "id": 1782916361754,
+    "nama": "TELUR",
+    "satuan": "pcs",
+    "hargaBeli": 20000,
+    "qtyBeli": 8,
+    "createdAt": "2026-07-01T14:32:41.754Z"
+  },
+  {
+    "id": 1782916467034,
+    "nama": "MIE REBUS",
+    "satuan": "pcs",
+    "hargaBeli": 3500,
+    "qtyBeli": 1,
+    "createdAt": "2026-07-01T14:34:27.034Z"
   }
 ]

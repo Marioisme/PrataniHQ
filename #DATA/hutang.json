@@ -13,6 +13,24 @@
         "tanggal": "2026-05-19",
         "nominal": 52000,
         "ket": "hasil penjualan 19 mei"
+      },
+      {
+        "id": 1782235111296,
+        "tanggal": "2026-06-22",
+        "nominal": 34500,
+        "ket": ""
+      },
+      {
+        "id": 1782752675190,
+        "tanggal": "2026-06-28",
+        "nominal": 265000,
+        "ket": ""
+      },
+      {
+        "id": 1784640309236,
+        "tanggal": "2026-07-21",
+        "nominal": 148500,
+        "ket": ""
       }
     ],
     "createdAt": "2026-05-16T11:31:14.422Z"
@@ -61,7 +79,14 @@
     "brand": "dikopi",
     "tanggal": "2026-05-22",
     "keterangan": "",
-    "cicilan": [],
+    "cicilan": [
+      {
+        "id": 1784639544155,
+        "tanggal": "2026-07-21",
+        "nominal": 82000,
+        "ket": ""
+      }
+    ],
     "createdAt": "2026-05-22T14:17:21.773Z"
   },
   {
@@ -72,7 +97,14 @@
     "brand": "dikopi",
     "tanggal": "2026-05-23",
     "keterangan": "",
-    "cicilan": [],
+    "cicilan": [
+      {
+        "id": 1784640278021,
+        "tanggal": "2026-07-21",
+        "nominal": 133500,
+        "ket": ""
+      }
+    ],
     "createdAt": "2026-05-23T15:12:03.978Z"
   },
   {
@@ -83,7 +115,14 @@
     "brand": "dikopi",
     "tanggal": "2026-06-02",
     "keterangan": "Beli Kopi",
-    "cicilan": [],
+    "cicilan": [
+      {
+        "id": 1784640288116,
+        "tanggal": "2026-07-21",
+        "nominal": 160000,
+        "ket": ""
+      }
+    ],
     "createdAt": "2026-06-02T14:54:49.217Z"
   },
   {
