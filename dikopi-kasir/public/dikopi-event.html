@@ -154,20 +154,29 @@
       console.warn("Firebase Client SDK Warning:", e);
     }
 
-    // ── 2. MENU ENGINE (FETCH / FIREBASE / FALLBACK) ────────────
-    const DEFAULT_MENU = [
-      { id: 'm1', name: 'Es Kopi Susu', price: 20000, hpp: 8000 },
-      { id: 'm2', name: 'Kopi V60', price: 25000, hpp: 10000 },
-      { id: 'm3', name: 'Americano', price: 18000, hpp: 5000 },
-      { id: 'm4', name: 'Matcha Latte', price: 22000, hpp: 9000 },
-      { id: 'm5', name: 'Roti Toast Chocolate', price: 15000, hpp: 6000 }
+    // ── 2. MENU ENGINE (HARDCODED STATIS FALLBACK) ─────────────
+    const MENUS = [
+      { id: 'm1', name: 'Kopi Susu', price: 14000, hpp: 3263, kategori: 'Coffee' },
+      { id: 'm2', name: 'Gula Aren', price: 16000, hpp: 3886, kategori: 'Coffee' },
+      { id: 'm3', name: 'Americano Robusta', price: 15000, hpp: 1838, kategori: 'Coffee' },
+      { id: 'm4', name: 'Butterscotch Latte', price: 16000, hpp: 5156, kategori: 'Coffee' },
+      { id: 'm5', name: 'Caramel Latte', price: 16000, hpp: 5133, kategori: 'Coffee' },
+      { id: 'm6', name: 'Almond Latte', price: 16000, hpp: 5133, kategori: 'Coffee' },
+      { id: 'm7', name: 'Cokelat', price: 12000, hpp: 2058, kategori: 'Non Coffee' },
+      { id: 'm8', name: 'Hazelnut', price: 12000, hpp: 2058, kategori: 'Non Coffee' },
+      { id: 'm9', name: 'Matcha Latte', price: 18000, hpp: 4500, kategori: 'Non Coffee' },
+      { id: 'm10', name: 'Red Velvet', price: 16000, hpp: 4000, kategori: 'Non Coffee' }
     ];
 
-    let MENU = [...DEFAULT_MENU];
+    const DEFAULT_MENU = MENUS;
+    let MENU = [...MENUS];
     let cart = {};
 
     async function loadMenu() {
-      // 1. Coba ambil dari Firebase RTDB jika ada node 'menu'
+      // Render menu statis secara instan agar UI tidak delay & bebas dari 'Gagal load menu'
+      renderMenu();
+
+      // Coba update dari Cloud Firebase jika ada node 'menu'
       if (firebaseActive) {
         try {
           const snapshot = await firebase.database().ref('menu').once('value');
@@ -178,10 +187,10 @@
             renderMenu();
             return;
           }
-        } catch(e) { console.log("Cloud menu fetch skipped, using default."); }
+        } catch(e) { /* Tetap menggunakan MENUS statis */ }
       }
 
-      // 2. Coba fetch ke /api/menu jika server backend lokal aktif
+      // Coba fetch ke /api/menu jika backend lokal aktif
       try {
         const res = await fetch('/api/menu');
         if (res.ok) {
@@ -189,13 +198,13 @@
           if (Array.isArray(data) && data.length > 0) {
             MENU = data;
             document.getElementById('menuSourceTag').textContent = '🖥️ Local API Menu';
+            renderMenu();
+            return;
           }
         }
       } catch(e) {
-        document.getElementById('menuSourceTag').textContent = '✔ Standalone Event Menu';
+        document.getElementById('menuSourceTag').textContent = '✔ Statis Menu Kedai (Netlify Standalone)';
       }
-
-      renderMenu();
     }
 
     function renderMenu() {
