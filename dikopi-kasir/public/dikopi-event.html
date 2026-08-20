@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dikopi Kasir Event - Cloud Sync POS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
+  
+  <!-- Firebase Compat SDK (CDN) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --accent: #ff9f43;
+      --green: #4cc9a0;
+      --red: #ff4757;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --border: #334155;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 16px; min-height: 100vh; }
+    
+    .header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 16px; border-bottom: 1px solid var(--border); margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
+    .title { font-size: 20px; font-weight: 700; color: var(--accent); display: flex; align-items: center; gap: 8px; }
+    .badge { background: rgba(255, 159, 67, 0.15); color: var(--accent); font-size: 11px; padding: 4px 10px; border-radius: 99px; font-weight: 600; border: 1px solid rgba(255, 159, 67, 0.3); }
+    
+    .btn { background: var(--accent); color: #000; font-weight: 600; padding: 10px 18px; border-radius: 8px; border: none; cursor: pointer; transition: 0.2s opacity; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+    .btn:hover { opacity: 0.9; }
+    .btn-green { background: var(--green); color: #000; }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    
+    .grid { display: grid; grid-template-columns: 1fr 340px; gap: 16px; }
+    @media (max-width: 850px) { .grid { grid-template-columns: 1fr; } }
+    
+    .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+    .menu-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px; cursor: pointer; transition: 0.15s transform, 0.15s border-color; }
+    .menu-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+    .menu-name { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+    .menu-price { color: var(--green); font-family: 'DM Mono', monospace; font-size: 13px; }
+    
+    .cart-box { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px; height: fit-content; }
+    .cart-title { font-size: 15px; font-weight: 600; display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+    .cart-items { display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto; }
+    .cart-item { display: flex; justify-content: space-between; align-items: center; font-size: 12px; background: rgba(255,255,255,0.03); padding: 8px; border-radius: 6px; }
+    .cart-item-qty { display: flex; align-items: center; gap: 6px; }
+    .qty-btn { background: var(--border); color: #fff; border: none; width: 22px; height: 22px; border-radius: 4px; cursor: pointer; }
+    
+    .total-row { display: flex; justify-content: space-between; font-weight: 700; font-size: 16px; border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px; }
+    
+    .live-list { margin-top: 24px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    .live-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .live-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .live-table th { text-align: left; padding: 8px; color: var(--muted); border-bottom: 1px solid var(--border); }
+    .live-table td { padding: 10px 8px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .status-tag { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+    .status-pending { background: rgba(255, 159, 67, 0.2); color: var(--accent); }
+    .status-synced { background: rgba(76, 201, 160, 0.2); color: var(--green); }
+    
+    .toast { position: fixed; bottom: 20px; right: 20px; background: var(--card); border: 1px solid var(--accent); color: #fff; padding: 12px 20px; border-radius: 8px; font-size: 13px; font-weight: 500; display: none; z-index: 99; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="title">
+      ☕ Dikopi Kasir Event <span class="badge">Cloud Live Sync</span>
+    </div>
+    <div style="display:flex; gap:8px;">
+      <button class="btn btn-green" onclick="syncToHQ()">🔄 Sinkronkan ke HQ</button>
+      <button class="btn btn-outline" onclick="location.reload()">🔄 Refresh</button>
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- MENU SELECTION -->
+    <div>
+      <div style="font-size:14px; font-weight:600; margin-bottom:12px; color:var(--muted)">DAFTAR MENU EVENT</div>
+      <div class="menu-grid" id="menuGrid"></div>
+    </div>
+
+    <!-- CART & CHECKOUT -->
+    <div class="cart-box">
+      <div class="cart-title">
+        <span>🛒 Pesanan Active</span>
+        <span style="font-size:12px; color:var(--muted)" id="itemCount">0 item</span>
+      </div>
+      <div class="cart-items" id="cartItems">
+        <div style="text-align:center; color:var(--muted); padding:20px; font-size:12px">Keranjang kosong</div>
+      </div>
+      <div class="total-row">
+        <span>Total:</span>
+        <span style="color:var(--green); font-family:'DM Mono',monospace" id="cartTotal">Rp 0</span>
+      </div>
+      <button class="btn" style="width:100%; justify-content:center; padding:12px;" onclick="submitOrder()">⚡ Simpan Transaksi (Push Cloud)</button>
+    </div>
+  </div>
+
+  <!-- LIVE TRANSACTIONS REALTIME LISTENER -->
+  <div class="live-list">
+    <div class="live-header">
+      <div style="font-weight:700; font-size:14px;">📡 Live Stream Penjualan Event (Real-time Cloud Sync)</div>
+      <div style="font-size:12px; color:var(--muted)" id="liveCount">0 Transaksi</div>
+    </div>
+    <table class="live-table">
+      <thead>
+        <tr>
+          <th>Waktu</th>
+          <th>Deskripsi Order</th>
+          <th>Nominal</th>
+          <th>Kasir</th>
+          <th>Status HQ Sync</th>
+        </tr>
+      </thead>
+      <tbody id="liveTableBody">
+        <tr><td colspan="5" style="text-align:center; color:var(--muted); padding:20px;">Memuat data transaksi cloud...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="toast" id="toastMsg"></div>
+
+  <script>
+    // ── 1. FIREBASE CONFIGURATION ────────────────────────────────
+    // Ganti nilai di bawah ini sesuai Firebase Project Console Anda:
+    const firebaseConfig = {
+      apiKey: "YOUR_FIREBASE_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    let dbRef = null;
+    let firebaseActive = false;
+
+    try {
+      if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+      }
+      dbRef = firebase.database().ref('event_transactions');
+      firebaseActive = true;
+    } catch(e) {
+      console.warn("Firebase belum dikonfigurasi lengkap:", e);
+    }
+
+    // ── 2. MENU HARDCODED DATABASES ──────────────────────────────
+    const MENU = [
+      { id: 'm1', name: 'Es Kopi Susu', price: 20000, hpp: 8000 },
+      { id: 'm2', name: 'Kopi V60', price: 25000, hpp: 10000 },
+      { id: 'm3', name: 'Americano', price: 18000, hpp: 5000 },
+      { id: 'm4', name: 'Matcha Latte', price: 22000, hpp: 9000 },
+      { id: 'm5', name: 'Roti Toast Chocolate', price: 15000, hpp: 6000 }
+    ];
+
+    let cart = {};
+
+    function renderMenu() {
+      const el = document.getElementById('menuGrid');
+      el.innerHTML = MENU.map(m => `
+        <div class="menu-card" onclick="addToCart('${m.id}')">
+          <div class="menu-name">${m.name}</div>
+          <div class="menu-price">Rp ${m.price.toLocaleString('id-ID')}</div>
+        </div>
+      `).join('');
+    }
+
+    function addToCart(id) {
+      if (cart[id]) cart[id].qty++;
+      else {
+        const item = MENU.find(m => m.id === id);
+        cart[id] = { ...item, qty: 1 };
+      }
+      renderCart();
+    }
+
+    function updateQty(id, delta) {
+      if (!cart[id]) return;
+      cart[id].qty += delta;
+      if (cart[id].qty <= 0) delete cart[id];
+      renderCart();
+    }
+
+    function renderCart() {
+      const container = document.getElementById('cartItems');
+      const items = Object.values(cart);
+      let total = 0;
+      let count = 0;
+
+      if (items.length === 0) {
+        container.innerHTML = `<div style="text-align:center; color:var(--muted); padding:20px; font-size:12px">Keranjang kosong</div>`;
+      } else {
+        container.innerHTML = items.map(item => {
+          const sub = item.price * item.qty;
+          total += sub;
+          count += item.qty;
+          return `
+            <div class="cart-item">
+              <div>
+                <div style="font-weight:600">${item.name}</div>
+                <div style="color:var(--muted)">Rp ${item.price.toLocaleString('id-ID')}</div>
+              </div>
+              <div class="cart-item-qty">
+                <button class="qty-btn" onclick="updateQty('${item.id}', -1)">-</button>
+                <span>${item.qty}</span>
+                <button class="qty-btn" onclick="updateQty('${item.id}', 1)">+</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      document.getElementById('cartTotal').textContent = 'Rp ' + total.toLocaleString('id-ID');
+      document.getElementById('itemCount').textContent = count + ' item';
+    }
+
+    // ── 3. SUBMIT ORDER TO CLOUD DB ──────────────────────────────
+    async function submitOrder() {
+      const items = Object.values(cart);
+      if (items.length === 0) { showToast('⚠️ Keranjang masih kosong!'); return; }
+
+      const totalNominal = items.reduce((acc, i) => acc + (i.price * i.qty), 0);
+      const descItems = items.map(i => `${i.name} (${i.qty}x)`).join(', ');
+      
+      const payload = {
+        id: Date.now(),
+        tanggal: new Date().toISOString().split('T')[0],
+        deskripsi: 'Penjualan Event - ' + descItems,
+        kategori: 'Penjualan Langsung',
+        tipe: 'masuk',
+        sumber: 'cash',
+        nominal: totalNominal,
+        items: items.map(i => ({
+          name: i.name,
+          qty: i.qty,
+          price: i.price,
+          subtotal: i.price * i.qty,
+          hppSnapshot: i.hpp
+        })),
+        _source: 'kasir_event',
+        event_name: 'Stand Event Kedai',
+        cashier_name: 'Kasir Event 1',
+        synced: false,
+        created_at: new Date().toISOString()
+      };
+
+      if (firebaseActive && dbRef) {
+        try {
+          await dbRef.push(payload);
+          showToast('⚡ Transaksi berhasil dipush ke Cloud DB!');
+        } catch(err) {
+          console.error(err);
+          showToast('❌ Gagal push ke Cloud: ' + err.message);
+        }
+      } else {
+        // Fallback local storage jika firebase belum di-config
+        let localEvt = JSON.parse(localStorage.getItem('evt_txns') || '[]');
+        localEvt.push(payload);
+        localStorage.setItem('evt_txns', JSON.stringify(localEvt));
+        renderLocalFallback();
+        showToast('⚠️ Firestore/RTDB belum di-config, tersimpan di Local Storage sementara.');
+      }
+
+      cart = {};
+      renderCart();
+    }
+
+    // ── 4. REAL-TIME LISTENER FOR CLOUD DATA ─────────────────────
+    function initRealtimeListener() {
+      if (!firebaseActive || !dbRef) {
+        renderLocalFallback();
+        return;
+      }
+
+      dbRef.on('value', snapshot => {
+        const data = snapshot.val();
+        const tbody = document.getElementById('liveTableBody');
+        if (!data) {
+          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--muted); padding:20px;">Belum ada transaksi event</td></tr>`;
+          document.getElementById('liveCount').textContent = '0 Transaksi';
+          return;
+        }
+
+        const list = Object.keys(data).map(key => ({ _key: key, ...data[key] })).reverse();
+        document.getElementById('liveCount').textContent = list.length + ' Transaksi';
+
+        tbody.innerHTML = list.map(t => `
+          <tr>
+            <td>${new Date(t.created_at || t.id).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})}</td>
+            <td><strong>${t.deskripsi}</strong></td>
+            <td style="color:var(--green); font-family:'DM Mono',monospace; font-weight:600">Rp ${Number(t.nominal).toLocaleString('id-ID')}</td>
+            <td>${t.cashier_name || 'Kasir'}</td>
+            <td>
+              ${t.synced ? '<span class="status-tag status-synced">✅ Tersimpan ke HQ</span>' : '<span class="status-tag status-pending">⌛ Pending Sync</span>'}
+            </td>
+          </tr>
+        `).join('');
+      });
+    }
+
+    function renderLocalFallback() {
+      const list = JSON.parse(localStorage.getItem('evt_txns') || '[]').reverse();
+      const tbody = document.getElementById('liveTableBody');
+      document.getElementById('liveCount').textContent = list.length + ' Transaksi (Local)';
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--muted); padding:20px;">Belum ada transaksi</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = list.map(t => `
+        <tr>
+          <td>${new Date(t.created_at || t.id).toLocaleTimeString('id-ID')}</td>
+          <td>${t.deskripsi}</td>
+          <td style="color:var(--green)">Rp ${Number(t.nominal).toLocaleString('id-ID')}</td>
+          <td>${t.cashier_name}</td>
+          <td><span class="status-tag status-pending">⌛ Local Storage</span></td>
+        </tr>
+      `).join('');
+    }
+
+    // ── 5. TRIGGER SYNC TO LOCAL HQ ──────────────────────────────
+    async function syncToHQ() {
+      showToast('🔄 Menghubungkan ke server local HQ...');
+      try {
+        const res = await fetch('/api/sync-event', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`✅ Sync Berhasil! ${data.syncedCount || 0} transaksi masuk ke #DATA/keu.json HQ.`);
+        } else {
+          showToast(`⚠️ Sync Gagal: ${data.message}`);
+        }
+      } catch(err) {
+        showToast('❌ Tidak bisa terhubung ke Node POS server (/api/sync-event)');
+      }
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toastMsg');
+      t.textContent = msg;
+      t.style.display = 'block';
+      setTimeout(() => { t.style.display = 'none'; }, 4000);
+    }
+
+    renderMenu();
+    initRealtimeListener();
+  </script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="id">
 <head>
 <meta charset="UTF-8">
@@ -14,7 +14,7 @@
 <div class="sidebar">
   <div class="sidebar-logo">
     <div class="wordmark">Pratani Creative</div>
-    <div class="sub">HQ v3.9</div>
+    <div class="sub">HQ v4.2</div>
   </div>
   <div class="sidebar-nav">
     <div class="nav-section-label">Overview</div>
@@ -65,6 +65,7 @@
     <div class="folder-path" id="folderPath">Belum dipilih</div>
     <button class="folder-btn" onclick="pickFolder()">Pilih / Ganti Folder</button>
     <button class="folder-btn" onclick="refreshData()" style="margin-top:6px;border-color:var(--accent);color:var(--accent)">🔄 Refresh Data</button>
+    <button class="folder-btn" onclick="exportFullBackupJSON()" style="margin-top:6px;border-color:#ff9f43;color:#ff9f43">📦 Backup Data JSON</button>
     <button class="folder-btn" onclick="document.getElementById('importFileInput').click()" style="margin-top:6px;border-color:#4cc9a0;color:#4cc9a0">📥 Import Konten JSON</button>
     <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="importTodosFromJSON(this)">
   </div>

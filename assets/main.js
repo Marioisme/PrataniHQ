@@ -1,4 +1,5 @@
-﻿// ─── STATE ───────────────────────────────────────────────────
+// ─── STATE ───────────────────────────────────────────────────
+const APP_VERSION = 'v4.2';
 let dirHandle = null;
 let currentPage = 'dashboard';
 let currentFilter = 'all';
@@ -246,6 +247,35 @@ async function refreshData() {
   updateTrashBadge();
   render();
   toast('🔄 Data diperbarui dari SSD!', 'success');
+}
+
+function exportFullBackupJSON() {
+  if (!db) {
+    toast('⚠️ Data belum siap untuk diekspor', 'error');
+    return;
+  }
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const backupData = {
+    _meta: {
+      appName: 'Pratani HQ',
+      version: APP_VERSION,
+      exportedAt: new Date().toISOString(),
+      folderName: dirHandle ? dirHandle.name : 'Unknown'
+    },
+    data: db
+  };
+
+  const jsonStr = JSON.stringify(backupData, null, 2);
+  const blob = new Blob([jsonStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `PrataniHQ_Backup_${timestamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('📦 Backup JSON berhasil diunduh!', 'success');
 }
 
 async function importTodosFromJSON(input) {
