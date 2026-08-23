@@ -366,7 +366,7 @@
         "qty": 25
       }
     ],
-    "hppSnapshot": 5075,
+    "hppSnapshot": 5285,
     "createdAt": "2026-05-17T14:40:52.020Z",
     "kategori": "Manual Brew"
   },
@@ -396,7 +396,7 @@
         "qty": 15
       }
     ],
-    "hppSnapshot": 4500,
+    "hppSnapshot": 4710,
     "createdAt": "2026-05-17T14:41:28.618Z",
     "kategori": "Manual Brew"
   },
@@ -485,7 +485,7 @@
         "qty": 1
       }
     ],
-    "hppSnapshot": 4692,
+    "hppSnapshot": 4902,
     "createdAt": "2026-05-26T15:19:27.804Z"
   },
   {
@@ -997,7 +997,7 @@
         "qty": 50
       }
     ],
-    "hppSnapshot": 5132,
+    "hppSnapshot": 5272,
     "createdAt": "2026-06-22T13:37:57.444Z"
   },
   {
@@ -1065,7 +1065,7 @@
     "nama": "Americano Arabika",
     "kategori": "Coffee",
     "channel": "marketplace",
-    "hargaJual": 18000,
+    "hargaJual": 22500,
     "catatan": "",
     "ingredients": [
       {
@@ -1085,13 +1085,13 @@
         "qty": 1
       }
     ],
-    "hppSnapshot": 5891,
+    "hppSnapshot": 6101,
     "createdAt": "2026-06-27T16:03:27.437Z"
   },
   {
     "id": 1782576262872,
     "nama": "Almond Latte",
-    "hargaJual": 17500,
+    "hargaJual": 21000,
     "catatan": "",
     "ingredients": [
       {
@@ -1135,7 +1135,7 @@
   {
     "id": 1782576519768,
     "nama": "Kopi Susu",
-    "hargaJual": 12000,
+    "hargaJual": 18500,
     "catatan": "",
     "ingredients": [
       {
@@ -1174,7 +1174,7 @@
   {
     "id": 1782576553348,
     "nama": "Gula Aren",
-    "hargaJual": 17500,
+    "hargaJual": 21000,
     "catatan": "",
     "ingredients": [
       {
@@ -1218,7 +1218,7 @@
   {
     "id": 1782576587726,
     "nama": "Butterscotch Latte",
-    "hargaJual": 17500,
+    "hargaJual": 21000,
     "catatan": "",
     "ingredients": [
       {
@@ -1262,7 +1262,7 @@
   {
     "id": 1782576750108,
     "nama": "Matcha",
-    "hargaJual": 13500,
+    "hargaJual": 14500,
     "catatan": "",
     "ingredients": [
       {
@@ -1304,7 +1304,7 @@
     "nama": "Red Velvet",
     "kategori": "Non Coffee",
     "channel": "marketplace",
-    "hargaJual": 13500,
+    "hargaJual": 14500,
     "catatan": "",
     "ingredients": [
       {
@@ -1348,7 +1348,7 @@
     "nama": "Cokelat",
     "kategori": "Non Coffee",
     "channel": "marketplace",
-    "hargaJual": 13500,
+    "hargaJual": 14500,
     "catatan": "",
     "ingredients": [
       {
@@ -1390,7 +1390,7 @@
   {
     "id": 1782576944852,
     "nama": "Hazelnut",
-    "hargaJual": 13500,
+    "hargaJual": 14500,
     "catatan": "",
     "ingredients": [
       {
@@ -1470,7 +1470,7 @@
     "hargaJual": 20000,
     "catatan": "",
     "ingredients": [],
-    "hppSnapshot": 10019,
+    "hppSnapshot": 10159,
     "createdAt": "2026-07-01T14:15:51.974Z"
   },
   {

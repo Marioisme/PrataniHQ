@@ -1,1 +1,22 @@
-[]
+[
+  {
+    "id": 1787416430407,
+    "brand": "dikopi",
+    "txnId": 1787416223399,
+    "editedAt": "2026-08-22T16:33:50.407Z",
+    "snapshot": {
+      "id": 1787416223399,
+      "tanggal": "2026-08-22",
+      "deskripsi": "fee",
+      "kategori": "Bahan Baku",
+      "tipe": "keluar",
+      "sumber": "cash",
+      "nominal": 34000,
+      "nota": null,
+      "nota_type": null,
+      "created_at": "2026-08-22T16:30:23.399Z",
+      "_source": "kasir",
+      "_margin": 0
+    }
+  }
+]

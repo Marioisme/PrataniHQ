@@ -142,5 +142,23 @@
       }
     ],
     "createdAt": "2026-06-02T14:55:02.785Z"
+  },
+  {
+    "id": 1787416419660,
+    "nama": "KOPI ARABIKA",
+    "total": 157000,
+    "kepada": "MARIO",
+    "brand": "dikopi",
+    "tanggal": "2026-08-22",
+    "keterangan": "",
+    "cicilan": [
+      {
+        "id": 1787416648480,
+        "tanggal": "2026-08-22",
+        "nominal": 70000,
+        "ket": ""
+      }
+    ],
+    "createdAt": "2026-08-22T16:33:39.661Z"
   }
 ]
