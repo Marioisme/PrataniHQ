@@ -55,6 +55,15 @@ function getMarketplaceCommissionRate() {
   const rate = s && s.rate !== undefined ? Number(s.rate) : DEFAULT_MARKETPLACE_COMMISSION.rate;
   return (isNaN(rate) || rate < 0) ? DEFAULT_MARKETPLACE_COMMISSION.rate : rate;
 }
+// ── SETTING GLOBAL: POTONGAN ADMIN TIKTOKGO ───────────────────
+// Fee admin TikTok Shop/TikTokGo — beda dari komisi afiliate (yang
+// diinput manual per resep karena rate-nya nego per kreator/campaign).
+const DEFAULT_TIKTOK_ADMIN_COMMISSION = { rate: 12 }; // persen, dari Harga Jual
+function getTiktokAdminRate() {
+  const s = db.settings && db.settings.tiktok_admin_commission;
+  const rate = s && s.rate !== undefined ? Number(s.rate) : DEFAULT_TIKTOK_ADMIN_COMMISSION.rate;
+  return (isNaN(rate) || rate < 0) ? DEFAULT_TIKTOK_ADMIN_COMMISSION.rate : rate;
+}
 function marketplaceMarginBadge(margin) {
   if (margin >= 50) return { color:'#4cc9a0', bg:'rgba(76,201,160,0.14)', label:'Sehat' };
   if (margin >= 45) return { color:'#d4e157', bg:'rgba(212,225,87,0.14)', label:'Deket Target' };
@@ -7888,11 +7897,11 @@ function getResepGroups() {
 
 function getResepChannels() {
   const custom = (db.keu._meta?.dikopiChannels) || [];
-  const defaults = ['kedai','cfd','marketplace'];
+  const defaults = ['kedai','cfd','marketplace','tiktokgo'];
   const all = [...new Set([...defaults, ...custom])];
   return all;
 }
-const CHANNEL_LABEL = { kedai:'☕ Kedai', cfd:'🏃 CFD', marketplace:'🛒 Marketplace' };
+const CHANNEL_LABEL = { kedai:'☕ Kedai', cfd:'🏃 CFD', marketplace:'🛒 Marketplace', tiktokgo:'🎵 TikTokGo' };
 function getChannelLabel(ch) {
   const custom = db?.keu?._meta?.channelLabels?.[ch];
   if (custom) return custom;
@@ -8105,15 +8114,25 @@ function renderResep() {
 function renderResepDetail(r) {
   const hpp = hitungHPPResep(r);
   const isMarketplace = (r.channel||'') === 'marketplace';
+  const isTiktokGo = (r.channel||'') === 'tiktokgo';
   const komisiRate = isMarketplace ? getMarketplaceCommissionRate() : 0;
   const komisiRp = isMarketplace && r.hargaJual ? Math.round(r.hargaJual * (komisiRate/100)) : 0;
   const netSetelahKomisi = isMarketplace && r.hargaJual ? Math.round(r.hargaJual * (1 - komisiRate/100)) : (r.hargaJual||0);
-  // Margin: kalau marketplace, dihitung dari net setelah komisi. Kalau bukan, dihitung normal dari harga jual.
-  const margin = r.hargaJual ? Math.round(((isMarketplace ? netSetelahKomisi : r.hargaJual) - hpp) / r.hargaJual * 100) : 0;
+
+  // ── TikTokGo: potongan admin (fix, dari setting) + komisi afiliate (input manual per resep) ──
+  const tiktokAdminRate = isTiktokGo ? getTiktokAdminRate() : 0;
+  const tiktokAfiliateRate = isTiktokGo ? (Number(r.komisiAfiliate)||0) : 0;
+  const tiktokAdminRp = isTiktokGo && r.hargaJual ? Math.round(r.hargaJual * (tiktokAdminRate/100)) : 0;
+  const tiktokAfiliateRp = isTiktokGo && r.hargaJual ? Math.round(r.hargaJual * (tiktokAfiliateRate/100)) : 0;
+  const tiktokNet = isTiktokGo && r.hargaJual ? (r.hargaJual - tiktokAdminRp - tiktokAfiliateRp) : (r.hargaJual||0);
+
+  // Margin: marketplace → dari net setelah komisi. tiktokgo → dari net setelah admin+afiliate. Selain itu → normal dari harga jual.
+  const netUntukMargin = isTiktokGo ? tiktokNet : (isMarketplace ? netSetelahKomisi : r.hargaJual);
+  const margin = r.hargaJual ? Math.round((netUntukMargin - hpp) / r.hargaJual * 100) : 0;
   const markup = r.hargaJual ? Math.round((r.hargaJual-hpp)/hpp*100) : 0;
-  // Profit/cup: kalau marketplace, dihitung setelah komisi dipotong
-  const profitCup = isMarketplace ? (netSetelahKomisi - hpp) : (r.hargaJual - hpp);
-  const mpBadge = isMarketplace ? marketplaceMarginBadge(margin) : null;
+  // Profit/cup: dihitung setelah potongan channel (kalau ada) dipotong
+  const profitCup = netUntukMargin - hpp;
+  const mpBadge = (isMarketplace || isTiktokGo) ? marketplaceMarginBadge(margin) : null;
   const warn = resepHasWarning(r);
 
   // ── COMBO: tampilkan member list ──────────────────────────
@@ -8222,7 +8241,7 @@ function renderResepDetail(r) {
     <div style="margin-bottom:4px">${ingRows||'<div style="color:var(--muted);font-size:12px;padding:8px 0">Belum ada bahan — klik + Bahan</div>'}</div>
 
     <div class="hpp-cup-box">
-      <div style="display:grid;grid-template-columns:${isMarketplace?'1fr 1fr 1fr 1fr 1.3fr':'1fr 1fr 1fr'};gap:12px;margin-bottom:12px">
+      <div style="display:grid;grid-template-columns:${isTiktokGo?'1fr 1fr 1fr 1fr 1fr 1.3fr':(isMarketplace?'1fr 1fr 1fr 1fr 1.3fr':'1fr 1fr 1fr')};gap:12px;margin-bottom:12px">
         <div>
           <div style="font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:4px">HPP/cup</div>
           <div style="font-size:22px;font-weight:800;font-family:'DM Mono',monospace;color:#4cc9a0">${fmtRp(hpp)}</div>
@@ -8240,19 +8259,41 @@ function renderResepDetail(r) {
           <div style="font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:4px">Net Setelah Komisi</div>
           <div style="font-size:22px;font-weight:800;font-family:'DM Mono',monospace;color:var(--text)">${r.hargaJual?fmtRp(netSetelahKomisi):'—'}</div>
         </div>` : ''}
+        ${isTiktokGo ? `
+        <div>
+          <div style="font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:4px">Admin TikTok (${tiktokAdminRate}%)</div>
+          <div style="font-size:22px;font-weight:800;font-family:'DM Mono',monospace;color:var(--red)">${r.hargaJual?'−'+fmtRp(tiktokAdminRp):'—'}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:4px">Komisi Afiliate (${tiktokAfiliateRate}%)</div>
+          <div style="font-size:22px;font-weight:800;font-family:'DM Mono',monospace;color:var(--red)">${r.hargaJual?'−'+fmtRp(tiktokAfiliateRp):'—'}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:4px">Net Setelah Potongan</div>
+          <div style="font-size:22px;font-weight:800;font-family:'DM Mono',monospace;color:var(--text)">${r.hargaJual?fmtRp(tiktokNet):'—'}</div>
+        </div>` : ''}
         <div>
           <div style="font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:4px">Margin</div>
-          <div style="font-size:22px;font-weight:800;font-family:'DM Mono',monospace;color:${isMarketplace?(mpBadge?mpBadge.color:'var(--red)'):(margin>=50?'#4cc9a0':margin>=30?'#f5a623':'var(--red)')}">
+          <div style="font-size:22px;font-weight:800;font-family:'DM Mono',monospace;color:${(isMarketplace||isTiktokGo)?(mpBadge?mpBadge.color:'var(--red)'):(margin>=50?'#4cc9a0':margin>=30?'#f5a623':'var(--red)')}">
             ${r.hargaJual?margin+'%':'—'}
           </div>
-          ${isMarketplace && r.hargaJual ? `<div style="display:inline-block;margin-top:4px;font-size:9px;font-weight:700;padding:2px 8px;border-radius:99px;background:${mpBadge.bg};color:${mpBadge.color}">${mpBadge.label}</div>` : ''}
+          ${(isMarketplace||isTiktokGo) && r.hargaJual ? `<div style="display:inline-block;margin-top:4px;font-size:9px;font-weight:700;padding:2px 8px;border-radius:99px;background:${mpBadge.bg};color:${mpBadge.color}">${mpBadge.label}</div>` : ''}
         </div>
       </div>
       <div style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace">
         Markup: ${r.hargaJual?markup+'%':'—'} ·
         Profit/cup: ${r.hargaJual?fmtRp(profitCup):'—'}
         ${isMarketplace?` <span style="color:var(--muted);opacity:0.7">(setelah komisi ${komisiRate}%)</span>`:''}
+        ${isTiktokGo?` <span style="color:var(--muted);opacity:0.7">(setelah admin ${tiktokAdminRate}% + afiliate ${tiktokAfiliateRate}%)</span>`:''}
       </div>
+      ${isTiktokGo ? `
+      <div style="margin-top:12px">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Update komisi afiliate (%) — nego per kreator/campaign, isi manual:</div>
+        <div style="display:flex;gap:8px">
+          <input class="form-input" id="resep_komafil_${r.id}" type="text" inputmode="decimal" value="${tiktokAfiliateRate||''}" placeholder="0" style="flex:1;font-size:13px">
+          <button class="btn btn-primary btn-sm" onclick="saveResepKomisiAfiliate(${r.id})">Simpan</button>
+        </div>
+      </div>` : ''}
       <div style="margin-top:12px">
         <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Update harga jual:</div>
         <div style="display:flex;gap:8px">
@@ -8625,6 +8666,18 @@ async function saveResepHargaJual(id) {
   toast('✅ Harga jual & snapshot HPP diperbarui!','success'); render();
 }
 
+async function saveResepKomisiAfiliate(id) {
+  const r = db.resep.find(x=>x.id===id);
+  if (!r) return;
+  const raw = (document.getElementById(`resep_komafil_${id}`)?.value||'0').replace(',','.');
+  let val = parseFloat(raw)||0;
+  if (val < 0) val = 0;
+  if (val > 100) val = 100;
+  r.komisiAfiliate = val;
+  await saveDB('resep');
+  toast('✅ Komisi afiliate disimpan!','success'); render();
+}
+
 async function deleteResep(id) {
   db.resep = db.resep.filter(x=>x.id!==id);
   if (resepActiveId===id) resepActiveId = db.resep[0]?.id||null;
@@ -8822,7 +8875,7 @@ async function submitCopyResepToChannel(id) {
 }
 function openManageChannels() {
   const channels = getResepChannels();
-  const defaults = ['kedai','cfd','marketplace'];
+  const defaults = ['kedai','cfd','marketplace','tiktokgo'];
   document.getElementById('modalTitle').textContent = 'Kelola Channel Menu';
   document.getElementById('modalBody').innerHTML = `
     <div style="font-size:11px;color:var(--muted);margin-bottom:12px">Channel default tidak bisa dihapus, tapi bisa di-rename.</div>
@@ -8882,7 +8935,7 @@ async function addNewChannel() {
   closeModal(); toast(`Channel ditambahkan!`,'success'); render();
 }
 async function deleteChannel(ch) {
-  const defaults = ['kedai','cfd','marketplace'];
+  const defaults = ['kedai','cfd','marketplace','tiktokgo'];
   if (defaults.includes(ch)) return;
   if (!db.keu._meta?.dikopiChannels) return;
   db.keu._meta.dikopiChannels = db.keu._meta.dikopiChannels.filter(c=>c!==ch);

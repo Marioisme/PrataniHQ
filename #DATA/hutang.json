@@ -157,8 +157,25 @@
         "tanggal": "2026-08-22",
         "nominal": 70000,
         "ket": ""
+      },
+      {
+        "id": 1789656636184,
+        "tanggal": "2026-09-17",
+        "nominal": 87000,
+        "ket": ""
       }
     ],
     "createdAt": "2026-08-22T16:33:39.661Z"
+  },
+  {
+    "id": 1789655788973,
+    "nama": "MEJA KURSI DLL",
+    "total": 1015145,
+    "kepada": "MARIO",
+    "brand": "dikopi",
+    "tanggal": "2026-09-17",
+    "keterangan": "",
+    "cicilan": [],
+    "createdAt": "2026-09-17T14:36:28.973Z"
   }
 ]

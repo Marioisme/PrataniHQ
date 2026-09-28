@@ -6,6 +6,10 @@
 <title>Pratani Creative Database</title>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
@@ -69,6 +73,24 @@
     <button class="folder-btn" onclick="document.getElementById('importFileInput').click()" style="margin-top:6px;border-color:#4cc9a0;color:#4cc9a0">📥 Import Konten JSON</button>
     <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="importTodosFromJSON(this)">
   </div>
+  <!-- FIREBASE SYNC PANEL -->
+  <div id="fbPanel" style="padding:10px 14px;border-top:1px solid var(--border);font-size:12px;">
+    <div style="color:var(--muted);font-size:10px;font-weight:600;letter-spacing:0.5px;margin-bottom:8px;">☁️ FIREBASE SYNC</div>
+    <!-- Login form -->
+    <div id="fbLoginForm">
+      <input id="fbEmail" type="email" placeholder="Email owner" style="width:100%;background:var(--input-bg,#1a1e2e);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text);font-size:11px;margin-bottom:4px;outline:none;">
+      <input id="fbPassword" type="password" placeholder="Password" style="width:100%;background:var(--input-bg,#1a1e2e);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text);font-size:11px;margin-bottom:6px;outline:none;">
+      <button onclick="fbLogin()" style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:6px;padding:7px;font-size:11px;font-weight:600;cursor:pointer;">🔑 Login Firebase</button>
+    </div>
+    <!-- Logged in panel -->
+    <div id="fbLoggedPanel" style="display:none;">
+      <div id="fbUserLabel" style="color:var(--accent);font-size:10px;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+      <button onclick="fbPushResep()" style="width:100%;background:transparent;border:1px solid #4cc9a0;color:#4cc9a0;border-radius:6px;padding:6px;font-size:11px;font-weight:600;cursor:pointer;margin-bottom:4px;">📤 Push Resep ke Cloud</button>
+      <button onclick="fbPullTrx()" style="width:100%;background:transparent;border:1px solid var(--accent);color:var(--accent);border-radius:6px;padding:6px;font-size:11px;font-weight:600;cursor:pointer;margin-bottom:4px;">📥 Pull Transaksi dari Cloud</button>
+      <button onclick="fbLogout()" style="width:100%;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:5px;font-size:10px;cursor:pointer;">Logout</button>
+    </div>
+    <div id="fbStatus" style="margin-top:6px;font-size:10px;color:var(--muted);min-height:14px;"></div>
+  </div>
   </div>
 </div>
 
@@ -96,5 +118,135 @@
 </div>
 
 <script src="assets/main.js"></script>
+<script>
+// ============================================================
+// PRATANIHQ — FIREBASE SYNC MODULE
+// ============================================================
+const FB_CONFIG = {
+  apiKey: "AIzaSyA0vR9gLFIG_dKE6T_0DhPc-vqYZBjsqc0",
+  authDomain: "kasir-dikopi.firebaseapp.com",
+  projectId: "kasir-dikopi",
+  storageBucket: "kasir-dikopi.firebasestorage.app",
+  messagingSenderId: "801730874094",
+  appId: "1:801730874094:web:6114dcdf24f1d65c6a81ff"
+};
+
+firebase.initializeApp(FB_CONFIG);
+const fbDb   = firebase.firestore();
+const fbAuth = firebase.auth();
+
+// Restore login state on load
+fbAuth.onAuthStateChanged(user => {
+  if (user) {
+    document.getElementById('fbLoginForm').style.display   = 'none';
+    document.getElementById('fbLoggedPanel').style.display = 'block';
+    document.getElementById('fbUserLabel').textContent     = '✅ ' + user.email;
+  } else {
+    document.getElementById('fbLoginForm').style.display   = 'block';
+    document.getElementById('fbLoggedPanel').style.display = 'none';
+  }
+});
+
+function fbSetStatus(msg, color) {
+  const el = document.getElementById('fbStatus');
+  el.textContent = msg;
+  el.style.color = color || 'var(--muted)';
+  if (msg) setTimeout(() => { if (el.textContent === msg) el.textContent = ''; }, 4000);
+}
+
+// LOGIN
+async function fbLogin() {
+  const email = document.getElementById('fbEmail').value.trim();
+  const pass  = document.getElementById('fbPassword').value;
+  if (!email || !pass) return fbSetStatus('Isi email dan password', 'var(--red)');
+  try {
+    fbSetStatus('Login...');
+    await fbAuth.signInWithEmailAndPassword(email, pass);
+    document.getElementById('fbPassword').value = '';
+    fbSetStatus('Login berhasil!', '#4cc9a0');
+  } catch(e) {
+    fbSetStatus('Login gagal: ' + e.message, 'var(--red)');
+  }
+}
+
+// LOGOUT
+async function fbLogout() {
+  await fbAuth.signOut();
+  fbSetStatus('Logged out');
+}
+
+// PUSH RESEP ke Firebase
+async function fbPushResep() {
+  if (!fbAuth.currentUser) return fbSetStatus('Login dulu!', 'var(--red)');
+  const resep = db && db.resep;
+  if (!resep || resep.length === 0) return fbSetStatus('Data resep kosong', 'var(--red)');
+
+  fbSetStatus('⏳ Pushing ' + resep.length + ' menu...');
+  try {
+    const BATCH_SIZE = 400;
+    let pushed = 0;
+    for (let i = 0; i < resep.length; i += BATCH_SIZE) {
+      const batch = fbDb.batch();
+      resep.slice(i, i + BATCH_SIZE).forEach(r => {
+        const ref = fbDb.collection('dikopi_resep').doc(String(r.id));
+        batch.set(ref, {
+          id:          r.id,
+          nama:        r.nama        || '',
+          hargaJual:   r.hargaJual   || 0,
+          kategori:    r.kategori    || '',
+          channel:     r.channel     || 'kedai',
+          hppSnapshot: r.hppSnapshot || 0,
+          catatan:     r.catatan     || '',
+          ingredients: r.ingredients || [],
+          createdAt:   r.createdAt   || new Date().toISOString(),
+        });
+      });
+      await batch.commit();
+      pushed += Math.min(BATCH_SIZE, resep.length - i);
+    }
+    fbSetStatus('✅ ' + pushed + ' menu berhasil dipush!', '#4cc9a0');
+  } catch(e) {
+    fbSetStatus('❌ Push gagal: ' + e.message, 'var(--red)');
+  }
+}
+
+// PULL TRANSAKSI dari Firebase → keu.json
+async function fbPullTrx() {
+  if (!fbAuth.currentUser) return fbSetStatus('Login dulu!', 'var(--red)');
+  if (!db || !db.keu) return fbSetStatus('Buka folder data dulu!', 'var(--red)');
+
+  fbSetStatus('⏳ Mengambil transaksi dari cloud...');
+  try {
+    const snap = await fbDb.collection('dikopi_transaksi').get();
+    const fbTrx = snap.docs.map(d => d.data());
+
+    const keu = db.keu;
+    if (!keu.dikopi) keu.dikopi = [];
+
+    const existingIds = new Set(keu.dikopi.map(t => String(t.id)));
+    let added = 0;
+    fbTrx.forEach(t => {
+      if (!existingIds.has(String(t.id))) {
+        keu.dikopi.push(t);
+        added++;
+      }
+    });
+
+    if (added > 0) {
+      // Sort by created_at after merge
+      keu.dikopi.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+      await saveJSON('keu.json', keu);
+      db.keu = keu;
+      fbSetStatus('✅ ' + added + ' transaksi baru ditarik!', '#4cc9a0');
+      // Re-render kalau sedang di halaman keuangan
+      if (typeof renderKeuDashboard === 'function') renderKeuDashboard();
+    } else {
+      fbSetStatus('Tidak ada transaksi baru dari cloud', '#4cc9a0');
+    }
+  } catch(e) {
+    fbSetStatus('❌ Pull gagal: ' + e.message, 'var(--red)');
+  }
+}
+</script>
 </body>
 </html>

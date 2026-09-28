@@ -2,7 +2,7 @@
   {
     "id": 1779028687324,
     "nama": "Americano Robusta",
-    "hargaJual": 15000,
+    "hargaJual": 10000,
     "catatan": "",
     "ingredients": [
       {
@@ -23,9 +23,37 @@
     "kategori": "Coffee"
   },
   {
+    "id": 1779808767804,
+    "nama": "Americano Arabika",
+    "kategori": "Coffee",
+    "channel": "kedai",
+    "hargaJual": 12000,
+    "catatan": "",
+    "ingredients": [
+      {
+        "bahanId": 1779203894199,
+        "qty": 15
+      },
+      {
+        "bahanId": 1779202657310,
+        "qty": 1
+      },
+      {
+        "bahanId": 1779035263736,
+        "qty": 1
+      },
+      {
+        "bahanId": 1779202725500,
+        "qty": 1
+      }
+    ],
+    "hppSnapshot": 4902,
+    "createdAt": "2026-05-26T15:19:27.804Z"
+  },
+  {
     "id": 1779028706584,
     "nama": "Kopi Susu",
-    "hargaJual": 14000,
+    "hargaJual": 12000,
     "catatan": "",
     "ingredients": [
       {
@@ -49,13 +77,13 @@
         "qty": 1
       }
     ],
-    "hppSnapshot": 3263,
+    "hppSnapshot": 3253,
     "createdAt": "2026-05-17T14:38:26.584Z"
   },
   {
     "id": 1779028736764,
     "nama": "Gula Aren",
-    "hargaJual": 16000,
+    "hargaJual": 13000,
     "catatan": "",
     "ingredients": [
       {
@@ -83,14 +111,14 @@
         "qty": 1
       }
     ],
-    "hppSnapshot": 3886,
+    "hppSnapshot": 3876,
     "createdAt": "2026-05-17T14:38:56.764Z",
     "kategori": "Coffee"
   },
   {
     "id": 1779028753666,
     "nama": "Butterscotch Latte",
-    "hargaJual": 16000,
+    "hargaJual": 13000,
     "catatan": "",
     "ingredients": [
       {
@@ -118,14 +146,14 @@
         "qty": 15
       }
     ],
-    "hppSnapshot": 5156,
+    "hppSnapshot": 5146,
     "createdAt": "2026-05-17T14:39:13.666Z",
     "kategori": "Coffee"
   },
   {
     "id": 1779028767170,
     "nama": "Caramel Latte",
-    "hargaJual": 16000,
+    "hargaJual": 13000,
     "catatan": "",
     "ingredients": [
       {
@@ -153,14 +181,14 @@
         "qty": 15
       }
     ],
-    "hppSnapshot": 5133,
+    "hppSnapshot": 5123,
     "createdAt": "2026-05-17T14:39:27.170Z",
     "kategori": "Coffee"
   },
   {
     "id": 1779028781424,
     "nama": "Almond Latte",
-    "hargaJual": 16000,
+    "hargaJual": 13000,
     "catatan": "",
     "ingredients": [
       {
@@ -188,14 +216,14 @@
         "qty": 10
       }
     ],
-    "hppSnapshot": 5133,
+    "hppSnapshot": 5192,
     "createdAt": "2026-05-17T14:39:41.424Z",
     "kategori": "Coffee"
   },
   {
     "id": 1779028814634,
     "nama": "Cokelat",
-    "hargaJual": 12000,
+    "hargaJual": 10000,
     "catatan": "",
     "ingredients": [
       {
@@ -223,14 +251,14 @@
         "qty": 1
       }
     ],
-    "hppSnapshot": 2058,
+    "hppSnapshot": 2048,
     "createdAt": "2026-05-17T14:40:14.634Z",
     "kategori": "Non Coffee"
   },
   {
     "id": 1779028809028,
     "nama": "Hazelnut",
-    "hargaJual": 12000,
+    "hargaJual": 10000,
     "catatan": "",
     "ingredients": [
       {
@@ -258,14 +286,14 @@
         "qty": 15
       }
     ],
-    "hppSnapshot": 2358,
+    "hppSnapshot": 2348,
     "createdAt": "2026-05-17T14:40:09.028Z",
     "kategori": "Non Coffee"
   },
   {
     "id": 1779028802778,
     "nama": "Red Velvet",
-    "hargaJual": 12000,
+    "hargaJual": 10000,
     "catatan": "",
     "ingredients": [
       {
@@ -293,14 +321,14 @@
         "qty": 1
       }
     ],
-    "hppSnapshot": 2058,
+    "hppSnapshot": 2048,
     "createdAt": "2026-05-17T14:40:02.778Z",
     "kategori": "Non Coffee"
   },
   {
     "id": 1779028793000,
     "nama": "Matcha",
-    "hargaJual": 12000,
+    "hargaJual": 10000,
     "catatan": "",
     "ingredients": [
       {
@@ -328,14 +356,14 @@
         "qty": 1
       }
     ],
-    "hppSnapshot": 2418,
+    "hppSnapshot": 2408,
     "createdAt": "2026-05-17T14:39:53.000Z",
     "kategori": "Non Coffee"
   },
   {
     "id": 1779028842398,
     "nama": "Vietnam Dripp Robusta",
-    "hargaJual": 15000,
+    "hargaJual": 7000,
     "catatan": "",
     "ingredients": [
       {
@@ -354,7 +382,7 @@
   {
     "id": 1779028852020,
     "nama": "Vietnam Dripp Arabika",
-    "hargaJual": 18000,
+    "hargaJual": 12000,
     "catatan": "",
     "ingredients": [
       {
@@ -373,7 +401,7 @@
   {
     "id": 1779028862146,
     "nama": "Tubruk Robusta",
-    "hargaJual": 10000,
+    "hargaJual": 5000,
     "catatan": "",
     "ingredients": [
       {
@@ -388,7 +416,7 @@
   {
     "id": 1779028888618,
     "nama": "Tubruk Arabika",
-    "hargaJual": 13000,
+    "hargaJual": 10000,
     "catatan": "",
     "ingredients": [
       {
@@ -411,7 +439,7 @@
         "qty": 15
       }
     ],
-    "hppSnapshot": 4800,
+    "hppSnapshot": 3600,
     "createdAt": "2026-05-17T14:41:40.868Z",
     "kategori": "Snack"
   },
@@ -426,7 +454,7 @@
         "qty": 120
       }
     ],
-    "hppSnapshot": 3240,
+    "hppSnapshot": 3600,
     "createdAt": "2026-05-17T14:41:47.451Z",
     "kategori": "Snack"
   },
@@ -441,7 +469,7 @@
         "qty": 8
       }
     ],
-    "hppSnapshot": 2400,
+    "hppSnapshot": 5600,
     "createdAt": "2026-05-17T14:42:21.435Z",
     "kategori": "Snack"
   },
@@ -459,34 +487,6 @@
     "hppSnapshot": 3917,
     "createdAt": "2026-05-17T14:42:36.683Z",
     "kategori": "Snack"
-  },
-  {
-    "id": 1779808767804,
-    "nama": "Americano Arabika",
-    "kategori": "Coffee",
-    "channel": "kedai",
-    "hargaJual": 17000,
-    "catatan": "",
-    "ingredients": [
-      {
-        "bahanId": 1779203894199,
-        "qty": 15
-      },
-      {
-        "bahanId": 1779202657310,
-        "qty": 1
-      },
-      {
-        "bahanId": 1779035263736,
-        "qty": 1
-      },
-      {
-        "bahanId": 1779202725500,
-        "qty": 1
-      }
-    ],
-    "hppSnapshot": 4902,
-    "createdAt": "2026-05-26T15:19:27.804Z"
   },
   {
     "id": 1782057428180,
@@ -879,7 +879,7 @@
   {
     "id": 1782135211474,
     "nama": "CARAMEL LATTE",
-    "hargaJual": 16000,
+    "hargaJual": 13000,
     "catatan": "",
     "ingredients": [
       {
@@ -915,7 +915,7 @@
         "qty": 1
       }
     ],
-    "hppSnapshot": 5390,
+    "hppSnapshot": 5380,
     "createdAt": "2026-06-22T13:33:31.474Z",
     "kategori": "Coffee",
     "channel": "cfd"
@@ -923,7 +923,7 @@
   {
     "id": 1782135284801,
     "nama": "ALMOND LATTE",
-    "hargaJual": 16000,
+    "hargaJual": 13000,
     "catatan": "",
     "ingredients": [
       {
@@ -963,7 +963,7 @@
         "qty": 50
       }
     ],
-    "hppSnapshot": 5392,
+    "hppSnapshot": 5451,
     "createdAt": "2026-06-22T13:34:44.801Z",
     "kategori": "Coffee",
     "channel": "cfd"
@@ -973,12 +973,12 @@
     "nama": "MONT BLANC",
     "kategori": "Coffee",
     "channel": "kedai",
-    "hargaJual": 16000,
+    "hargaJual": 14000,
     "catatan": "",
     "ingredients": [
       {
         "bahanId": 1779203894199,
-        "qty": 10
+        "qty": 15
       },
       {
         "bahanId": 1782135464429,
@@ -997,7 +997,7 @@
         "qty": 50
       }
     ],
-    "hppSnapshot": 5272,
+    "hppSnapshot": 6832,
     "createdAt": "2026-06-22T13:37:57.444Z"
   },
   {
@@ -1029,48 +1029,16 @@
     "createdAt": "2026-06-23T16:20:04.118Z"
   },
   {
-    "id": 1782576092519,
-    "nama": "Americano Robusta",
-    "hargaJual": 13000,
-    "catatan": "",
-    "ingredients": [
-      {
-        "bahanId": 1779033835037,
-        "qty": 15
-      },
-      {
-        "bahanId": 1779035263736,
-        "qty": 50
-      },
-      {
-        "bahanId": 1779202657310,
-        "qty": 1
-      },
-      {
-        "bahanId": 1779202585442,
-        "qty": 1
-      },
-      {
-        "bahanId": 1779202725500,
-        "qty": 1
-      }
-    ],
-    "hppSnapshot": 3195,
-    "createdAt": "2026-06-27T16:01:32.519Z",
-    "kategori": "Coffee",
-    "channel": "marketplace"
-  },
-  {
     "id": 1782576207437,
-    "nama": "Americano Arabika",
+    "nama": "Americano",
     "kategori": "Coffee",
     "channel": "marketplace",
-    "hargaJual": 22500,
+    "hargaJual": 11000,
     "catatan": "",
     "ingredients": [
       {
-        "bahanId": 1779203894199,
-        "qty": 15
+        "bahanId": 1789742226926,
+        "qty": 1
       },
       {
         "bahanId": 1779202657310,
@@ -1085,18 +1053,18 @@
         "qty": 1
       }
     ],
-    "hppSnapshot": 6101,
+    "hppSnapshot": 2681,
     "createdAt": "2026-06-27T16:03:27.437Z"
   },
   {
     "id": 1782576262872,
     "nama": "Almond Latte",
-    "hargaJual": 21000,
+    "hargaJual": 16000,
     "catatan": "",
     "ingredients": [
       {
-        "bahanId": 1779033835037,
-        "qty": 15
+        "bahanId": 1789742226926,
+        "qty": 1
       },
       {
         "bahanId": 1779204212833,
@@ -1127,7 +1095,7 @@
         "qty": 1
       }
     ],
-    "hppSnapshot": 6490,
+    "hppSnapshot": 6090,
     "createdAt": "2026-06-27T16:04:22.872Z",
     "kategori": "Coffee",
     "channel": "marketplace"
@@ -1135,7 +1103,7 @@
   {
     "id": 1782576519768,
     "nama": "Kopi Susu",
-    "hargaJual": 18500,
+    "hargaJual": 14000,
     "catatan": "",
     "ingredients": [
       {
@@ -1167,14 +1135,14 @@
         "qty": 1
       }
     ],
-    "hppSnapshot": 4621,
+    "hppSnapshot": 4611,
     "createdAt": "2026-06-27T16:08:39.768Z",
     "channel": "marketplace"
   },
   {
     "id": 1782576553348,
     "nama": "Gula Aren",
-    "hargaJual": 21000,
+    "hargaJual": 16000,
     "catatan": "",
     "ingredients": [
       {
@@ -1210,7 +1178,7 @@
         "qty": 1
       }
     ],
-    "hppSnapshot": 5244,
+    "hppSnapshot": 5234,
     "createdAt": "2026-06-27T16:09:13.348Z",
     "kategori": "Coffee",
     "channel": "marketplace"
@@ -1218,7 +1186,7 @@
   {
     "id": 1782576587726,
     "nama": "Butterscotch Latte",
-    "hargaJual": 21000,
+    "hargaJual": 16000,
     "catatan": "",
     "ingredients": [
       {
@@ -1254,7 +1222,7 @@
         "qty": 1
       }
     ],
-    "hppSnapshot": 6514,
+    "hppSnapshot": 6504,
     "createdAt": "2026-06-27T16:09:47.726Z",
     "kategori": "Coffee",
     "channel": "marketplace"
@@ -1262,7 +1230,7 @@
   {
     "id": 1782576750108,
     "nama": "Matcha",
-    "hargaJual": 14500,
+    "hargaJual": 11000,
     "catatan": "",
     "ingredients": [
       {
@@ -1294,7 +1262,7 @@
         "qty": 1
       }
     ],
-    "hppSnapshot": 3618,
+    "hppSnapshot": 3608,
     "createdAt": "2026-06-27T16:12:30.108Z",
     "kategori": "Non Coffee",
     "channel": "marketplace"
@@ -1304,7 +1272,7 @@
     "nama": "Red Velvet",
     "kategori": "Non Coffee",
     "channel": "marketplace",
-    "hargaJual": 14500,
+    "hargaJual": 11000,
     "catatan": "",
     "ingredients": [
       {
@@ -1340,7 +1308,7 @@
         "qty": 15
       }
     ],
-    "hppSnapshot": 3362,
+    "hppSnapshot": 3352,
     "createdAt": "2026-06-27T16:14:40.872Z"
   },
   {
@@ -1348,7 +1316,7 @@
     "nama": "Cokelat",
     "kategori": "Non Coffee",
     "channel": "marketplace",
-    "hargaJual": 14500,
+    "hargaJual": 11000,
     "catatan": "",
     "ingredients": [
       {
@@ -1384,13 +1352,13 @@
         "qty": 15
       }
     ],
-    "hppSnapshot": 3362,
+    "hppSnapshot": 3352,
     "createdAt": "2026-06-27T16:14:56.912Z"
   },
   {
     "id": 1782576944852,
     "nama": "Hazelnut",
-    "hargaJual": 14500,
+    "hargaJual": 11000,
     "catatan": "",
     "ingredients": [
       {
@@ -1426,7 +1394,7 @@
         "qty": 1
       }
     ],
-    "hppSnapshot": 3662,
+    "hppSnapshot": 3652,
     "createdAt": "2026-06-27T16:15:44.852Z",
     "kategori": "Non Coffee",
     "channel": "marketplace"
@@ -1434,9 +1402,9 @@
   {
     "id": 1782751039166,
     "nama": "Telang Tea",
-    "kategori": "Non Coffee",
+    "kategori": "Tisane",
     "channel": "kedai",
-    "hargaJual": 10000,
+    "hargaJual": 8000,
     "catatan": "",
     "ingredients": [
       {
@@ -1452,33 +1420,11 @@
     "createdAt": "2026-06-29T16:37:19.166Z"
   },
   {
-    "id": 1782915351974,
-    "nama": "MONT BLANC TOAST BUNDLE",
-    "isCombo": true,
-    "comboItems": [
-      {
-        "resepId": 1782135477444,
-        "qty": 1
-      },
-      {
-        "resepId": 1782231604118,
-        "qty": 1
-      }
-    ],
-    "kategori": "PROMO",
-    "channel": "kedai",
-    "hargaJual": 20000,
-    "catatan": "",
-    "ingredients": [],
-    "hppSnapshot": 10159,
-    "createdAt": "2026-07-01T14:15:51.974Z"
-  },
-  {
     "id": 1782915828948,
     "nama": "Rosella Tea",
-    "kategori": "Non Coffee",
+    "kategori": "Tisane",
     "channel": "kedai",
-    "hargaJual": 12000,
+    "hargaJual": 8000,
     "catatan": "",
     "ingredients": [
       {
@@ -1510,7 +1456,7 @@
         "qty": 1
       }
     ],
-    "hppSnapshot": 6000,
+    "hppSnapshot": 5500,
     "createdAt": "2026-07-01T14:33:02.912Z"
   },
   {
@@ -1532,5 +1478,493 @@
     ],
     "hppSnapshot": 6000,
     "createdAt": "2026-07-01T14:34:35.704Z"
+  },
+  {
+    "id": 1787586206038,
+    "nama": "Telang Tea",
+    "kategori": "Non Coffee",
+    "channel": "marketplace",
+    "hargaJual": 8000,
+    "catatan": "",
+    "ingredients": [
+      {
+        "bahanId": 1782751003302,
+        "qty": 3
+      },
+      {
+        "bahanId": 1779202657310,
+        "qty": 1
+      },
+      {
+        "bahanId": 1779202585442,
+        "qty": 1
+      },
+      {
+        "bahanId": 1779035263736,
+        "qty": 1
+      },
+      {
+        "bahanId": 1779202725500,
+        "qty": 1
+      }
+    ],
+    "hppSnapshot": 2742,
+    "createdAt": "2026-08-24T15:43:26.038Z"
+  },
+  {
+    "id": 1787586883989,
+    "nama": "Rosella Tea",
+    "kategori": "Non Coffee",
+    "channel": "marketplace",
+    "hargaJual": 8000,
+    "catatan": "",
+    "ingredients": [
+      {
+        "bahanId": 1782916063868,
+        "qty": 15
+      },
+      {
+        "bahanId": 1779202657310,
+        "qty": 1
+      },
+      {
+        "bahanId": 1779202585442,
+        "qty": 1
+      },
+      {
+        "bahanId": 1779035263736,
+        "qty": 1
+      },
+      {
+        "bahanId": 1779202725500,
+        "qty": 1
+      }
+    ],
+    "hppSnapshot": 3312,
+    "createdAt": "2026-08-24T15:54:43.989Z"
+  },
+  {
+    "id": 1787926462075,
+    "nama": "Americano Robusta",
+    "hargaJual": 15000,
+    "catatan": "",
+    "ingredients": [
+      {
+        "bahanId": 1779033835037,
+        "qty": 15
+      },
+      {
+        "bahanId": 1779035263736,
+        "qty": 50
+      },
+      {
+        "bahanId": 1779202657310,
+        "qty": 1
+      },
+      {
+        "bahanId": 1779202585442,
+        "qty": 1
+      },
+      {
+        "bahanId": 1779202725500,
+        "qty": 1
+      }
+    ],
+    "hppSnapshot": 3195,
+    "createdAt": "2026-08-28T14:14:22.075Z",
+    "kategori": "Coffee",
+    "channel": "tiktokgo",
+    "komisiAfiliate": 8
+  },
+  {
+    "id": 1787926757017,
+    "nama": "Americano Arabika",
+    "kategori": "Coffee",
+    "channel": "tiktokgo",
+    "hargaJual": 17000,
+    "catatan": "",
+    "ingredients": [
+      {
+        "bahanId": 1779203894199,
+        "qty": 15
+      },
+      {
+        "bahanId": 1779202657310,
+        "qty": 1
+      },
+      {
+        "bahanId": 1779202725500,
+        "qty": 1
+      },
+      {
+        "bahanId": 1779202585442,
+        "qty": 1
+      }
+    ],
+    "hppSnapshot": 6101,
+    "createdAt": "2026-08-28T14:19:17.017Z",
+    "komisiAfiliate": 5.88
+  },
+  {
+    "id": 1787928047863,
+    "nama": "Almond Latte",
+    "hargaJual": 16000,
+    "catatan": "",
+    "ingredients": [
+      {
+        "bahanId": 1779033835037,
+        "qty": 15
+      },
+      {
+        "bahanId": 1779204212833,
+        "qty": 15
+      },
+      {
+        "bahanId": 1779034145985,
+        "qty": 50
+      },
+      {
+        "bahanId": 1779202657310,
+        "qty": 1
+      },
+      {
+        "bahanId": 1779034872085,
+        "qty": 5
+      },
+      {
+        "bahanId": 1779034629196,
+        "qty": 10
+      },
+      {
+        "bahanId": 1779202585442,
+        "qty": 1
+      },
+      {
+        "bahanId": 1779202725500,
+        "qty": 1
+      }
+    ],
+    "hppSnapshot": 6550,
+    "createdAt": "2026-08-28T14:40:47.863Z",
+    "kategori": "Coffee",
+    "channel": "tiktokgo",
+    "komisiAfiliate": 7
+  },
+  {
+    "id": 1787929281547,
+    "nama": "Kopi Susu",
+    "hargaJual": 14000,
+    "catatan": "",
+    "ingredients": [
+      {
+        "bahanId": 1779033835037,
+        "qty": 15
+      },
+      {
+        "bahanId": 1779034145985,
+        "qty": 50
+      },
+      {
+        "bahanId": 1779034872085,
+        "qty": 5
+      },
+      {
+        "bahanId": 1779034629196,
+        "qty": 10
+      },
+      {
+        "bahanId": 1779202657310,
+        "qty": 1
+      },
+      {
+        "bahanId": 1779202585442,
+        "qty": 1
+      },
+      {
+        "bahanId": 1779202725500,
+        "qty": 1
+      }
+    ],
+    "hppSnapshot": 4611,
+    "createdAt": "2026-08-28T15:01:21.547Z",
+    "channel": "tiktokgo",
+    "komisiAfiliate": 6
+  },
+  {
+    "id": 1787930382658,
+    "nama": "Gula Aren",
+    "hargaJual": 16000,
+    "catatan": "",
+    "ingredients": [
+      {
+        "bahanId": 1779033835037,
+        "qty": 15
+      },
+      {
+        "bahanId": 1779204853975,
+        "qty": 15
+      },
+      {
+        "bahanId": 1779034145985,
+        "qty": 50
+      },
+      {
+        "bahanId": 1779034629196,
+        "qty": 10
+      },
+      {
+        "bahanId": 1779034872085,
+        "qty": 5
+      },
+      {
+        "bahanId": 1779202657310,
+        "qty": 1
+      },
+      {
+        "bahanId": 1779202585442,
+        "qty": 1
+      },
+      {
+        "bahanId": 1779202725500,
+        "qty": 1
+      }
+    ],
+    "hppSnapshot": 5234,
+    "createdAt": "2026-08-28T15:19:42.658Z",
+    "kategori": "Coffee",
+    "channel": "tiktokgo",
+    "komisiAfiliate": 6
+  },
+  {
+    "id": 1787930946111,
+    "nama": "Butterscotch Latte",
+    "hargaJual": 16000,
+    "catatan": "",
+    "ingredients": [
+      {
+        "bahanId": 1779033835037,
+        "qty": 15
+      },
+      {
+        "bahanId": 1779034145985,
+        "qty": 50
+      },
+      {
+        "bahanId": 1779034629196,
+        "qty": 10
+      },
+      {
+        "bahanId": 1779034872085,
+        "qty": 5
+      },
+      {
+        "bahanId": 1779202657310,
+        "qty": 1
+      },
+      {
+        "bahanId": 1779205489284,
+        "qty": 15
+      },
+      {
+        "bahanId": 1779202585442,
+        "qty": 1
+      },
+      {
+        "bahanId": 1779202725500,
+        "qty": 1
+      },
+      {
+        "bahanId": 1779035263736,
+        "qty": 1
+      }
+    ],
+    "hppSnapshot": 6505,
+    "createdAt": "2026-08-28T15:29:06.111Z",
+    "kategori": "Coffee",
+    "channel": "tiktokgo",
+    "komisiAfiliate": 6
+  },
+  {
+    "id": 1787931771901,
+    "nama": "Caramel Latte",
+    "hargaJual": 16000,
+    "catatan": "",
+    "ingredients": [
+      {
+        "bahanId": 1779033835037,
+        "qty": 15
+      },
+      {
+        "bahanId": 1779034145985,
+        "qty": 50
+      },
+      {
+        "bahanId": 1779034629196,
+        "qty": 10
+      },
+      {
+        "bahanId": 1779034872085,
+        "qty": 5
+      },
+      {
+        "bahanId": 1779202657310,
+        "qty": 1
+      },
+      {
+        "bahanId": 1779205809926,
+        "qty": 15
+      },
+      {
+        "bahanId": 1779035263736,
+        "qty": 1
+      },
+      {
+        "bahanId": 1779202725500,
+        "qty": 1
+      },
+      {
+        "bahanId": 1779202585442,
+        "qty": 1
+      }
+    ],
+    "hppSnapshot": 6482,
+    "createdAt": "2026-08-28T15:42:51.901Z",
+    "kategori": "Coffee",
+    "channel": "tiktokgo",
+    "komisiAfiliate": 6
+  },
+  {
+    "id": 1787932158442,
+    "nama": "Caramel Latte",
+    "hargaJual": 16000,
+    "catatan": "",
+    "ingredients": [
+      {
+        "bahanId": 1779033835037,
+        "qty": 15
+      },
+      {
+        "bahanId": 1779034145985,
+        "qty": 50
+      },
+      {
+        "bahanId": 1779034629196,
+        "qty": 10
+      },
+      {
+        "bahanId": 1779034872085,
+        "qty": 5
+      },
+      {
+        "bahanId": 1779202657310,
+        "qty": 1
+      },
+      {
+        "bahanId": 1779205809926,
+        "qty": 15
+      },
+      {
+        "bahanId": 1779035263736,
+        "qty": 1
+      },
+      {
+        "bahanId": 1779202725500,
+        "qty": 1
+      },
+      {
+        "bahanId": 1779202585442,
+        "qty": 1
+      }
+    ],
+    "hppSnapshot": 6482,
+    "createdAt": "2026-08-28T15:49:18.442Z",
+    "kategori": "Coffee",
+    "channel": "marketplace",
+    "komisiAfiliate": 10
+  },
+  {
+    "id": 1787932303420,
+    "nama": "MONT BLANC",
+    "kategori": "Coffee",
+    "channel": "marketplace",
+    "hargaJual": 16000,
+    "catatan": "",
+    "ingredients": [
+      {
+        "bahanId": 1779203894199,
+        "qty": 10
+      },
+      {
+        "bahanId": 1782135464429,
+        "qty": 20
+      },
+      {
+        "bahanId": 1779034629196,
+        "qty": 10
+      },
+      {
+        "bahanId": 1779034872085,
+        "qty": 5
+      },
+      {
+        "bahanId": 1779034145985,
+        "qty": 50
+      },
+      {
+        "bahanId": 1779202585442,
+        "qty": 1
+      },
+      {
+        "bahanId": 1779035263736,
+        "qty": 1
+      },
+      {
+        "bahanId": 1779202657310,
+        "qty": 1
+      },
+      {
+        "bahanId": 1779202725500,
+        "qty": 1
+      }
+    ],
+    "hppSnapshot": 6654,
+    "createdAt": "2026-08-28T15:51:43.420Z"
+  },
+  {
+    "id": 1787932509634,
+    "nama": "MONT BLANC",
+    "kategori": "Coffee",
+    "channel": "tiktokgo",
+    "hargaJual": 16000,
+    "catatan": "",
+    "ingredients": [
+      {
+        "bahanId": 1779203894199,
+        "qty": 15
+      },
+      {
+        "bahanId": 1782135464429,
+        "qty": 20
+      },
+      {
+        "bahanId": 1779034629196,
+        "qty": 10
+      },
+      {
+        "bahanId": 1779034872085,
+        "qty": 5
+      },
+      {
+        "bahanId": 1779034145985,
+        "qty": 50
+      },
+      {
+        "bahanId": 1779035263736,
+        "qty": 1
+      }
+    ],
+    "hppSnapshot": 6833,
+    "createdAt": "2026-08-28T15:55:09.634Z",
+    "komisiAfiliate": 0
   }
 ]

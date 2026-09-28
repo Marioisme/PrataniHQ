@@ -22,5 +22,21 @@
     "nominal": 120000,
     "sumber": "cash",
     "keterangan": ""
+  },
+  {
+    "id": 1789655955003,
+    "nama": "Kursi Lipat",
+    "tanggal": "2026-09-17",
+    "nominal": 525500,
+    "sumber": "rekening",
+    "keterangan": "Asset"
+  },
+  {
+    "id": 1789655971511,
+    "nama": "Meja Lipat",
+    "tanggal": "2026-09-17",
+    "nominal": 361792,
+    "sumber": "rekening",
+    "keterangan": ""
   }
 ]
