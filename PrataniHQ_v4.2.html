@@ -10,6 +10,21 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script>
+  const FB_CONFIG = {
+    apiKey: "AIzaSyA0vR9gLFIG_dKE6T_0DhPc-vqYZBjsqc0",
+    authDomain: "kasir-dikopi.firebaseapp.com",
+    projectId: "kasir-dikopi",
+    storageBucket: "kasir-dikopi.firebasestorage.app",
+    messagingSenderId: "801730874094",
+    appId: "1:801730874094:web:6114dcdf24f1d65c6a81ff"
+  };
+  if (!firebase.apps.length) firebase.initializeApp(FB_CONFIG);
+  window.fbDb   = firebase.firestore();
+  window.fbAuth = firebase.auth();
+  var fbDb   = window.fbDb;
+  var fbAuth = window.fbAuth;
+</script>
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
@@ -117,26 +132,11 @@
   </div>
 </div>
 
-<script src="assets/main.js"></script>
+<script src="assets/main.js?v=4.2.5"></script>
 <script>
 // ============================================================
 // PRATANIHQ — FIREBASE SYNC MODULE
 // ============================================================
-const FB_CONFIG = {
-  apiKey: "AIzaSyA0vR9gLFIG_dKE6T_0DhPc-vqYZBjsqc0",
-  authDomain: "kasir-dikopi.firebaseapp.com",
-  projectId: "kasir-dikopi",
-  storageBucket: "kasir-dikopi.firebasestorage.app",
-  messagingSenderId: "801730874094",
-  appId: "1:801730874094:web:6114dcdf24f1d65c6a81ff"
-};
-
-firebase.initializeApp(FB_CONFIG);
-const fbDb   = firebase.firestore();
-const fbAuth = firebase.auth();
-window.fbDb  = fbDb;
-window.fbAuth = fbAuth;
-
 // Restore login state on load
 fbAuth.onAuthStateChanged(user => {
   if (user) {

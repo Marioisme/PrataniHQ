@@ -3590,13 +3590,20 @@ async function saveEditTransaksi(brand, id) {
           _admin_updated: true
         }, { merge: true });
         console.log('☁️ [ADMIN HQ] Transaksi di Cloud Firestore berhasil diperbarui:', id);
+        toast('✅ Transaksi diperbarui (Lokal & Cloud)!','success');
       } catch(e) {
-        console.warn('⚠️ [ADMIN HQ] Gagal update transaksi di cloud:', e);
+        console.error('⚠️ [ADMIN HQ] Gagal update transaksi di cloud:', e);
+        alert('⚠️ Transaksi terupdate di laptop, tetapi gagal di Cloud:\n' + e.message);
       }
+    } else {
+      console.warn('⚠️ [ADMIN HQ] Cloud Firestore belum siap di window.fbDb');
+      alert('⚠️ Database Cloud Firestore belum terhubung di browser HQ. Coba reload halaman Pratani HQ.');
     }
+  } else {
+    toast('✅ Transaksi diperbarui!','success');
   }
 
-  closeModal(); toast('✅ Transaksi diperbarui (Lokal & Cloud)!','success'); render();
+  closeModal(); render();
 }
 
 function openTxnHistory(brand, txnId) {
@@ -3685,7 +3692,8 @@ async function restoreTxnSnapshot(brand, txnId, historyId) {
 async function deleteTransaksi(brand, id) {
   if (!confirm('Hapus transaksi ini? Data di aplikasi kasir Cloud juga akan otomatis terhapus.')) return;
 
-  db.keu[brand] = (db.keu[brand]||[]).filter(t=>t.id!==id);
+  const targetIdStr = String(id);
+  db.keu[brand] = (db.keu[brand]||[]).filter(t => String(t.id) !== targetIdStr);
   await saveKeu();
 
   // ── Otoritas Administrator Pratani HQ → Hapus dari Cloud Kasir ──
@@ -3693,15 +3701,22 @@ async function deleteTransaksi(brand, id) {
     const cloudDb = window.fbDb || (typeof fbDb !== 'undefined' ? fbDb : null);
     if (cloudDb) {
       try {
-        await cloudDb.collection('dikopi_transaksi').doc(String(id)).delete();
-        console.log('🗑️ [ADMIN HQ] Transaksi di Cloud Firestore berhasil dihapus:', id);
+        await cloudDb.collection('dikopi_transaksi').doc(targetIdStr).delete();
+        console.log('🗑️ [ADMIN HQ] Transaksi di Cloud Firestore berhasil dihapus:', targetIdStr);
+        toast('🗑️ Transaksi dihapus (Lokal & Cloud)!','success');
       } catch(e) {
-        console.warn('⚠️ [ADMIN HQ] Gagal menghapus transaksi di Firestore:', e);
+        console.error('⚠️ [ADMIN HQ] Gagal menghapus transaksi di Firestore:', e);
+        alert('⚠️ Transaksi terhapus di laptop, tetapi gagal dihapus di Cloud:\n' + e.message);
       }
+    } else {
+      console.warn('⚠️ [ADMIN HQ] Cloud Firestore belum siap di window.fbDb');
+      alert('⚠️ Database Cloud Firestore belum terhubung di browser HQ. Coba reload halaman Pratani HQ.');
     }
+  } else {
+    toast('🗑️ Transaksi dihapus','success');
   }
 
-  toast('🗑️ Transaksi dihapus (Lokal & Cloud)','success'); render();
+  render();
 }
 
 function previewNota(brand, id) {

@@ -6832,31 +6832,6 @@
       "created_at": "2026-09-26T17:02:07.215Z",
       "_source": "kasir",
       "_margin": 0
-    },
-    {
-      "_source": "kasir_event",
-      "synced_at": "2026-09-28T15:48:44.184Z",
-      "deskripsi": "Kopi Susu (1x)",
-      "_hppTotal": 3253,
-      "nominal": 12000,
-      "kategori": "Penjualan Langsung",
-      "synced": true,
-      "event_name": "Kasir Event Cloud",
-      "items": [
-        {
-          "subtotal": 12000,
-          "name": "Kopi Susu",
-          "qty": 1,
-          "hppSnapshot": 3253,
-          "price": 12000
-        }
-      ],
-      "cashier_name": "Kasir Event",
-      "created_at": "2026-09-28T15:48:34.727Z",
-      "sumber": "cash",
-      "tanggal": "2026-09-28",
-      "tipe": "masuk",
-      "id": 1790610514727
     }
   ],
   "studio": [],
