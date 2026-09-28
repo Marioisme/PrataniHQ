@@ -2039,13 +2039,11 @@
       fbDb.collection('dikopi_transaksi')
         .where('tanggal', '==', today)
         .onSnapshot(snap => {
-          if (!snap.empty) {
-            allTransaksi = snap.docs.map(d => d.data());
-            allTransaksi.sort((a, b) => new Date(b.created_at || b.id) - new Date(a.created_at || a.id));
-            renderSummary();
-            renderRiwayatAll();
-            renderRiwayatPen();
-          }
+          allTransaksi = snap ? snap.docs.map(d => d.data()) : [];
+          allTransaksi.sort((a, b) => new Date(b.created_at || b.id) - new Date(a.created_at || a.id));
+          renderSummary();
+          renderRiwayatAll();
+          renderRiwayatPen();
         }, err => {
           console.warn("Realtime listener err:", err);
         });

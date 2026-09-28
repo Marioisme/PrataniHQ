@@ -3569,7 +3569,34 @@ async function saveEditTransaksi(brand, id) {
   t.nominal   = parseFloat((gv('et_nominal')||'0').replace(/\./g,''))||0;
   t.updated_at = new Date().toISOString();
   await saveKeu();
-  closeModal(); toast('✅ Transaksi diperbarui!','success'); render();
+
+  // ── Otoritas Administrator Pratani HQ → Sync Edit ke Cloud Kasir ──
+  if (brand === 'dikopi') {
+    const cloudDb = window.fbDb || (typeof fbDb !== 'undefined' ? fbDb : null);
+    if (cloudDb) {
+      try {
+        await cloudDb.collection('dikopi_transaksi').doc(String(id)).set({
+          id: t.id,
+          tanggal: t.tanggal,
+          tipe: t.tipe,
+          deskripsi: t.deskripsi,
+          kategori: t.kategori,
+          sumber: t.sumber,
+          nominal: t.nominal,
+          _margin: t._margin !== undefined ? t._margin : t.nominal,
+          _hppTotal: t._hppTotal || 0,
+          synced: true,
+          updated_at: t.updated_at,
+          _admin_updated: true
+        }, { merge: true });
+        console.log('☁️ [ADMIN HQ] Transaksi di Cloud Firestore berhasil diperbarui:', id);
+      } catch(e) {
+        console.warn('⚠️ [ADMIN HQ] Gagal update transaksi di cloud:', e);
+      }
+    }
+  }
+
+  closeModal(); toast('✅ Transaksi diperbarui (Lokal & Cloud)!','success'); render();
 }
 
 function openTxnHistory(brand, txnId) {
@@ -3632,15 +3659,49 @@ async function restoreTxnSnapshot(brand, txnId, historyId) {
   Object.assign(t, entry.snapshot);
   await saveKeu();
   await saveDB('history');
+
+  // ── Otoritas Administrator Pratani HQ → Sync Restore ke Cloud Kasir ──
+  if (brand === 'dikopi') {
+    const cloudDb = window.fbDb || (typeof fbDb !== 'undefined' ? fbDb : null);
+    if (cloudDb) {
+      try {
+        await cloudDb.collection('dikopi_transaksi').doc(String(txnId)).set({
+          ...t,
+          synced: true,
+          _admin_restored: true
+        }, { merge: true });
+        console.log('↩ [ADMIN HQ] Transaksi di cloud Firestore berhasil di-restore:', txnId);
+      } catch(e) {
+        console.warn('⚠️ [ADMIN HQ] Gagal restore transaksi di cloud:', e);
+      }
+    }
+  }
+
   closeModal();
-  toast('↩ Transaksi berhasil di-restore ke versi sebelumnya!','success');
+  toast('↩ Transaksi berhasil di-restore (Lokal & Cloud)!','success');
   render();
 }
 
 async function deleteTransaksi(brand, id) {
+  if (!confirm('Hapus transaksi ini? Data di aplikasi kasir Cloud juga akan otomatis terhapus.')) return;
+
   db.keu[brand] = (db.keu[brand]||[]).filter(t=>t.id!==id);
   await saveKeu();
-  toast('🗑️ Transaksi dihapus','success'); render();
+
+  // ── Otoritas Administrator Pratani HQ → Hapus dari Cloud Kasir ──
+  if (brand === 'dikopi') {
+    const cloudDb = window.fbDb || (typeof fbDb !== 'undefined' ? fbDb : null);
+    if (cloudDb) {
+      try {
+        await cloudDb.collection('dikopi_transaksi').doc(String(id)).delete();
+        console.log('🗑️ [ADMIN HQ] Transaksi di Cloud Firestore berhasil dihapus:', id);
+      } catch(e) {
+        console.warn('⚠️ [ADMIN HQ] Gagal menghapus transaksi di Firestore:', e);
+      }
+    }
+  }
+
+  toast('🗑️ Transaksi dihapus (Lokal & Cloud)','success'); render();
 }
 
 function previewNota(brand, id) {

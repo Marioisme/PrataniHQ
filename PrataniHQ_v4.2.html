@@ -134,6 +134,8 @@ const FB_CONFIG = {
 firebase.initializeApp(FB_CONFIG);
 const fbDb   = firebase.firestore();
 const fbAuth = firebase.auth();
+window.fbDb  = fbDb;
+window.fbAuth = fbAuth;
 
 // Restore login state on load
 fbAuth.onAuthStateChanged(user => {

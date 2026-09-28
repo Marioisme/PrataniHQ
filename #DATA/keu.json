@@ -36,38 +36,6 @@
   ],
   "dikopi": [
     {
-      "id": 1784430205077,
-      "tanggal": "2026-07-19",
-      "deskripsi": "CFD 19 Juli - Cokelat x1, GULA AREN x1",
-      "kategori": "Penjualan Langsung",
-      "tipe": "masuk",
-      "sumber": "cash",
-      "nominal": 23000,
-      "nota": null,
-      "nota_type": null,
-      "created_at": "2026-07-19T03:03:25.077Z",
-      "_source": "kasir_cfd",
-      "_margin": 15494,
-      "transaction_class": "revenue",
-      "updated_at": "2026-09-17T14:49:30.327Z"
-    },
-    {
-      "id": 1784430363287,
-      "tanggal": "2026-07-19",
-      "deskripsi": "CFD 19 Juli - GULA AREN x6, BUTTERSCOTCH LATTE x4, Cokelat x3, Hazelnut x4, Matcha x3, AMERICANO 2 SHOT x1, KOPI SUSU x1, AMERICANO 1 SHOT x2",
-      "kategori": "Penjualan Langsung",
-      "tipe": "masuk",
-      "sumber": "cash",
-      "nominal": 275000,
-      "nota": null,
-      "nota_type": null,
-      "created_at": "2026-07-19T03:06:03.287Z",
-      "_source": "kasir_cfd",
-      "_margin": 182286,
-      "transaction_class": "revenue",
-      "updated_at": "2026-09-17T14:49:39.223Z"
-    },
-    {
       "id": 1778764746709,
       "tanggal": "2026-05-14",
       "deskripsi": "PRINT BANNER DLL",
@@ -573,18 +541,6 @@
       "_source": "kasir"
     },
     {
-      "id": 1779553644954,
-      "tanggal": "2026-05-22",
-      "deskripsi": "Fee Gilang",
-      "kategori": "Gaji/Honorarium",
-      "tipe": "keluar",
-      "sumber": "rekening",
-      "nominal": 20000,
-      "nota": null,
-      "nota_type": null,
-      "created_at": "2026-05-23T16:27:24.954Z"
-    },
-    {
       "id": 1779549073647,
       "tanggal": "2026-05-23",
       "deskripsi": "BELANJA ( CUP 2, SUSU DIAMOND 2, NESCAFE, KRESEK)",
@@ -607,6 +563,18 @@
       "nota": null,
       "nota_type": null,
       "created_at": "2026-05-23T15:11:34.841Z"
+    },
+    {
+      "id": 1779553644954,
+      "tanggal": "2026-05-22",
+      "deskripsi": "Fee Gilang",
+      "kategori": "Gaji/Honorarium",
+      "tipe": "keluar",
+      "sumber": "rekening",
+      "nominal": 20000,
+      "nota": null,
+      "nota_type": null,
+      "created_at": "2026-05-23T16:27:24.954Z"
     },
     {
       "id": 1779553676423,
@@ -2135,18 +2103,6 @@
       "updated_at": "2026-07-01T17:09:34.840Z"
     },
     {
-      "id": 1782234731395,
-      "tanggal": "2026-06-22",
-      "deskripsi": "Belanja RND Roti Bakar",
-      "kategori": "Biji Kopi",
-      "tipe": "keluar",
-      "sumber": "cash",
-      "nominal": 116000,
-      "nota": null,
-      "nota_type": null,
-      "created_at": "2026-06-23T17:12:11.395Z"
-    },
-    {
       "id": 1782233785134,
       "tanggal": "2026-06-23",
       "deskripsi": "Penjualan - Matcha x1, Kopi Susu x1",
@@ -2235,6 +2191,18 @@
       "nota_type": null,
       "created_at": "2026-06-23T17:11:00.616Z",
       "updated_at": "2026-06-23T17:11:25.068Z"
+    },
+    {
+      "id": 1782234731395,
+      "tanggal": "2026-06-22",
+      "deskripsi": "Belanja RND Roti Bakar",
+      "kategori": "Biji Kopi",
+      "tipe": "keluar",
+      "sumber": "cash",
+      "nominal": 116000,
+      "nota": null,
+      "nota_type": null,
+      "created_at": "2026-06-23T17:12:11.395Z"
     },
     {
       "id": 1782235095960,
@@ -2342,19 +2310,6 @@
       "_margin": 12114
     },
     {
-      "id": 1782494305240,
-      "tanggal": "2026-06-25",
-      "deskripsi": "Ambil Uang Pribadi",
-      "kategori": "Ambil Uang Pribadi",
-      "transaction_class": "owner_draw",
-      "tipe": "keluar",
-      "sumber": "cash",
-      "nominal": 32000,
-      "nota": null,
-      "nota_type": null,
-      "created_at": "2026-06-26T17:18:25.240Z"
-    },
-    {
       "id": 1782485386934,
       "tanggal": "2026-06-26",
       "deskripsi": "Penjualan - Tubruk Arabika x1, Tubruk Robusta x1",
@@ -2457,6 +2412,19 @@
       "created_at": "2026-06-26T17:17:32.955Z",
       "transaction_class": "hpp",
       "updated_at": "2026-07-01T17:08:51.248Z"
+    },
+    {
+      "id": 1782494305240,
+      "tanggal": "2026-06-25",
+      "deskripsi": "Ambil Uang Pribadi",
+      "kategori": "Ambil Uang Pribadi",
+      "transaction_class": "owner_draw",
+      "tipe": "keluar",
+      "sumber": "cash",
+      "nominal": 32000,
+      "nota": null,
+      "nota_type": null,
+      "created_at": "2026-06-26T17:18:25.240Z"
     },
     {
       "id": 1782571517850,
@@ -2798,6 +2766,18 @@
       "updated_at": "2026-06-29T16:51:16.029Z"
     },
     {
+      "id": 1782751865519,
+      "tanggal": "2026-06-29",
+      "deskripsi": "Withdrawal Shopee (net setelah admin Rp3.500)",
+      "kategori": "Mutasi",
+      "tipe": "mutasi",
+      "sumber": "shopee2rek",
+      "nominal": 29500,
+      "nota": null,
+      "nota_type": null,
+      "created_at": "2026-06-29T16:51:05.518Z"
+    },
+    {
       "id": 1782752000598,
       "tanggal": "2026-06-28",
       "deskripsi": "Beli Aset: Beli Lampu",
@@ -2810,6 +2790,19 @@
       "nota_type": null,
       "created_at": "2026-06-29T16:53:20.598Z",
       "updated_at": "2026-06-29T16:53:27.909Z"
+    },
+    {
+      "id": 1782752296708,
+      "tanggal": "2026-06-29",
+      "deskripsi": "Beli Aset: rak",
+      "kategori": "Pembelian Aset",
+      "transaction_class": "asset_purchase",
+      "tipe": "keluar",
+      "sumber": "cash",
+      "nominal": 120000,
+      "nota": null,
+      "nota_type": null,
+      "created_at": "2026-06-29T16:58:16.708Z"
     },
     {
       "id": 1782752502688,
@@ -2838,31 +2831,6 @@
       "created_at": "2026-06-29T17:10:34.488Z",
       "transaction_class": "asset_purchase",
       "updated_at": "2026-07-01T17:10:04.508Z"
-    },
-    {
-      "id": 1782751865519,
-      "tanggal": "2026-06-29",
-      "deskripsi": "Withdrawal Shopee (net setelah admin Rp3.500)",
-      "kategori": "Mutasi",
-      "tipe": "mutasi",
-      "sumber": "shopee2rek",
-      "nominal": 29500,
-      "nota": null,
-      "nota_type": null,
-      "created_at": "2026-06-29T16:51:05.518Z"
-    },
-    {
-      "id": 1782752296708,
-      "tanggal": "2026-06-29",
-      "deskripsi": "Beli Aset: rak",
-      "kategori": "Pembelian Aset",
-      "transaction_class": "asset_purchase",
-      "tipe": "keluar",
-      "sumber": "cash",
-      "nominal": 120000,
-      "nota": null,
-      "nota_type": null,
-      "created_at": "2026-06-29T16:58:16.708Z"
     },
     {
       "id": 1782836574976,
@@ -3978,6 +3946,54 @@
       "updated_at": "2026-07-21T13:10:28.455Z"
     },
     {
+      "id": 1784430205077,
+      "tanggal": "2026-07-19",
+      "deskripsi": "CFD 19 Juli - Cokelat x1, GULA AREN x1",
+      "kategori": "Penjualan Langsung",
+      "tipe": "masuk",
+      "sumber": "cash",
+      "nominal": 23000,
+      "nota": null,
+      "nota_type": null,
+      "created_at": "2026-07-19T03:03:25.077Z",
+      "_source": "kasir_cfd",
+      "_margin": 15494,
+      "transaction_class": "revenue",
+      "updated_at": "2026-09-17T14:49:30.327Z"
+    },
+    {
+      "id": 1784430363287,
+      "tanggal": "2026-07-19",
+      "deskripsi": "CFD 19 Juli - GULA AREN x6, BUTTERSCOTCH LATTE x4, Cokelat x3, Hazelnut x4, Matcha x3, AMERICANO 2 SHOT x1, KOPI SUSU x1, AMERICANO 1 SHOT x2",
+      "kategori": "Penjualan Langsung",
+      "tipe": "masuk",
+      "sumber": "cash",
+      "nominal": 275000,
+      "nota": null,
+      "nota_type": null,
+      "created_at": "2026-07-19T03:06:03.287Z",
+      "_source": "kasir_cfd",
+      "_margin": 182286,
+      "transaction_class": "revenue",
+      "updated_at": "2026-09-17T14:49:39.223Z"
+    },
+    {
+      "id": 1784430403960,
+      "tanggal": "2026-08-01",
+      "deskripsi": "CFD vff - AMERICANO 1 SHOT x1, AMERICANO 3 SHOT x1, KOPI SUSU x1, AMERICANO 2 SHOT x1",
+      "kategori": "Penjualan Langsung",
+      "tipe": "masuk",
+      "sumber": "cash",
+      "nominal": 50000,
+      "nota": null,
+      "nota_type": null,
+      "created_at": "2026-07-19T03:06:43.960Z",
+      "_source": "kasir_cfd",
+      "_margin": 38406,
+      "transaction_class": "revenue",
+      "updated_at": "2026-08-07T15:06:57.145Z"
+    },
+    {
       "id": 1784475802788,
       "tanggal": "2026-07-19",
       "deskripsi": "Penjualan - Matcha x1",
@@ -4408,22 +4424,6 @@
       "_margin": 62104
     },
     {
-      "id": 1784430403960,
-      "tanggal": "2026-08-01",
-      "deskripsi": "CFD vff - AMERICANO 1 SHOT x1, AMERICANO 3 SHOT x1, KOPI SUSU x1, AMERICANO 2 SHOT x1",
-      "kategori": "Penjualan Langsung",
-      "tipe": "masuk",
-      "sumber": "cash",
-      "nominal": 50000,
-      "nota": null,
-      "nota_type": null,
-      "created_at": "2026-07-19T03:06:43.960Z",
-      "_source": "kasir_cfd",
-      "_margin": 38406,
-      "transaction_class": "revenue",
-      "updated_at": "2026-08-07T15:06:57.145Z"
-    },
-    {
       "id": 1785596376632,
       "tanggal": "2026-08-01",
       "deskripsi": "Penjualan - Matcha x1, Kentang Goreng x1",
@@ -4566,17 +4566,6 @@
       "_margin": 6760
     },
     {
-      "id": 1787934237850,
-      "tanggal": "2026-08-02",
-      "deskripsi": "fee",
-      "kategori": "Gaji/Honorarium",
-      "tipe": "keluar",
-      "nominal": 30000,
-      "nota": null,
-      "nota_type": null,
-      "created_at": "2026-08-28T16:23:57.850Z"
-    },
-    {
       "id": 1785840674527,
       "tanggal": "2026-08-04",
       "deskripsi": "Penjualan - Matcha x1, Hazelnut x1",
@@ -4589,17 +4578,6 @@
       "created_at": "2026-08-04T10:51:14.527Z",
       "_source": "kasir",
       "_margin": 19224
-    },
-    {
-      "id": 1787934281247,
-      "tanggal": "2026-08-04",
-      "deskripsi": "fee",
-      "kategori": "Gaji/Honorarium",
-      "tipe": "keluar",
-      "nominal": 34000,
-      "nota": null,
-      "nota_type": null,
-      "created_at": "2026-08-28T16:24:41.247Z"
     },
     {
       "id": 1785949628283,
@@ -4700,20 +4678,6 @@
       "created_at": "2026-08-06T16:11:36.985Z",
       "_source": "kasir",
       "_margin": 20129
-    },
-    {
-      "id": 1787934330292,
-      "tanggal": "2026-08-06",
-      "deskripsi": "fee",
-      "kategori": "Gaji/Honorarium",
-      "tipe": "keluar",
-      "nominal": 36000,
-      "nota": null,
-      "nota_type": null,
-      "created_at": "2026-08-28T16:25:30.292Z",
-      "transaction_class": "operational",
-      "sumber": "cash",
-      "updated_at": "2026-08-28T16:25:45.174Z"
     },
     {
       "id": 1786107454654,
@@ -4942,17 +4906,6 @@
       "_margin": 0
     },
     {
-      "id": 1787934195288,
-      "tanggal": "2026-08-08",
-      "deskripsi": "fee",
-      "kategori": "Gaji/Honorarium",
-      "tipe": "keluar",
-      "nominal": 36000,
-      "nota": null,
-      "nota_type": null,
-      "created_at": "2026-08-28T16:23:15.288Z"
-    },
-    {
       "id": 1786373962639,
       "tanggal": "2026-08-10",
       "deskripsi": "Penjualan - Hazelnut x1, Roti Bakar x1",
@@ -5093,20 +5046,6 @@
       "created_at": "2026-08-14T16:16:19.720Z",
       "_source": "kasir",
       "_margin": 9642
-    },
-    {
-      "id": 1787934396248,
-      "tanggal": "2026-08-14",
-      "deskripsi": "fee",
-      "kategori": "Gaji/Honorarium",
-      "tipe": "keluar",
-      "nominal": 36500,
-      "nota": null,
-      "nota_type": null,
-      "created_at": "2026-08-28T16:26:36.248Z",
-      "transaction_class": "operational",
-      "sumber": "cash",
-      "updated_at": "2026-08-28T16:26:59.888Z"
     },
     {
       "id": 1786811190601,
@@ -5539,20 +5478,6 @@
       "created_at": "2026-08-22T16:37:19.654Z"
     },
     {
-      "id": 1787933493176,
-      "tanggal": "2026-08-23",
-      "deskripsi": "FEE MINGGU 23 AGUSTUS",
-      "kategori": "Gaji/Honorarium",
-      "tipe": "keluar",
-      "nominal": 37000,
-      "nota": null,
-      "nota_type": null,
-      "created_at": "2026-08-28T16:11:33.176Z",
-      "transaction_class": "operational",
-      "sumber": "cash",
-      "updated_at": "2026-08-28T16:20:14.954Z"
-    },
-    {
       "id": 1787590341215,
       "tanggal": "2026-08-24",
       "deskripsi": "Penjualan - Americano Arabika x1, Butterscotch Latte x1, Nugget x1",
@@ -5808,20 +5733,6 @@
       "_margin": 10379
     },
     {
-      "id": 1788009265402,
-      "tanggal": "2026-08-26",
-      "deskripsi": "FEE",
-      "kategori": "Gaji/Honorarium",
-      "tipe": "keluar",
-      "nominal": 10000,
-      "nota": null,
-      "nota_type": null,
-      "created_at": "2026-08-29T13:14:25.402Z",
-      "transaction_class": "operational",
-      "sumber": "cash",
-      "updated_at": "2026-08-29T13:14:34.491Z"
-    },
-    {
       "id": 1787924563582,
       "tanggal": "2026-08-28",
       "deskripsi": "Sirup jeruk freis",
@@ -5958,6 +5869,20 @@
       "created_at": "2026-08-28T16:08:13.632Z"
     },
     {
+      "id": 1787933493176,
+      "tanggal": "2026-08-23",
+      "deskripsi": "FEE MINGGU 23 AGUSTUS",
+      "kategori": "Gaji/Honorarium",
+      "tipe": "keluar",
+      "nominal": 37000,
+      "nota": null,
+      "nota_type": null,
+      "created_at": "2026-08-28T16:11:33.176Z",
+      "transaction_class": "operational",
+      "sumber": "cash",
+      "updated_at": "2026-08-28T16:20:14.954Z"
+    },
+    {
       "id": 1787934055526,
       "tanggal": "2026-08-28",
       "deskripsi": "fee",
@@ -5970,6 +5895,67 @@
       "transaction_class": "operational",
       "sumber": "rekening",
       "updated_at": "2026-08-29T13:13:28.794Z"
+    },
+    {
+      "id": 1787934195288,
+      "tanggal": "2026-08-08",
+      "deskripsi": "fee",
+      "kategori": "Gaji/Honorarium",
+      "tipe": "keluar",
+      "nominal": 36000,
+      "nota": null,
+      "nota_type": null,
+      "created_at": "2026-08-28T16:23:15.288Z"
+    },
+    {
+      "id": 1787934237850,
+      "tanggal": "2026-08-02",
+      "deskripsi": "fee",
+      "kategori": "Gaji/Honorarium",
+      "tipe": "keluar",
+      "nominal": 30000,
+      "nota": null,
+      "nota_type": null,
+      "created_at": "2026-08-28T16:23:57.850Z"
+    },
+    {
+      "id": 1787934281247,
+      "tanggal": "2026-08-04",
+      "deskripsi": "fee",
+      "kategori": "Gaji/Honorarium",
+      "tipe": "keluar",
+      "nominal": 34000,
+      "nota": null,
+      "nota_type": null,
+      "created_at": "2026-08-28T16:24:41.247Z"
+    },
+    {
+      "id": 1787934330292,
+      "tanggal": "2026-08-06",
+      "deskripsi": "fee",
+      "kategori": "Gaji/Honorarium",
+      "tipe": "keluar",
+      "nominal": 36000,
+      "nota": null,
+      "nota_type": null,
+      "created_at": "2026-08-28T16:25:30.292Z",
+      "transaction_class": "operational",
+      "sumber": "cash",
+      "updated_at": "2026-08-28T16:25:45.174Z"
+    },
+    {
+      "id": 1787934396248,
+      "tanggal": "2026-08-14",
+      "deskripsi": "fee",
+      "kategori": "Gaji/Honorarium",
+      "tipe": "keluar",
+      "nominal": 36500,
+      "nota": null,
+      "nota_type": null,
+      "created_at": "2026-08-28T16:26:36.248Z",
+      "transaction_class": "operational",
+      "sumber": "cash",
+      "updated_at": "2026-08-28T16:26:59.888Z"
     },
     {
       "id": 1787934666824,
@@ -6040,6 +6026,20 @@
       "_margin": 0,
       "transaction_class": "asset_purchase",
       "updated_at": "2026-08-29T13:01:41.727Z"
+    },
+    {
+      "id": 1788009265402,
+      "tanggal": "2026-08-26",
+      "deskripsi": "FEE",
+      "kategori": "Gaji/Honorarium",
+      "tipe": "keluar",
+      "nominal": 10000,
+      "nota": null,
+      "nota_type": null,
+      "created_at": "2026-08-29T13:14:25.402Z",
+      "transaction_class": "operational",
+      "sumber": "cash",
+      "updated_at": "2026-08-29T13:14:34.491Z"
     },
     {
       "id": 1788009320186,
@@ -6832,6 +6832,31 @@
       "created_at": "2026-09-26T17:02:07.215Z",
       "_source": "kasir",
       "_margin": 0
+    },
+    {
+      "_source": "kasir_event",
+      "synced_at": "2026-09-28T15:48:44.184Z",
+      "deskripsi": "Kopi Susu (1x)",
+      "_hppTotal": 3253,
+      "nominal": 12000,
+      "kategori": "Penjualan Langsung",
+      "synced": true,
+      "event_name": "Kasir Event Cloud",
+      "items": [
+        {
+          "subtotal": 12000,
+          "name": "Kopi Susu",
+          "qty": 1,
+          "hppSnapshot": 3253,
+          "price": 12000
+        }
+      ],
+      "cashier_name": "Kasir Event",
+      "created_at": "2026-09-28T15:48:34.727Z",
+      "sumber": "cash",
+      "tanggal": "2026-09-28",
+      "tipe": "masuk",
+      "id": 1790610514727
     }
   ],
   "studio": [],
