@@ -2504,6 +2504,8 @@ function renderDikopiBuku() {
       <button class="btn btn-ghost btn-sm" style="border-color:var(--accent);color:var(--accent)" onclick="openDikopiMutasi()">🔄 Mutasi Cash ↔ Rek</button>
       <button class="btn btn-ghost btn-sm" style="border-color:#ff7900;color:#ff7900" onclick="openDikopiCairShopee()">💸 Cairkan Shopee</button>
       <button class="btn btn-ghost btn-sm" style="border-color:#9b82f5;color:#9b82f5" onclick="openDikopiSuntikan()">💉 + Suntikan Dana</button>
+      <button class="btn btn-sm" style="background:rgba(46,156,255,0.18);border:1px solid var(--accent);color:var(--accent);font-weight:700" onclick="fbPullTrx()">📥 Tarik Kasir</button>
+      <button class="btn btn-sm" style="background:rgba(255,159,67,0.18);border:1px solid #ff9f43;color:#ff9f43;font-weight:700" onclick="fbPushTrx()">📤 Push / Sync Cloud</button>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
       <button class="btn btn-ghost btn-sm" style="border-color:#ff9f43;color:#ff9f43;position:relative" onclick="openDikopiPrive()" title="Mengurangi uang usaha, tidak mengurangi profit.">💸 Ambil Uang Pribadi</button>

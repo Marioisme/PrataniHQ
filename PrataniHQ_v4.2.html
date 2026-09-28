@@ -88,23 +88,21 @@
     <button class="folder-btn" onclick="document.getElementById('importFileInput').click()" style="margin-top:6px;border-color:#4cc9a0;color:#4cc9a0">📥 Import Konten JSON</button>
     <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="importTodosFromJSON(this)">
   </div>
-  <!-- FIREBASE SYNC PANEL -->
+  <!-- FIREBASE SYNC PANEL (MASTER ADMIN) -->
   <div id="fbPanel" style="padding:10px 14px;border-top:1px solid var(--border);font-size:12px;">
-    <div style="color:var(--muted);font-size:10px;font-weight:600;letter-spacing:0.5px;margin-bottom:8px;">☁️ FIREBASE SYNC</div>
-    <!-- Login form -->
-    <div id="fbLoginForm">
-      <input id="fbEmail" type="email" placeholder="Email owner" style="width:100%;background:var(--input-bg,#1a1e2e);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text);font-size:11px;margin-bottom:4px;outline:none;">
-      <input id="fbPassword" type="password" placeholder="Password" style="width:100%;background:var(--input-bg,#1a1e2e);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text);font-size:11px;margin-bottom:6px;outline:none;">
-      <button onclick="fbLogin()" style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:6px;padding:7px;font-size:11px;font-weight:600;cursor:pointer;">🔑 Login Firebase</button>
+    <div style="color:var(--accent);font-size:10px;font-weight:700;letter-spacing:0.5px;margin-bottom:8px;">☁️ FIREBASE SYNC (MASTER ADMIN)</div>
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      <button onclick="fbPullTrx()" style="width:100%;background:rgba(46,156,255,0.15);border:1px solid var(--accent);color:var(--accent);border-radius:6px;padding:7px 8px;font-size:11px;font-weight:700;cursor:pointer;text-align:left;display:flex;align-items:center;gap:6px;">
+        <span>📥</span> Tarik Transaksi dari Kasir
+      </button>
+      <button onclick="fbPushTrx()" style="width:100%;background:rgba(255,159,67,0.18);border:1px solid #ff9f43;color:#ff9f43;border-radius:6px;padding:7px 8px;font-size:11px;font-weight:700;cursor:pointer;text-align:left;display:flex;align-items:center;gap:6px;">
+        <span>📤</span> Push / Override ke Cloud
+      </button>
+      <button onclick="fbPushResep()" style="width:100%;background:transparent;border:1px solid #4cc9a0;color:#4cc9a0;border-radius:6px;padding:6px 8px;font-size:11px;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:6px;">
+        <span>☕</span> Push Resep Menu ke Cloud
+      </button>
     </div>
-    <!-- Logged in panel -->
-    <div id="fbLoggedPanel" style="display:none;">
-      <div id="fbUserLabel" style="color:var(--accent);font-size:10px;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
-      <button onclick="fbPushResep()" style="width:100%;background:transparent;border:1px solid #4cc9a0;color:#4cc9a0;border-radius:6px;padding:6px;font-size:11px;font-weight:600;cursor:pointer;margin-bottom:4px;">📤 Push Resep ke Cloud</button>
-      <button onclick="fbPullTrx()" style="width:100%;background:transparent;border:1px solid var(--accent);color:var(--accent);border-radius:6px;padding:6px;font-size:11px;font-weight:600;cursor:pointer;margin-bottom:4px;">📥 Pull Transaksi dari Cloud</button>
-      <button onclick="fbLogout()" style="width:100%;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:5px;font-size:10px;cursor:pointer;">Logout</button>
-    </div>
-    <div id="fbStatus" style="margin-top:6px;font-size:10px;color:var(--muted);min-height:14px;"></div>
+    <div id="fbStatus" style="margin-top:8px;font-size:10px;color:var(--muted);min-height:14px;line-height:1.3;"></div>
   </div>
   </div>
 </div>
@@ -132,7 +130,7 @@
   </div>
 </div>
 
-<script src="assets/main.js?v=4.2.5"></script>
+<script src="assets/main.js?v=4.2.6"></script>
 <script>
 // ============================================================
 // PRATANIHQ — FIREBASE SYNC MODULE
@@ -179,7 +177,6 @@ async function fbLogout() {
 
 // PUSH RESEP ke Firebase
 async function fbPushResep() {
-  if (!fbAuth.currentUser) return fbSetStatus('Login dulu!', 'var(--red)');
   const resep = db && db.resep;
   if (!resep || resep.length === 0) return fbSetStatus('Data resep kosong', 'var(--red)');
 
@@ -264,6 +261,73 @@ async function fbPullTrx() {
     }
   } catch(e) {
     fbSetStatus('❌ Pull gagal: ' + e.message, 'var(--red)');
+  }
+}
+
+// PUSH / OVERRIDE TRANSAKSI dari Pratani HQ → Cloud (Master Authority)
+// Apa yang ada di Pratani HQ menjadi acuan mutlak.
+// Jika di HQ sudah dihapus, di Cloud juga langsung DIHAPUS.
+async function fbPushTrx() {
+  if (!db || !db.keu) return fbSetStatus('Buka folder data dulu!', 'var(--red)');
+
+  const cloudDb = window.fbDb || (typeof fbDb !== 'undefined' ? fbDb : null);
+  if (!cloudDb) return fbSetStatus('Firebase belum siap!', 'var(--red)');
+
+  fbSetStatus('⏳ Menyinkronkan transaksi ke Cloud...');
+  try {
+    // 1. Ambil semua data di collection dikopi_transaksi
+    const snap = await cloudDb.collection('dikopi_transaksi').get();
+
+    // 2. Daftar ID transaksi Dikopi yang valid di Pratani HQ
+    const localDikopi = (db.keu && db.keu.dikopi) || [];
+    const localIdSet = new Set(localDikopi.map(t => String(t.id)));
+
+    let deletedCount = 0;
+    let updatedCount = 0;
+
+    // 3. REKONSILIASI HAPUS:
+    // Jika ada transaksi di Cloud yang TIDAK ADA di Pratani HQ (karena sudah dihapus di HQ)
+    // -> HAPUS DARI CLOUD!
+    const toDeleteDocs = snap.docs.filter(doc => !localIdSet.has(String(doc.id)));
+    for (const doc of toDeleteDocs) {
+      await cloudDb.collection('dikopi_transaksi').doc(doc.id).delete();
+      deletedCount++;
+    }
+
+    // 4. REKONSILIASI UPDATE:
+    // Update data di Cloud dengan data terkini di Pratani HQ
+    for (const t of localDikopi) {
+      if (t._source === 'kasir_event' || t._source === 'kasir' || t._source === 'kasir_cfd') {
+        await cloudDb.collection('dikopi_transaksi').doc(String(t.id)).set({
+          id: t.id,
+          tanggal: t.tanggal,
+          tipe: t.tipe,
+          deskripsi: t.deskripsi,
+          kategori: t.kategori,
+          sumber: t.sumber,
+          nominal: t.nominal,
+          _margin: t._margin !== undefined ? t._margin : t.nominal,
+          _hppTotal: t._hppTotal || 0,
+          items: t.items || [],
+          synced: true,
+          updated_at: t.updated_at || new Date().toISOString(),
+          _admin_synced: true
+        }, { merge: true });
+        updatedCount++;
+      }
+    }
+
+    let summaryMsg = '✅ Sync Selesai!';
+    if (deletedCount > 0) summaryMsg += ` ${deletedCount} dihapus dari Cloud.`;
+    if (updatedCount > 0) summaryMsg += ` ${updatedCount} diupdate.`;
+    if (deletedCount === 0 && updatedCount === 0) summaryMsg = '✅ Data Cloud & HQ sudah sinkron persis!';
+
+    fbSetStatus(summaryMsg, '#4cc9a0');
+    if (typeof toast === 'function') toast(summaryMsg, 'success');
+  } catch(e) {
+    console.error('fbPushTrx error:', e);
+    fbSetStatus('❌ Sync gagal: ' + e.message, 'var(--red)');
+    if (typeof toast === 'function') toast('❌ Sync gagal: ' + e.message, 'error');
   }
 }
 </script>
