@@ -212,22 +212,24 @@ async function fbPushResep() {
 
 // PULL TRANSAKSI dari Firebase → keu.json
 async function fbPullTrx() {
-  if (!fbAuth.currentUser) return fbSetStatus('Login dulu!', 'var(--red)');
   if (!db || !db.keu) return fbSetStatus('Buka folder data dulu!', 'var(--red)');
 
   fbSetStatus('⏳ Mengambil transaksi dari cloud...');
   try {
     const snap = await fbDb.collection('dikopi_transaksi').get();
-    const fbTrx = snap.docs.map(d => d.data());
+    const fbTrx = snap.docs.map(d => ({ _docId: d.id, ...d.data() }));
 
     const keu = db.keu;
     if (!keu.dikopi) keu.dikopi = [];
 
     const existingIds = new Set(keu.dikopi.map(t => String(t.id)));
     let added = 0;
+    const newDocIds = [];
     fbTrx.forEach(t => {
       if (!existingIds.has(String(t.id))) {
-        keu.dikopi.push(t);
+        const { _docId, ...cleanData } = t;
+        keu.dikopi.push(cleanData);
+        newDocIds.push(_docId);
         added++;
       }
     });
@@ -235,11 +237,26 @@ async function fbPullTrx() {
     if (added > 0) {
       // Sort by created_at after merge
       keu.dikopi.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
-      await saveJSON('keu.json', keu);
+      await writeJSON('keu.json', keu);
       db.keu = keu;
-      fbSetStatus('✅ ' + added + ' transaksi baru ditarik!', '#4cc9a0');
+
+      // Mark synced in Firestore so kasir sees ✅ status
+      fbSetStatus('⏳ Menandai ' + added + ' transaksi sebagai synced...');
+      const BATCH_SIZE = 400;
+      for (let i = 0; i < newDocIds.length; i += BATCH_SIZE) {
+        const batch = fbDb.batch();
+        newDocIds.slice(i, i + BATCH_SIZE).forEach(docId => {
+          batch.update(fbDb.collection('dikopi_transaksi').doc(docId), {
+            synced: true,
+            synced_at: new Date().toISOString()
+          });
+        });
+        await batch.commit();
+      }
+
+      fbSetStatus('✅ ' + added + ' transaksi baru ditarik & synced!', '#4cc9a0');
       // Re-render kalau sedang di halaman keuangan
-      if (typeof renderKeuDashboard === 'function') renderKeuDashboard();
+      if (typeof render === 'function') render();
     } else {
       fbSetStatus('Tidak ada transaksi baru dari cloud', '#4cc9a0');
     }

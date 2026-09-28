@@ -6,9 +6,9 @@
   <title>Dikopi Kasir Event - Cloud Sync POS</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
   
-  <!-- Firebase Compat SDK (CDN) -->
+  <!-- Firebase Compat SDK (CDN) — Firestore -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
   <style>
     :root {
@@ -25,43 +25,77 @@
     body { background: var(--bg); color: var(--text); padding: 16px; min-height: 100vh; }
     
     .header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 16px; border-bottom: 1px solid var(--border); margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
-    .title { font-size: 20px; font-weight: 700; color: var(--accent); display: flex; align-items: center; gap: 8px; }
+    .title { font-size: 20px; font-weight: 700; color: var(--accent); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .badge { background: rgba(255, 159, 67, 0.15); color: var(--accent); font-size: 11px; padding: 4px 10px; border-radius: 99px; font-weight: 600; border: 1px solid rgba(255, 159, 67, 0.3); }
     .cloud-badge { background: rgba(76, 201, 160, 0.15); color: var(--green); border-color: rgba(76, 201, 160, 0.3); }
+    .error-badge { background: rgba(255, 71, 87, 0.15); color: var(--red); border-color: rgba(255, 71, 87, 0.3); }
     
     .btn { background: var(--accent); color: #000; font-weight: 600; padding: 10px 18px; border-radius: 8px; border: none; cursor: pointer; transition: 0.2s opacity; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
     .btn:hover { opacity: 0.9; }
     .btn-green { background: var(--green); color: #000; }
     .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-red { background: var(--red); color: #fff; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
     
     .grid { display: grid; grid-template-columns: 1fr 340px; gap: 16px; }
     @media (max-width: 850px) { .grid { grid-template-columns: 1fr; } }
     
-    .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
-    .menu-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px; cursor: pointer; transition: 0.15s transform, 0.15s border-color; }
+    /* Channel & Category Tabs */
+    .filter-bar { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+    .filter-tab { background: var(--card); border: 1px solid var(--border); color: var(--muted); padding: 6px 14px; border-radius: 8px; font-size: 11px; font-weight: 600; cursor: pointer; transition: 0.15s all; }
+    .filter-tab:hover { border-color: var(--accent); color: var(--text); }
+    .filter-tab.active { background: rgba(255,159,67,0.15); border-color: var(--accent); color: var(--accent); }
+
+    /* Search */
+    .search-box { width: 100%; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; color: var(--text); font-size: 12px; margin-bottom: 12px; outline: none; }
+    .search-box:focus { border-color: var(--accent); }
+    .search-box::placeholder { color: var(--muted); }
+
+    .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; max-height: 55vh; overflow-y: auto; padding-right: 4px; }
+    .menu-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px; cursor: pointer; transition: 0.15s transform, 0.15s border-color; position: relative; }
     .menu-card:hover { transform: translateY(-2px); border-color: var(--accent); }
-    .menu-name { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+    .menu-card:active { transform: scale(0.97); }
+    .menu-name { font-weight: 600; font-size: 12px; margin-bottom: 4px; line-height: 1.3; }
     .menu-price { color: var(--green); font-family: 'DM Mono', monospace; font-size: 13px; }
+    .menu-hpp { color: var(--muted); font-family: 'DM Mono', monospace; font-size: 10px; }
+    .menu-kategori { position: absolute; top: 6px; right: 6px; background: rgba(255,255,255,0.06); color: var(--muted); font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
     
-    .cart-box { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px; height: fit-content; }
+    .cart-box { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px; height: fit-content; position: sticky; top: 16px; }
     .cart-title { font-size: 15px; font-weight: 600; display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
     .cart-items { display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto; }
     .cart-item { display: flex; justify-content: space-between; align-items: center; font-size: 12px; background: rgba(255,255,255,0.03); padding: 8px; border-radius: 6px; }
     .cart-item-qty { display: flex; align-items: center; gap: 6px; }
-    .qty-btn { background: var(--border); color: #fff; border: none; width: 22px; height: 22px; border-radius: 4px; cursor: pointer; }
+    .qty-btn { background: var(--border); color: #fff; border: none; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 700; }
+    .qty-btn:hover { background: var(--accent); color: #000; }
     
     .total-row { display: flex; justify-content: space-between; font-weight: 700; font-size: 16px; border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px; }
+
+    /* Cashier & Payment */
+    .input-row { display: flex; gap: 8px; }
+    .input-row input, .input-row select { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; color: var(--text); font-size: 11px; outline: none; }
+    .input-row input:focus, .input-row select:focus { border-color: var(--accent); }
+    .input-row select { cursor: pointer; }
+    .input-row select option { background: var(--bg); }
     
     .live-list { margin-top: 24px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
-    .live-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .live-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
     .live-table { width: 100%; border-collapse: collapse; font-size: 12px; }
     .live-table th { text-align: left; padding: 8px; color: var(--muted); border-bottom: 1px solid var(--border); }
     .live-table td { padding: 10px 8px; border-bottom: 1px solid rgba(255,255,255,0.05); }
     .status-tag { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
     .status-pending { background: rgba(255, 159, 67, 0.2); color: var(--accent); }
     .status-synced { background: rgba(76, 201, 160, 0.2); color: var(--green); }
-    
+
+    .live-summary { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
+    .live-stat { background: rgba(255,255,255,0.03); padding: 8px 14px; border-radius: 8px; font-size: 12px; }
+    .live-stat .val { font-family: 'DM Mono', monospace; font-weight: 700; color: var(--green); font-size: 14px; }
+
     .toast { position: fixed; bottom: 20px; right: 20px; background: var(--card); border: 1px solid var(--accent); color: #fff; padding: 12px 20px; border-radius: 8px; font-size: 13px; font-weight: 500; display: none; z-index: 99; box-shadow: 0 10px 25px rgba(0,0,0,0.5); max-width: 380px; }
+
+    .loading-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--muted); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .empty-state { text-align: center; color: var(--muted); padding: 30px; font-size: 13px; }
   </style>
 </head>
 <body>
@@ -69,10 +103,10 @@
   <!-- HEADER -->
   <div class="header">
     <div class="title">
-      ☕ Dikopi Kasir Event <span class="badge cloud-badge" id="envBadge">☁️ Netlify Cloud Mode</span>
+      ☕ Dikopi Kasir Event <span class="badge cloud-badge" id="envBadge"><span class="loading-spinner"></span> Menghubungkan...</span>
     </div>
-    <div style="display:flex; gap:8px;">
-      <button class="btn btn-green" onclick="syncToHQ()">🔄 Sinkronkan ke HQ</button>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="btn btn-outline" onclick="retryLocalSync()" title="Kirim transaksi offline ke Cloud">📤 Retry Offline (<span id="offlineCount">0</span>)</button>
       <button class="btn btn-outline" onclick="location.reload()">🔄 Refresh</button>
     </div>
   </div>
@@ -80,48 +114,69 @@
   <div class="grid">
     <!-- MENU SELECTION -->
     <div>
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-        <div style="font-size:14px; font-weight:600; color:var(--muted)">DAFTAR MENU EVENT</div>
-        <div style="font-size:11px; color:var(--green)" id="menuSourceTag">✔ Standalone / Cloud Menu</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <div style="font-size:14px; font-weight:600; color:var(--muted)">DAFTAR MENU</div>
+        <div style="font-size:11px; color:var(--green)" id="menuSourceTag"><span class="loading-spinner"></span> Memuat menu...</div>
       </div>
-      <div class="menu-grid" id="menuGrid"></div>
+      <!-- Channel Filter -->
+      <div class="filter-bar" id="channelFilter"></div>
+      <!-- Kategori Filter -->
+      <div class="filter-bar" id="kategoriFilter"></div>
+      <!-- Search -->
+      <input type="text" class="search-box" id="searchBox" placeholder="🔍 Cari menu..." oninput="renderMenu()">
+      <!-- Menu Grid -->
+      <div class="menu-grid" id="menuGrid">
+        <div class="empty-state"><span class="loading-spinner"></span> Memuat menu dari cloud...</div>
+      </div>
     </div>
 
     <!-- CART & CHECKOUT -->
     <div class="cart-box">
       <div class="cart-title">
-        <span>🛒 Pesanan Active</span>
+        <span>🛒 Pesanan</span>
         <span style="font-size:12px; color:var(--muted)" id="itemCount">0 item</span>
       </div>
       <div class="cart-items" id="cartItems">
-        <div style="text-align:center; color:var(--muted); padding:20px; font-size:12px">Keranjang kosong</div>
+        <div class="empty-state">Keranjang kosong</div>
       </div>
       <div class="total-row">
         <span>Total:</span>
         <span style="color:var(--green); font-family:'DM Mono',monospace" id="cartTotal">Rp 0</span>
       </div>
-      <button class="btn" style="width:100%; justify-content:center; padding:12px;" onclick="submitOrder()">⚡ Simpan Transaksi (Push Cloud)</button>
+      <!-- Cashier Name & Payment -->
+      <div class="input-row">
+        <input type="text" id="cashierName" placeholder="👤 Nama Kasir" value="">
+        <select id="paymentMethod">
+          <option value="cash">💵 Cash</option>
+          <option value="qris">📱 QRIS</option>
+          <option value="transfer">🏦 Transfer</option>
+        </select>
+      </div>
+      <button class="btn" style="width:100%; justify-content:center; padding:12px;" id="submitBtn" onclick="submitOrder()">⚡ Simpan Transaksi</button>
+      <button class="btn btn-outline" style="width:100%; justify-content:center; padding:8px; font-size:11px;" onclick="clearCart()">🗑️ Kosongkan Keranjang</button>
     </div>
   </div>
 
-  <!-- LIVE TRANSACTIONS REALTIME LISTENER -->
+  <!-- LIVE TRANSACTIONS -->
   <div class="live-list">
     <div class="live-header">
-      <div style="font-weight:700; font-size:14px;">📡 Live Stream Penjualan Event (Real-time Cloud Sync)</div>
+      <div style="font-weight:700; font-size:14px;">📡 Live Transaksi Hari Ini (Realtime)</div>
       <div style="font-size:12px; color:var(--muted)" id="liveCount">0 Transaksi</div>
     </div>
+    <div class="live-summary" id="liveSummary"></div>
     <table class="live-table">
       <thead>
         <tr>
           <th>Waktu</th>
           <th>Deskripsi Order</th>
           <th>Nominal</th>
+          <th>Bayar</th>
           <th>Kasir</th>
-          <th>Status HQ Sync</th>
+          <th>Status</th>
         </tr>
       </thead>
       <tbody id="liveTableBody">
-        <tr><td colspan="5" style="text-align:center; color:var(--muted); padding:20px;">Memuat data transaksi cloud...</td></tr>
+        <tr><td colspan="6" class="empty-state"><span class="loading-spinner"></span> Memuat transaksi...</td></tr>
       </tbody>
     </table>
   </div>
@@ -129,98 +184,186 @@
   <div class="toast" id="toastMsg"></div>
 
   <script>
-    // ── 1. FIREBASE CONFIGURATION ────────────────────────────────
-    const firebaseConfig = {
-      apiKey: "AIzaSyB0Ds0P_fG5pmURarNvpHJyXLU8xeB2CWE",
-      authDomain: "aplikasi-kasir-dikopi.firebaseapp.com",
-      databaseURL: "https://aplikasi-kasir-dikopi-default-rtdb.firebaseio.com",
-      projectId: "aplikasi-kasir-dikopi",
-      storageBucket: "aplikasi-kasir-dikopi.firebasestorage.app",
-      messagingSenderId: "1050006882731",
-      appId: "1:1050006882731:web:181b0b0e673d9ff9a76aee",
-      measurementId: "G-VW8DJT8QCR"
+    // ════════════════════════════════════════════════════════════════
+    // 1. FIREBASE CONFIGURATION — Project: kasir-dikopi (Firestore)
+    // ════════════════════════════════════════════════════════════════
+    const FB_CONFIG = {
+      apiKey: "AIzaSyA0vR9gLFIG_dKE6T_0DhPc-vqYZBjsqc0",
+      authDomain: "kasir-dikopi.firebaseapp.com",
+      projectId: "kasir-dikopi",
+      storageBucket: "kasir-dikopi.firebasestorage.app",
+      messagingSenderId: "801730874094",
+      appId: "1:801730874094:web:6114dcdf24f1d65c6a81ff"
     };
 
-    let dbRef = null;
+    let fbDb = null;
     let firebaseActive = false;
 
     try {
-      if (!firebase.apps.length) {
-        firebase.initializeApp(firebaseConfig);
-      }
-      dbRef = firebase.database().ref('event_transactions');
+      if (!firebase.apps.length) firebase.initializeApp(FB_CONFIG);
+      fbDb = firebase.firestore();
       firebaseActive = true;
+      setBadge('☁️ Firestore Connected', 'cloud');
     } catch(e) {
-      console.warn("Firebase Client SDK Warning:", e);
+      console.error("Firebase init error:", e);
+      setBadge('⚠️ Offline Mode', 'error');
     }
 
-    // ── 2. MENU ENGINE (HARDCODED STATIS FALLBACK) ─────────────
-    const MENUS = [
-      { id: 'm1', name: 'Kopi Susu', price: 14000, hpp: 3263, kategori: 'Coffee' },
-      { id: 'm2', name: 'Gula Aren', price: 16000, hpp: 3886, kategori: 'Coffee' },
-      { id: 'm3', name: 'Americano Robusta', price: 15000, hpp: 1838, kategori: 'Coffee' },
-      { id: 'm4', name: 'Butterscotch Latte', price: 16000, hpp: 5156, kategori: 'Coffee' },
-      { id: 'm5', name: 'Caramel Latte', price: 16000, hpp: 5133, kategori: 'Coffee' },
-      { id: 'm6', name: 'Almond Latte', price: 16000, hpp: 5133, kategori: 'Coffee' },
-      { id: 'm7', name: 'Cokelat', price: 12000, hpp: 2058, kategori: 'Non Coffee' },
-      { id: 'm8', name: 'Hazelnut', price: 12000, hpp: 2058, kategori: 'Non Coffee' },
-      { id: 'm9', name: 'Matcha Latte', price: 18000, hpp: 4500, kategori: 'Non Coffee' },
-      { id: 'm10', name: 'Red Velvet', price: 16000, hpp: 4000, kategori: 'Non Coffee' }
-    ];
+    function setBadge(text, type) {
+      const el = document.getElementById('envBadge');
+      el.textContent = text;
+      el.className = 'badge ' + (type === 'cloud' ? 'cloud-badge' : type === 'error' ? 'error-badge' : 'badge');
+    }
 
-    const DEFAULT_MENU = MENUS;
-    let MENU = [...MENUS];
+    // ════════════════════════════════════════════════════════════════
+    // 2. MENU ENGINE — Load from Firestore dikopi_resep
+    // ════════════════════════════════════════════════════════════════
+    let MENU = [];
     let cart = {};
+    let activeChannel = 'all';
+    let activeKategori = 'all';
 
     async function loadMenu() {
-      // Render menu statis secara instan agar UI tidak delay & bebas dari 'Gagal load menu'
-      renderMenu();
-
-      // Coba update dari Cloud Firebase jika ada node 'menu'
-      if (firebaseActive) {
+      // Try Firestore first
+      if (firebaseActive && fbDb) {
         try {
-          const snapshot = await firebase.database().ref('menu').once('value');
-          const cloudMenu = snapshot.val();
-          if (cloudMenu && Array.isArray(cloudMenu) && cloudMenu.length > 0) {
-            MENU = cloudMenu;
-            document.getElementById('menuSourceTag').textContent = '☁️ Cloud Firebase Menu';
+          const snap = await fbDb.collection('dikopi_resep').get();
+          if (!snap.empty) {
+            MENU = snap.docs.map(doc => {
+              const d = doc.data();
+              return {
+                id: doc.id,
+                name: d.nama || '',
+                price: Number(d.hargaJual) || 0,
+                hpp: Number(d.hppSnapshot) || 0,
+                kategori: d.kategori || '',
+                channel: d.channel || 'kedai',
+                catatan: d.catatan || ''
+              };
+            });
+            // Sort by kategori then name
+            MENU.sort((a, b) => a.kategori.localeCompare(b.kategori) || a.name.localeCompare(b.name));
+            document.getElementById('menuSourceTag').textContent = `☁️ ${MENU.length} menu dari Firestore`;
+            buildFilters();
             renderMenu();
+            saveCacheMenu();
             return;
           }
-        } catch(e) { /* Tetap menggunakan MENUS statis */ }
+        } catch(e) {
+          console.warn("Firestore menu load error:", e);
+        }
       }
 
-      // Coba fetch ke /api/menu jika backend lokal aktif
-      try {
-        const res = await fetch('/api/menu');
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            MENU = data;
-            document.getElementById('menuSourceTag').textContent = '🖥️ Local API Menu';
-            renderMenu();
-            return;
-          }
-        }
-      } catch(e) {
-        document.getElementById('menuSourceTag').textContent = '✔ Statis Menu Kedai (Netlify Standalone)';
+      // Fallback: localStorage cache
+      const cached = localStorage.getItem('dikopi_menu_cache');
+      if (cached) {
+        try {
+          MENU = JSON.parse(cached);
+          document.getElementById('menuSourceTag').textContent = `💾 ${MENU.length} menu dari cache`;
+          buildFilters();
+          renderMenu();
+          return;
+        } catch(e) {}
       }
+
+      // Ultimate fallback: static menu
+      MENU = [
+        { id: 'm1', name: 'Kopi Susu', price: 12000, hpp: 3253, kategori: 'Coffee', channel: 'kedai' },
+        { id: 'm2', name: 'Gula Aren', price: 13000, hpp: 3876, kategori: 'Coffee', channel: 'kedai' },
+        { id: 'm3', name: 'Americano Robusta', price: 10000, hpp: 1838, kategori: 'Coffee', channel: 'kedai' },
+        { id: 'm4', name: 'Butterscotch Latte', price: 13000, hpp: 5146, kategori: 'Coffee', channel: 'kedai' },
+        { id: 'm5', name: 'Caramel Latte', price: 13000, hpp: 5123, kategori: 'Coffee', channel: 'kedai' },
+        { id: 'm6', name: 'Matcha', price: 10000, hpp: 2408, kategori: 'Non Coffee', channel: 'kedai' },
+        { id: 'm7', name: 'Cokelat', price: 10000, hpp: 2048, kategori: 'Non Coffee', channel: 'kedai' },
+        { id: 'm8', name: 'Red Velvet', price: 10000, hpp: 2048, kategori: 'Non Coffee', channel: 'kedai' },
+        { id: 'm9', name: 'Hazelnut', price: 10000, hpp: 2348, kategori: 'Non Coffee', channel: 'kedai' },
+        { id: 'm10', name: 'Bakso Bakar', price: 10000, hpp: 3600, kategori: 'Snack', channel: 'kedai' }
+      ];
+      document.getElementById('menuSourceTag').textContent = '⚠️ Menu statis fallback';
+      buildFilters();
+      renderMenu();
     }
 
+    function saveCacheMenu() {
+      try { localStorage.setItem('dikopi_menu_cache', JSON.stringify(MENU)); } catch(e) {}
+    }
+
+    // ── Build Channel & Kategori Filter Tabs ──
+    function buildFilters() {
+      const channels = [...new Set(MENU.map(m => m.channel))].sort();
+      const kategories = [...new Set(MENU.map(m => m.kategori).filter(Boolean))].sort();
+
+      const chMap = { kedai: '🏠 Kedai', cfd: '🛣️ CFD', marketplace: '🛒 Marketplace', tiktokgo: '📱 TikTokGo' };
+
+      let chHTML = `<div class="filter-tab active" onclick="setChannel('all')">Semua (${MENU.length})</div>`;
+      channels.forEach(ch => {
+        const count = MENU.filter(m => m.channel === ch).length;
+        const label = chMap[ch] || ch;
+        chHTML += `<div class="filter-tab" onclick="setChannel('${ch}')">${label} (${count})</div>`;
+      });
+      document.getElementById('channelFilter').innerHTML = chHTML;
+
+      let katHTML = `<div class="filter-tab active" onclick="setKategori('all')">Semua Kategori</div>`;
+      kategories.forEach(k => {
+        katHTML += `<div class="filter-tab" onclick="setKategori('${k}')">${k}</div>`;
+      });
+      document.getElementById('kategoriFilter').innerHTML = katHTML;
+    }
+
+    function setChannel(ch) {
+      activeChannel = ch;
+      document.querySelectorAll('#channelFilter .filter-tab').forEach(el => {
+        el.classList.toggle('active', el.textContent.includes(ch === 'all' ? 'Semua (' : ch));
+      });
+      // Reset active state properly
+      const tabs = document.querySelectorAll('#channelFilter .filter-tab');
+      tabs.forEach((el, i) => {
+        if (ch === 'all') el.classList.toggle('active', i === 0);
+        else el.classList.toggle('active', el.getAttribute('onclick').includes(`'${ch}'`) && i > 0);
+      });
+      renderMenu();
+    }
+
+    function setKategori(k) {
+      activeKategori = k;
+      const tabs = document.querySelectorAll('#kategoriFilter .filter-tab');
+      tabs.forEach((el, i) => {
+        if (k === 'all') el.classList.toggle('active', i === 0);
+        else el.classList.toggle('active', el.getAttribute('onclick').includes(`'${k}'`) && i > 0);
+      });
+      renderMenu();
+    }
+
+    // ── Render Menu Grid ──
     function renderMenu() {
+      const search = (document.getElementById('searchBox')?.value || '').toLowerCase();
+      const filtered = MENU.filter(m => {
+        if (activeChannel !== 'all' && m.channel !== activeChannel) return false;
+        if (activeKategori !== 'all' && m.kategori !== activeKategori) return false;
+        if (search && !m.name.toLowerCase().includes(search)) return false;
+        return true;
+      });
+
       const el = document.getElementById('menuGrid');
-      el.innerHTML = MENU.map(m => `
+      if (filtered.length === 0) {
+        el.innerHTML = '<div class="empty-state">Tidak ada menu yang cocok</div>';
+        return;
+      }
+      el.innerHTML = filtered.map(m => `
         <div class="menu-card" onclick="addToCart('${m.id}')">
+          <div class="menu-kategori">${m.kategori}</div>
           <div class="menu-name">${m.name}</div>
           <div class="menu-price">Rp ${Number(m.price).toLocaleString('id-ID')}</div>
+          <div class="menu-hpp">HPP: Rp ${Number(m.hpp).toLocaleString('id-ID')}</div>
         </div>
       `).join('');
     }
 
+    // ── Cart Logic ──
     function addToCart(id) {
-      if (cart[id]) cart[id].qty++;
+      if (cart[id]) { cart[id].qty++; }
       else {
-        const item = MENU.find(m => m.id === id);
+        const item = MENU.find(m => String(m.id) === String(id));
         if (item) cart[id] = { ...item, qty: 1 };
       }
       renderCart();
@@ -233,6 +376,11 @@
       renderCart();
     }
 
+    function clearCart() {
+      cart = {};
+      renderCart();
+    }
+
     function renderCart() {
       const container = document.getElementById('cartItems');
       const items = Object.values(cart);
@@ -240,7 +388,7 @@
       let count = 0;
 
       if (items.length === 0) {
-        container.innerHTML = `<div style="text-align:center; color:var(--muted); padding:20px; font-size:12px">Keranjang kosong</div>`;
+        container.innerHTML = '<div class="empty-state">Keranjang kosong</div>';
       } else {
         container.innerHTML = items.map(item => {
           const sub = item.price * item.qty;
@@ -250,11 +398,11 @@
             <div class="cart-item">
               <div>
                 <div style="font-weight:600">${item.name}</div>
-                <div style="color:var(--muted)">Rp ${Number(item.price).toLocaleString('id-ID')}</div>
+                <div style="color:var(--muted); font-size:11px">Rp ${Number(item.price).toLocaleString('id-ID')} × ${item.qty} = <span style="color:var(--green)">Rp ${sub.toLocaleString('id-ID')}</span></div>
               </div>
               <div class="cart-item-qty">
-                <button class="qty-btn" onclick="updateQty('${item.id}', -1)">-</button>
-                <span>${item.qty}</span>
+                <button class="qty-btn" onclick="updateQty('${item.id}', -1)">−</button>
+                <span style="font-family:'DM Mono',monospace; min-width:20px; text-align:center">${item.qty}</span>
                 <button class="qty-btn" onclick="updateQty('${item.id}', 1)">+</button>
               </div>
             </div>
@@ -266,21 +414,33 @@
       document.getElementById('itemCount').textContent = count + ' item';
     }
 
-    // ── 3. SUBMIT ORDER DIRECT TO CLOUD ──────────────────────────
+    // ════════════════════════════════════════════════════════════════
+    // 3. SUBMIT ORDER → Firestore dikopi_transaksi
+    // ════════════════════════════════════════════════════════════════
     async function submitOrder() {
       const items = Object.values(cart);
       if (items.length === 0) { showToast('⚠️ Keranjang masih kosong!'); return; }
 
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="loading-spinner"></span> Menyimpan...';
+
       const totalNominal = items.reduce((acc, i) => acc + (i.price * i.qty), 0);
+      const totalHPP = items.reduce((acc, i) => acc + (i.hpp * i.qty), 0);
       const descItems = items.map(i => `${i.name} (${i.qty}x)`).join(', ');
-      
+      const cashier = document.getElementById('cashierName').value.trim() || 'Kasir Event';
+      const payment = document.getElementById('paymentMethod').value;
+
+      // Save cashier name for next time
+      try { localStorage.setItem('dikopi_cashier', cashier); } catch(e) {}
+
       const payload = {
         id: Date.now(),
         tanggal: new Date().toISOString().split('T')[0],
-        deskripsi: 'Penjualan Event - ' + descItems,
+        deskripsi: descItems,
         kategori: 'Penjualan Langsung',
         tipe: 'masuk',
-        sumber: 'cash',
+        sumber: payment,
         nominal: totalNominal,
         items: items.map(i => ({
           name: i.name,
@@ -290,157 +450,192 @@
           hppSnapshot: i.hpp || 0
         })),
         _source: 'kasir_event',
-        event_name: 'Stand Event Netlify',
-        cashier_name: 'Kasir Cloud',
+        _hppTotal: totalHPP,
+        event_name: 'Kasir Event Cloud',
+        cashier_name: cashier,
         synced: false,
         created_at: new Date().toISOString()
       };
 
       let success = false;
 
-      // Primary: Firebase Client SDK Push
-      if (firebaseActive && dbRef) {
+      // Primary: Firestore direct write
+      if (firebaseActive && fbDb) {
         try {
-          await dbRef.push(payload);
+          await fbDb.collection('dikopi_transaksi').doc(String(payload.id)).set(payload);
           success = true;
-          showToast('⚡ Transaksi berhasil ter-push ke Cloud Firebase!');
+          showToast(`⚡ Transaksi Rp ${totalNominal.toLocaleString('id-ID')} berhasil disimpan ke Cloud!`);
         } catch(err) {
-          console.error("SDK Push Error:", err);
+          console.error("Firestore write error:", err);
         }
       }
 
-      // Secondary: REST API Direct Push (Firebase REST API Fallback)
+      // Fallback: localStorage offline queue
       if (!success) {
-        try {
-          const restRes = await fetch(`${firebaseConfig.databaseURL}/event_transactions.json`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-          if (restRes.ok) {
-            success = true;
-            showToast('⚡ Transaksi berhasil dikirim via Firebase REST API!');
-          }
-        } catch(restErr) {
-          console.error("REST Push Error:", restErr);
-        }
-      }
-
-      // Tertiary: LocalStorage Offline Fallback
-      if (!success) {
-        let localEvt = JSON.parse(localStorage.getItem('evt_txns') || '[]');
-        localEvt.push(payload);
-        localStorage.setItem('evt_txns', JSON.stringify(localEvt));
-        renderLocalFallback();
-        showToast('⚠️ Tersimpan di LocalStorage sementara (Koneksi offline).');
+        saveToOfflineQueue(payload);
+        showToast('⚠️ Tersimpan di antrian offline. Akan dikirim saat koneksi pulih.');
       }
 
       cart = {};
       renderCart();
+      btn.disabled = false;
+      btn.innerHTML = '⚡ Simpan Transaksi';
     }
 
-    // ── 4. REAL-TIME LISTENER FOR CLOUD DATA ─────────────────────
+    // ── Offline Queue ──
+    function saveToOfflineQueue(payload) {
+      let queue = JSON.parse(localStorage.getItem('dikopi_offline_queue') || '[]');
+      queue.push(payload);
+      localStorage.setItem('dikopi_offline_queue', JSON.stringify(queue));
+      updateOfflineCount();
+    }
+
+    function updateOfflineCount() {
+      const queue = JSON.parse(localStorage.getItem('dikopi_offline_queue') || '[]');
+      document.getElementById('offlineCount').textContent = queue.length;
+    }
+
+    async function retryLocalSync() {
+      const queue = JSON.parse(localStorage.getItem('dikopi_offline_queue') || '[]');
+      if (queue.length === 0) { showToast('✅ Tidak ada transaksi offline yang perlu dikirim.'); return; }
+      if (!firebaseActive || !fbDb) { showToast('⚠️ Firebase belum terhubung. Coba refresh halaman.'); return; }
+
+      showToast(`📤 Mengirim ${queue.length} transaksi offline ke Cloud...`);
+      let sent = 0;
+      const failed = [];
+
+      for (const payload of queue) {
+        try {
+          await fbDb.collection('dikopi_transaksi').doc(String(payload.id)).set(payload);
+          sent++;
+        } catch(e) {
+          failed.push(payload);
+        }
+      }
+
+      localStorage.setItem('dikopi_offline_queue', JSON.stringify(failed));
+      updateOfflineCount();
+      showToast(`✅ ${sent} transaksi berhasil dikirim! ${failed.length > 0 ? `⚠️ ${failed.length} gagal.` : ''}`);
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // 4. REALTIME LISTENER — Firestore onSnapshot (Hari Ini)
+    // ════════════════════════════════════════════════════════════════
     function initRealtimeListener() {
-      if (firebaseActive && dbRef) {
-        dbRef.on('value', snapshot => {
-          const data = snapshot.val();
+      if (!firebaseActive || !fbDb) {
+        renderOfflineFallback();
+        return;
+      }
+
+      // Query: transaksi hari ini, ordered by created_at desc
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      fbDb.collection('dikopi_transaksi')
+        .where('tanggal', '==', todayStr)
+        .orderBy('created_at', 'desc')
+        .onSnapshot(snapshot => {
           const tbody = document.getElementById('liveTableBody');
-          if (!data) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--muted); padding:20px;">Belum ada transaksi event</td></tr>`;
+          
+          if (snapshot.empty) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Belum ada transaksi hari ini</td></tr>';
             document.getElementById('liveCount').textContent = '0 Transaksi';
+            document.getElementById('liveSummary').innerHTML = '';
             return;
           }
 
-          const list = Object.keys(data).map(key => ({ _key: key, ...data[key] })).reverse();
+          const list = snapshot.docs.map(doc => doc.data());
           document.getElementById('liveCount').textContent = list.length + ' Transaksi';
+
+          // Summary stats
+          const totalOmzet = list.reduce((s, t) => s + (Number(t.nominal) || 0), 0);
+          const totalHPP = list.reduce((s, t) => s + (Number(t._hppTotal) || 0), 0);
+          const totalItems = list.reduce((s, t) => s + (t.items ? t.items.reduce((a, i) => a + i.qty, 0) : 0), 0);
+          const margin = totalOmzet - totalHPP;
+          const marginPct = totalOmzet > 0 ? ((margin / totalOmzet) * 100).toFixed(1) : '0';
+
+          document.getElementById('liveSummary').innerHTML = `
+            <div class="live-stat">Omzet<br><span class="val">Rp ${totalOmzet.toLocaleString('id-ID')}</span></div>
+            <div class="live-stat">HPP<br><span class="val" style="color:var(--red)">Rp ${totalHPP.toLocaleString('id-ID')}</span></div>
+            <div class="live-stat">Margin<br><span class="val">Rp ${margin.toLocaleString('id-ID')} (${marginPct}%)</span></div>
+            <div class="live-stat">Cup/Item<br><span class="val">${totalItems}</span></div>
+          `;
+
+          const payIcon = { cash: '💵', qris: '📱', transfer: '🏦' };
 
           tbody.innerHTML = list.map(t => `
             <tr>
               <td>${new Date(t.created_at || t.id).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})}</td>
               <td><strong>${t.deskripsi}</strong></td>
               <td style="color:var(--green); font-family:'DM Mono',monospace; font-weight:600">Rp ${Number(t.nominal).toLocaleString('id-ID')}</td>
-              <td>${t.cashier_name || 'Kasir Cloud'}</td>
+              <td>${payIcon[t.sumber] || '💵'} ${t.sumber || 'cash'}</td>
+              <td>${t.cashier_name || 'Kasir'}</td>
               <td>
-                ${t.synced ? '<span class="status-tag status-synced">✅ Tersimpan ke HQ</span>' : '<span class="status-tag status-pending">☁️ Tersimpan di Cloud</span>'}
+                ${t.synced 
+                  ? '<span class="status-tag status-synced">✅ Synced HQ</span>' 
+                  : '<span class="status-tag status-pending">☁️ Cloud</span>'}
               </td>
             </tr>
           `).join('');
+        }, err => {
+          console.error("Realtime listener error:", err);
+          // Fallback: single fetch without orderBy (in case index not ready)
+          fallbackFetchToday();
         });
-      } else {
-        // Fallback REST Polling for Netlify
-        pollCloudREST();
-      }
     }
 
-    async function pollCloudREST() {
+    async function fallbackFetchToday() {
       try {
-        const res = await fetch(`${firebaseConfig.databaseURL}/event_transactions.json`);
-        const data = await res.json();
+        const todayStr = new Date().toISOString().split('T')[0];
+        const snap = await fbDb.collection('dikopi_transaksi').where('tanggal', '==', todayStr).get();
+        const list = snap.docs.map(d => d.data()).sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
         const tbody = document.getElementById('liveTableBody');
-        if (!data) {
-          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--muted); padding:20px;">Belum ada transaksi event</td></tr>`;
+        
+        if (list.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Belum ada transaksi hari ini</td></tr>';
           return;
         }
-        const list = Object.keys(data).map(key => ({ _key: key, ...data[key] })).reverse();
-        document.getElementById('liveCount').textContent = list.length + ' Transaksi (REST)';
+
+        document.getElementById('liveCount').textContent = list.length + ' Transaksi (snapshot)';
+        const payIcon = { cash: '💵', qris: '📱', transfer: '🏦' };
         tbody.innerHTML = list.map(t => `
           <tr>
-            <td>${new Date(t.created_at || t.id).toLocaleTimeString('id-ID')}</td>
+            <td>${new Date(t.created_at || t.id).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})}</td>
             <td><strong>${t.deskripsi}</strong></td>
-            <td style="color:var(--green)">Rp ${Number(t.nominal).toLocaleString('id-ID')}</td>
-            <td>${t.cashier_name || 'Kasir Cloud'}</td>
-            <td>${t.synced ? '<span class="status-tag status-synced">✅ Tersimpan ke HQ</span>' : '<span class="status-tag status-pending">☁️ Tersimpan di Cloud</span>'}</td>
+            <td style="color:var(--green); font-family:'DM Mono',monospace; font-weight:600">Rp ${Number(t.nominal).toLocaleString('id-ID')}</td>
+            <td>${payIcon[t.sumber] || '💵'} ${t.sumber || 'cash'}</td>
+            <td>${t.cashier_name || 'Kasir'}</td>
+            <td><span class="status-tag status-pending">☁️ Cloud</span></td>
           </tr>
         `).join('');
       } catch(e) {
-        renderLocalFallback();
+        console.error("Fallback fetch error:", e);
+        renderOfflineFallback();
       }
     }
 
-    function renderLocalFallback() {
-      const list = JSON.parse(localStorage.getItem('evt_txns') || '[]').reverse();
+    function renderOfflineFallback() {
       const tbody = document.getElementById('liveTableBody');
-      document.getElementById('liveCount').textContent = list.length + ' Transaksi (Local)';
-      if (list.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--muted); padding:20px;">Belum ada transaksi</td></tr>`;
-        return;
-      }
-      tbody.innerHTML = list.map(t => `
-        <tr>
-          <td>${new Date(t.created_at || t.id).toLocaleTimeString('id-ID')}</td>
-          <td>${t.deskripsi}</td>
-          <td style="color:var(--green)">Rp ${Number(t.nominal).toLocaleString('id-ID')}</td>
-          <td>${t.cashier_name}</td>
-          <td><span class="status-tag status-pending">⌛ Local Storage</span></td>
-        </tr>
-      `).join('');
+      tbody.innerHTML = '<tr><td colspan="6" class="empty-state">⚠️ Tidak terhubung ke Cloud. Transaksi disimpan secara offline.</td></tr>';
+      document.getElementById('liveCount').textContent = 'Offline';
     }
 
-    // ── 5. TRIGGER SYNC TO LOCAL HQ ──────────────────────────────
-    async function syncToHQ() {
-      showToast('🔄 Menghubungkan ke server local HQ...');
-      try {
-        const res = await fetch('/api/sync-event', { method: 'POST' });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success) {
-            showToast(`✅ Sync Berhasil! ${data.syncedCount || 0} transaksi masuk ke #DATA/keu.json HQ.`);
-            return;
-          }
-        }
-      } catch(err) {
-        // Expected when deployed on Netlify without local Node backend
-      }
-      showToast('☁️ Data transaksi tersimpan aman di Cloud. Jalankan "node server.js" di kedai lokal untuk sync ke HQ.');
-    }
-
+    // ════════════════════════════════════════════════════════════════
+    // 5. UTILS & INIT
+    // ════════════════════════════════════════════════════════════════
     function showToast(msg) {
       const t = document.getElementById('toastMsg');
       t.textContent = msg;
       t.style.display = 'block';
-      setTimeout(() => { t.style.display = 'none'; }, 4500);
+      clearTimeout(t._timer);
+      t._timer = setTimeout(() => { t.style.display = 'none'; }, 4500);
     }
 
+    // Restore cashier name
+    const savedCashier = localStorage.getItem('dikopi_cashier');
+    if (savedCashier) document.getElementById('cashierName').value = savedCashier;
+
+    // Boot
+    updateOfflineCount();
     loadMenu();
     initRealtimeListener();
   </script>
