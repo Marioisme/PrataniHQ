@@ -1,0 +1,17 @@
+{
+  "name": "dikopi-kasir",
+  "version": "4.2.0",
+  "description": "Dikopi Event Mode POS Server & Realtime Sync Engine for Pratani HQ",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "firebase-admin": "^12.0.0"
+  },
+  "author": "Pratani Creative",
+  "license": "ISC"
+}
