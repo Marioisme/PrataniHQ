@@ -4,7 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pratani Creative Database</title>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -47,7 +49,7 @@
       <span class="icon">💰</span> Keuangan
       <span id="navKeuChevron" style="margin-left:auto;font-size:11px;color:var(--muted);transition:transform 0.2s">▾</span>
     </div>
-    <div id="navKeuMenu" style="display:none;padding-left:16px;margin-bottom:4px">
+    <div id="navKeuMenu" class="nav-tree-sub" style="display:none;margin-bottom:4px">
       <div class="nav-subitem" onclick="goto('keu_dashboard')">📊 Dashboard</div>
       <div class="nav-subitem" onclick="goto('keu_buku')">📒 Buku Kas</div>
       <div class="nav-subitem" onclick="goto('keu_bulanan')">📅 Rekap Bulanan</div>
@@ -65,7 +67,7 @@
       <span class="icon">📄</span> Generator Dokumen
       <span id="navGenDokChevron" style="margin-left:auto;font-size:11px;color:var(--muted);transition:transform 0.2s">▾</span>
     </div>
-    <div id="navGenDokMenu" style="display:none;padding-left:16px;margin-bottom:4px">
+    <div id="navGenDokMenu" class="nav-tree-sub" style="display:none;margin-bottom:4px">
       <div class="nav-subitem" onclick="goto('gen_invoice')">🧾 Invoice</div>
       <div class="nav-subitem" onclick="goto('gen_penawaran')">📋 Surat Penawaran</div>
       <div class="nav-subitem" onclick="goto('gen_rab')">📊 RAB</div>
@@ -74,36 +76,50 @@
       <div class="nav-subitem" onclick="goto('gen_kwitansi')">🧾 Kwitansi</div>
     </div>
   </div>
-  <div style="flex-shrink:0;border-top:1px solid var(--border)">
-    <div onclick="goto('sampah')" id="navSampah" style="display:flex;align-items:center;gap:7px;padding:8px 16px;cursor:pointer;color:var(--muted);font-size:11px;transition:color 0.15s;border-bottom:1px solid var(--border)" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--muted)'">
-      <span style="font-size:12px">🗑️</span> Sampah
-      <span id="trashBadge" style="display:none;background:var(--red);color:#fff;font-size:9px;padding:1px 5px;border-radius:99px;font-family:'DM Mono',monospace"></span>
+  <div class="sidebar-bottom">
+    <div onclick="goto('sampah')" id="navSampah" class="sidebar-trash-row">
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:12px">🗑️</span>
+        <span>Sampah</span>
+      </div>
+      <span id="trashBadge" style="display:none;background:var(--red);color:#fff;font-size:9px;padding:1px 6px;border-radius:99px;font-family:'DM Mono',monospace"></span>
     </div>
+
     <div class="sidebar-folder">
-    <div class="folder-status">📂 DATA FOLDER</div>
-    <div class="folder-path" id="folderPath">Belum dipilih</div>
-    <button class="folder-btn" onclick="pickFolder()">Pilih / Ganti Folder</button>
-    <button class="folder-btn" onclick="refreshData()" style="margin-top:6px;border-color:var(--accent);color:var(--accent)">🔄 Refresh Data</button>
-    <button class="folder-btn" onclick="exportFullBackupJSON()" style="margin-top:6px;border-color:#ff9f43;color:#ff9f43">📦 Backup Data JSON</button>
-    <button class="folder-btn" onclick="document.getElementById('importFileInput').click()" style="margin-top:6px;border-color:#4cc9a0;color:#4cc9a0">📥 Import Konten JSON</button>
-    <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="importTodosFromJSON(this)">
-  </div>
-  <!-- FIREBASE SYNC PANEL (MASTER ADMIN) -->
-  <div id="fbPanel" style="padding:10px 14px;border-top:1px solid var(--border);font-size:12px;">
-    <div style="color:var(--accent);font-size:10px;font-weight:700;letter-spacing:0.5px;margin-bottom:8px;">☁️ FIREBASE SYNC (MASTER ADMIN)</div>
-    <div style="display:flex;flex-direction:column;gap:6px;">
-      <button onclick="fbPullTrx()" style="width:100%;background:rgba(46,156,255,0.15);border:1px solid var(--accent);color:var(--accent);border-radius:6px;padding:7px 8px;font-size:11px;font-weight:700;cursor:pointer;text-align:left;display:flex;align-items:center;gap:6px;">
-        <span>📥</span> Tarik Transaksi dari Kasir
-      </button>
-      <button onclick="fbPushTrx()" style="width:100%;background:rgba(255,159,67,0.18);border:1px solid #ff9f43;color:#ff9f43;border-radius:6px;padding:7px 8px;font-size:11px;font-weight:700;cursor:pointer;text-align:left;display:flex;align-items:center;gap:6px;">
-        <span>📤</span> Push / Override ke Cloud
-      </button>
-      <button onclick="fbPushResep()" style="width:100%;background:transparent;border:1px solid #4cc9a0;color:#4cc9a0;border-radius:6px;padding:6px 8px;font-size:11px;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:6px;">
-        <span>☕</span> Push Resep Menu ke Cloud
-      </button>
+      <div class="folder-header">
+        <span class="folder-status">📂 DATA FOLDER</span>
+        <span class="folder-path" id="folderPath">Belum dipilih</span>
+      </div>
+      <div class="folder-btn-grid">
+        <button class="folder-btn-mini" onclick="pickFolder()" title="Pilih / Ganti Folder">📁 Ganti</button>
+        <button class="folder-btn-mini btn-refresh" onclick="refreshData()" title="Refresh Data">🔄 Refresh</button>
+        <button class="folder-btn-mini btn-backup" onclick="exportFullBackupJSON()" title="Backup Data JSON">📦 Backup</button>
+        <button class="folder-btn-mini btn-import" onclick="document.getElementById('importFileInput').click()" title="Import Konten JSON">📥 Import</button>
+      </div>
+      <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="importTodosFromJSON(this)">
     </div>
-    <div id="fbStatus" style="margin-top:8px;font-size:10px;color:var(--muted);min-height:14px;line-height:1.3;"></div>
-  </div>
+
+    <!-- FIREBASE SYNC PANEL (CONTEXTUAL DIKOPI) -->
+    <div id="fbPanel" class="fb-sync-card" style="display:none;">
+      <div class="fb-sync-header">
+        <span>☁️ DIKOPI FIREBASE SYNC</span>
+        <span class="fb-sync-badge">ONLINE</span>
+      </div>
+      <div class="fb-sync-actions">
+        <button class="fb-btn-action fb-btn-pull" onclick="fbPullTrx()" title="Tarik Transaksi dari Kasir">
+          <span>📥</span> Tarik Transaksi Kasir
+        </button>
+        <div class="fb-btn-row">
+          <button class="fb-btn-action fb-btn-push" onclick="fbPushTrx()" title="Push / Override ke Cloud">
+            <span>📤</span> Push Data
+          </button>
+          <button class="fb-btn-action fb-btn-recipe" onclick="fbPushResep()" title="Push Resep Menu ke Cloud">
+            <span>☕</span> Resep
+          </button>
+        </div>
+      </div>
+      <div id="fbStatus" style="margin-top:6px;font-size:10px;color:var(--muted);min-height:14px;line-height:1.3;"></div>
+    </div>
   </div>
 </div>
 
@@ -135,15 +151,36 @@
 // ============================================================
 // PRATANIHQ — FIREBASE SYNC MODULE
 // ============================================================
+// Contextual Firebase Sync Visibility:
+// Only display #fbPanel when active page is Buku Kas Dikopi
+function syncFbPanelVisibility() {
+  const panel = document.getElementById('fbPanel');
+  if (!panel) return;
+  const isDikopiKas = (typeof currentPage !== 'undefined' && (currentPage === 'keu_buku' || currentPage === 'keuangan') && typeof keuBukuBrand !== 'undefined' && keuBukuBrand === 'dikopi');
+  panel.style.display = isDikopiKas ? 'block' : 'none';
+}
+
+if (typeof render === 'function') {
+  const _baseRender = render;
+  render = function() {
+    _baseRender();
+    syncFbPanelVisibility();
+  };
+}
+syncFbPanelVisibility();
+
 // Restore login state on load
 fbAuth.onAuthStateChanged(user => {
+  const loginForm = document.getElementById('fbLoginForm');
+  const loggedPanel = document.getElementById('fbLoggedPanel');
+  const userLabel = document.getElementById('fbUserLabel');
   if (user) {
-    document.getElementById('fbLoginForm').style.display   = 'none';
-    document.getElementById('fbLoggedPanel').style.display = 'block';
-    document.getElementById('fbUserLabel').textContent     = '✅ ' + user.email;
+    if (loginForm) loginForm.style.display = 'none';
+    if (loggedPanel) loggedPanel.style.display = 'block';
+    if (userLabel) userLabel.textContent = '✅ ' + user.email;
   } else {
-    document.getElementById('fbLoginForm').style.display   = 'block';
-    document.getElementById('fbLoggedPanel').style.display = 'none';
+    if (loginForm) loginForm.style.display = 'block';
+    if (loggedPanel) loggedPanel.style.display = 'none';
   }
 });
 

@@ -2319,7 +2319,7 @@ function renderKeuBuku() {
   const monthOpts = [...allMonths].sort().reverse().map(m=>`<option value="${m}" ${m===keuBukuPeriode?'selected':''}>${getBulanLabel(m)}</option>`).join('');
 
   const topbar = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
       <div class="filter-row" style="margin-bottom:0">${brandTabs}</div>
       ${keuBukuBrand !== 'dikopi' ? `<div style="display:flex;align-items:center;gap:8px">
         <select class="form-select" style="font-size:12px;padding:6px 10px;width:auto" onchange="keuBukuPeriode=this.value;render()">${monthOpts}</select>
@@ -2442,9 +2442,9 @@ function renderDikopiBuku() {
 
   // Setup banner
   const saldoSetup = !hasSetup ? `
-    <div style="background:rgba(245,166,35,0.1);border:1px solid rgba(245,166,35,0.3);border-radius:12px;padding:16px 18px;margin-bottom:16px">
-      <div style="font-weight:700;font-size:13px;margin-bottom:12px">💵 Setup Saldo Awal ${getBulanLabel(keuBukuPeriode)}</div>
-      <div class="form-row" style="margin-bottom:10px">
+    <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:12px;padding:16px 20px;margin-bottom:18px">
+      <div style="font-weight:700;font-size:13.5px;margin-bottom:12px;color:var(--yellow)">💵 Setup Saldo Awal ${getBulanLabel(keuBukuPeriode)}</div>
+      <div class="form-row" style="margin-bottom:12px">
         <div class="form-group">
           <div class="form-label">🪙 Cash di Laci (Rp)</div>
           <input class="form-input" id="ds_cash" type="text" inputmode="numeric" placeholder="0" oninput="hppFmtInput(this)">
@@ -2455,62 +2455,96 @@ function renderDikopiBuku() {
         </div>
       </div>
       <button class="btn btn-primary btn-sm" onclick="saveDikopiSaldoAwal()">Simpan Saldo Awal</button>
-    </div>` : `
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:11px;color:var(--muted);font-family:'DM Mono',monospace">
-      Saldo awal: 🪙 Cash ${fmtRp(saldoCashAwal)} · 🏦 Rekening ${fmtRp(saldoRekAwal)}
-      <button class="btn btn-ghost btn-sm" onclick="editDikopiSaldoAwal()">✏️ Ubah</button>
-    </div>`;
+    </div>` : '';
 
-  // Saldo cards
+  // Saldo cards (Unified 5-column row for 24-inch widescreen)
   const total = cash+rek;
   const cards = `
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
-      <div class="keu-card" style="border-color:rgba(76,201,160,0.3)">
+    <div class="grid-5" style="margin-bottom:16px">
+      <div class="keu-card" style="border-color:rgba(16,185,129,0.3)">
         <div class="keu-label">🪙 Cash di Laci</div>
-        <div class="keu-val ${cash>=0?'keu-green':'keu-red'}" style="font-size:18px">${fmtRp(cash)}</div>
+        <div class="keu-val ${cash>=0?'keu-green':'keu-red'}" style="font-size:20px">${fmtRp(cash)}</div>
       </div>
-      <div class="keu-card" style="border-color:rgba(77,158,247,0.3)">
+      <div class="keu-card" style="border-color:rgba(56,189,248,0.3)">
         <div class="keu-label">🏦 Saldo Rekening</div>
-        <div class="keu-val ${rek>=0?'':'keu-red'}" style="font-size:18px;color:var(--accent)">${fmtRp(rek)}</div>
+        <div class="keu-val ${rek>=0?'':'keu-red'}" style="font-size:20px;color:var(--accent)">${fmtRp(rek)}</div>
       </div>
-      <div class="keu-card" style="border:2px solid ${total>=0?'rgba(76,201,160,0.4)':'rgba(212,96,58,0.4)'}">
+      <div class="keu-card" style="border:1.5px solid ${total>=0?'rgba(16,185,129,0.45)':'rgba(244,63,94,0.45)'};background:rgba(16,185,129,0.03)">
         <div class="keu-label">💰 Total Aset Liquid</div>
-        <div class="keu-val ${total>=0?'keu-green':'keu-red'}" style="font-size:18px">${fmtRp(total)}</div>
+        <div class="keu-val ${total>=0?'keu-green':'keu-red'}" style="font-size:20px">${fmtRp(total)}</div>
+      </div>
+      <div class="keu-card" style="border-color:rgba(245,158,11,0.35);background:rgba(245,158,11,0.03)">
+        <div class="keu-label" style="color:var(--yellow)">🛒 Shopee Wallet <span style="font-size:9.5px;background:rgba(245,158,11,0.2);padding:1px 6px;border-radius:99px;margin-left:4px">Pending</span></div>
+        <div class="keu-val" style="font-size:20px;color:var(--yellow)">${fmtRp(shopee)}</div>
+      </div>
+      <div class="keu-card" style="border-color:rgba(168,85,247,0.35);background:rgba(168,85,247,0.03)">
+        <div class="keu-label" style="color:var(--purple)">🏛️ Total Aset (inc. Shopee)</div>
+        <div class="keu-val" style="font-size:20px;color:var(--purple)">${fmtRp(total+shopee)}</div>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
-      <div class="keu-card" style="border-color:rgba(255,121,0,0.35);background:rgba(255,121,0,0.05)">
-        <div class="keu-label" style="color:#ff7900">🛒 Shopee Wallet <span style="font-size:9px;background:rgba(255,121,0,0.15);padding:1px 6px;border-radius:99px;margin-left:4px">Pending Cair</span></div>
-        <div class="keu-val" style="font-size:18px;color:#ff7900">${fmtRp(shopee)}</div>
+
+    <!-- Financial Performance Strip with integrated Saldo Awal -->
+    <div class="keu-summary-strip" style="margin-top:0;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;padding:14px 22px">
+      <div style="display:flex;gap:28px;align-items:center;flex-wrap:wrap">
+        <div class="keu-strip-item">
+          <div class="keu-strip-label">☕ Penjualan</div>
+          <div class="keu-strip-val keu-green" style="font-size:16px">${fmtRp(totalPenjualan)}</div>
+        </div>
+        <div class="keu-strip-item">
+          <div class="keu-strip-label">📦 Total HPP</div>
+          <div class="keu-strip-val" style="font-size:16px;color:var(--yellow)">−${fmtRp(totalHPP)}</div>
+        </div>
+        <div class="keu-strip-item">
+          <div class="keu-strip-label">💸 Operasional</div>
+          <div class="keu-strip-val keu-red" style="font-size:16px">−${fmtRp(totalOps)}</div>
+        </div>
+        <div class="keu-strip-item" style="border-left:1px solid var(--border);padding-left:24px">
+          <div class="keu-strip-label">✨ Net Profit (Estimasi)</div>
+          <div class="keu-strip-val ${totalPenjualan-totalHPP-totalOps>=0?'keu-green':'keu-red'}" style="font-size:18px">${fmtRp(totalPenjualan-totalHPP-totalOps)}</div>
+        </div>
       </div>
-      <div class="keu-card" style="border-color:rgba(139,111,255,0.3)">
-        <div class="keu-label">🏦 Total Aset (inc. Shopee)</div>
-        <div class="keu-val" style="font-size:18px;color:#8b6fff">${fmtRp(total+shopee)}</div>
-      </div>
-    </div>
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;margin-bottom:14px;display:flex;gap:16px;flex-wrap:wrap;font-size:11px;font-family:'DM Mono',monospace">
-      <span>☕ Penjualan: <strong style="color:#4cc9a0">${fmtRp(totalPenjualan)}</strong></span>
-      <span>📦 HPP: <strong style="color:#f5a623">−${fmtRp(totalHPP)}</strong></span>
-      <span>💸 Ops: <strong style="color:var(--red)">−${fmtRp(totalOps)}</strong></span>
-      <span style="border-left:1px solid var(--border);padding-left:16px">Net: <strong style="color:${totalPenjualan-totalHPP-totalOps>=0?'#4cc9a0':'var(--red)'}">${fmtRp(totalPenjualan-totalHPP-totalOps)}</strong></span>
+      ${hasSetup ? `
+      <div style="font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;display:flex;align-items:center;gap:10px;background:var(--surface);padding:6px 14px;border-radius:8px;border:1px solid var(--border)">
+        <span>Saldo awal: 🪙 Cash <strong>${fmtRp(saldoCashAwal)}</strong> · 🏦 Rek <strong>${fmtRp(saldoRekAwal)}</strong></span>
+        <button class="btn btn-ghost btn-sm" style="padding:2px 8px;font-size:11px" onclick="editDikopiSaldoAwal()">✏️ Ubah</button>
+      </div>` : ''}
     </div>`;
 
-  // Quick actions
+  // Quick actions toolbar (Grouped logically)
   const quickActions = `
-    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-      <button class="btn btn-sm" style="background:#4cc9a0;border-color:#4cc9a0;color:#080c14;font-weight:600" onclick="openDikopiPenjualan()">☕ + Penjualan</button>
-      <button class="btn btn-ghost btn-sm" style="border-color:#f5a623;color:#f5a623" onclick="openDikopiPengeluaran('hpp')">📦 + HPP</button>
-      <button class="btn btn-ghost btn-sm" style="border-color:var(--red);color:var(--red)" onclick="openDikopiPengeluaran('ops')">💸 + Pengeluaran</button>
-      <button class="btn btn-ghost btn-sm" style="border-color:var(--accent);color:var(--accent)" onclick="openDikopiMutasi()">🔄 Mutasi Cash ↔ Rek</button>
-      <button class="btn btn-ghost btn-sm" style="border-color:#ff7900;color:#ff7900" onclick="openDikopiCairShopee()">💸 Cairkan Shopee</button>
-      <button class="btn btn-ghost btn-sm" style="border-color:#9b82f5;color:#9b82f5" onclick="openDikopiSuntikan()">💉 + Suntikan Dana</button>
-      <button class="btn btn-sm" style="background:rgba(46,156,255,0.18);border:1px solid var(--accent);color:var(--accent);font-weight:700" onclick="fbPullTrx()">📥 Tarik Kasir</button>
-      <button class="btn btn-sm" style="background:rgba(255,159,67,0.18);border:1px solid #ff9f43;color:#ff9f43;font-weight:700" onclick="fbPushTrx()">📤 Push / Sync Cloud</button>
-    </div>
-    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-      <button class="btn btn-ghost btn-sm" style="border-color:#ff9f43;color:#ff9f43;position:relative" onclick="openDikopiPrive()" title="Mengurangi uang usaha, tidak mengurangi profit.">💸 Ambil Uang Pribadi</button>
-      <button class="btn btn-ghost btn-sm" style="border-color:#8b6fff;color:#8b6fff;position:relative" onclick="openDikopiBeliAset()" title="Mengurangi uang usaha dan menambah aset, tidak mengurangi profit.">📦 Pembelian Aset</button>
-      <button class="btn btn-ghost btn-sm" style="border-color:#c0392b;color:#c0392b;position:relative" onclick="openDikopiDistribusiLaba()" title="Pembagian keuntungan kepada pemilik. Tidak mempengaruhi profit bulan berjalan.">💰 Distribusi Laba</button>
+    <div class="keu-action-toolbar" style="margin-bottom:20px">
+      <!-- Grup 1: Transaksi Harian -->
+      <div class="keu-btn-group">
+        <button class="btn btn-sm btn-action-penjualan" onclick="openDikopiPenjualan()">☕ + Penjualan</button>
+        <button class="btn btn-ghost btn-sm btn-action-hpp" onclick="openDikopiPengeluaran('hpp')">📦 + HPP</button>
+        <button class="btn btn-ghost btn-sm btn-action-ops" onclick="openDikopiPengeluaran('ops')">💸 + Pengeluaran</button>
+        <button class="btn btn-ghost btn-sm" onclick="openDikopiMutasi()">🔄 Mutasi Kas</button>
+      </div>
+
+      <div class="keu-toolbar-divider"></div>
+
+      <!-- Grup 2: Kas & Modal -->
+      <div class="keu-btn-group">
+        <button class="btn btn-ghost btn-sm" onclick="openDikopiCairShopee()">🛒 Cairkan Shopee</button>
+        <button class="btn btn-ghost btn-sm" onclick="openDikopiSuntikan()">💉 Suntikan Modal</button>
+      </div>
+
+      <div class="keu-toolbar-divider"></div>
+
+      <!-- Grup 3: Ekuitas & Aset -->
+      <div class="keu-btn-group">
+        <button class="btn btn-ghost btn-sm" onclick="openDikopiPrive()" title="Mengurangi uang usaha, tidak mengurangi profit.">💸 Prive</button>
+        <button class="btn btn-ghost btn-sm" onclick="openDikopiBeliAset()" title="Mengurangi uang usaha dan menambah aset, tidak mengurangi profit.">📦 Beli Aset</button>
+        <button class="btn btn-ghost btn-sm" onclick="openDikopiDistribusiLaba()" title="Pembagian keuntungan kepada pemilik.">💰 Bagi Laba</button>
+      </div>
+
+      <div class="keu-toolbar-divider"></div>
+
+      <!-- Grup 4: Cloud Sync -->
+      <div class="keu-btn-group" style="margin-left:auto">
+        <button class="btn btn-ghost btn-sm btn-cloud-pull" onclick="fbPullTrx()" title="Tarik Transaksi Kasir">📥 Tarik Kasir</button>
+        <button class="btn btn-ghost btn-sm btn-cloud-push" onclick="fbPushTrx()" title="Push / Sync Cloud">📤 Sync Cloud</button>
+      </div>
     </div>`;
 
   // Day blocks
