@@ -71,8 +71,10 @@ export async function readJsonFromHandle<T>(
     const fileHandle = await dirHandle.getFileHandle(fileName, { create: false });
     const file = await fileHandle.getFile();
     const text = await file.text();
-    return text ? (JSON.parse(text) as T) : fallback;
-  } catch {
+    const cleanText = text ? text.replace(/^\uFEFF/, '').trim() : '';
+    return cleanText ? (JSON.parse(cleanText) as T) : fallback;
+  } catch (err) {
+    console.warn(`Fallback used for ${fileName}:`, err);
     return fallback;
   }
 }

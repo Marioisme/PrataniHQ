@@ -7003,6 +7003,51 @@
       "nominal": 10000,
       "deskripsi": "Bahan Baku - blue band",
       "synced": false
+    },
+    {
+      "id": 1790700145748,
+      "tanggal": "2026-09-29",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Kedai] - Kopi Susu (1x), Kentang Goreng (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 22000,
+      "sumber": "cash",
+      "_margin": 15147,
+      "_hppTotal": 6853,
+      "items": [
+        {
+          "hppSnapshot": 3253,
+          "name": "Kopi Susu",
+          "subtotal": 12000,
+          "price": 12000,
+          "qty": 1
+        },
+        {
+          "price": 10000,
+          "name": "Kentang Goreng",
+          "subtotal": 10000,
+          "qty": 1,
+          "hppSnapshot": 3600
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-09-29T16:42:25.749Z",
+      "synced": true
+    },
+    {
+      "id": 1790700412726,
+      "tanggal": "2026-09-29",
+      "tipe": "keluar",
+      "deskripsi": "Bahan Baku - fee",
+      "kategori": "Bahan Baku",
+      "nominal": 33000,
+      "sumber": "cash",
+      "_margin": 33000,
+      "_hppTotal": 0,
+      "items": [],
+      "_source": "kasir_event",
+      "created_at": "2026-09-29T16:46:52.727Z",
+      "synced": true
     }
   ],
   "studio": [],
