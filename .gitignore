@@ -1,0 +1,29 @@
+# ── Dependencies ──────────────────────────────────────
+node_modules/
+package-lock.json
+
+# ── Environment & Credentials ─────────────────────────
+.env
+.env.*
+!.env.example
+*firebase-adminsdk*.json
+*serviceAccount*.json
+
+# ── OS Generated Files ────────────────────────────────
+desktop.ini
+Thumbs.db
+.DS_Store
+ehthumbs.db
+
+# ── IDE & Editor ──────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── Build & Logs ──────────────────────────────────────
+*.log
+npm-debug.log*
+dist/
+build/
