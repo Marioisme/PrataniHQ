@@ -23,6 +23,7 @@ import {
   readJsonFromHandle,
   writeJsonToHandle
 } from './lib/fileSystem';
+import { pullCloudTransactions } from './lib/firebase';
 import { Sparkles } from 'lucide-react';
 
 const initialKeuData: KeuData = {
@@ -159,23 +160,38 @@ export const App: React.FC = () => {
     }
   };
 
-  // Trigger Cloud Kasir Sync
+  // Trigger Cloud Kasir Sync (Direct Firestore + Local Bridge Fallback)
   const handleTriggerSync = async () => {
-    showToast('🔄 Menghubungi POS kasir bridge server...');
+    showToast('⏳ Menghubungkan ke Cloud Firestore...');
     try {
-      const res = await fetch('http://localhost:3000/api/sync-event', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        showToast(data.message || '✅ Sinkronisasi kasir berhasil!');
-        if (dirHandle) loadAllData(dirHandle);
-      } else {
-        showToast('⚠️ Gagal terhubung ke kasir server (port 3000)');
+      const currentDikopi = keuData.dikopi || [];
+      const result = await pullCloudTransactions(currentDikopi);
+      
+      if (result.addedCount > 0) {
+        const updatedKeu = { ...keuData, dikopi: result.mergedList };
+        setKeuData(updatedKeu);
+        if (dirHandle) {
+          await writeJsonToHandle(dirHandle, 'keu.json', updatedKeu);
+        }
       }
-    } catch {
-      showToast('⚠️ POS Server offline di localhost:3000. Nyalakan dengan "npm start" di dikopi-kasir.');
+      showToast(result.message);
+    } catch (err: unknown) {
+      console.warn('Direct Firebase sync failed, trying local bridge fallback:', err);
+      try {
+        const res = await fetch('http://localhost:3000/api/sync-event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          showToast(data.message || '✅ Sinkronisasi kasir berhasil via Local Bridge!');
+          if (dirHandle) loadAllData(dirHandle);
+          return;
+        }
+      } catch {
+        // ignore fallback error
+      }
+      showToast('❌ Gagal sinkronisasi cloud: ' + (err instanceof Error ? err.message : 'Periksa koneksi internet'));
     }
   };
 
