@@ -75,6 +75,9 @@ export interface BahanItem {
   satuan: string;
   hargaBeli: number;
   qtyBeli: number;
+  stokAwal?: number;
+  stokTersedia?: number;
+  stokMin?: number;
   createdAt?: string;
   updatedAt?: string;
 }

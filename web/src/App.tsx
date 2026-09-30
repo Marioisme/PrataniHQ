@@ -255,10 +255,13 @@ export const App: React.FC = () => {
             <OverviewDashboard
               keuData={keuData}
               activeBrand={activeBrand}
+              resepList={resepList}
+              bahanList={bahanList}
               onNavigateToKeuangan={(brand) => {
                 if (brand) setActiveBrand(brand);
                 setActiveTab('keuangan');
               }}
+              onNavigateToResep={() => setActiveTab('resep')}
             />
           )}
 
@@ -293,6 +296,7 @@ export const App: React.FC = () => {
             <ResepView
               resepList={resepList}
               bahanList={bahanList}
+              transaksiList={keuData.dikopi || []}
             />
           )}
 

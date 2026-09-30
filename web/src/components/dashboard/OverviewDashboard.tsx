@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -8,19 +8,28 @@ import {
   ShoppingBag, 
   Sparkles,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  AlertTriangle,
+  Boxes
 } from 'lucide-react';
-import type { KeuData, BrandId } from '../../types';
+import type { KeuData, BrandId, ResepItem, BahanItem } from '../../types';
+import { computeInventorySummary } from '../../lib/inventoryEngine';
 
 interface OverviewDashboardProps {
   keuData: KeuData;
   activeBrand: BrandId;
+  resepList?: ResepItem[];
+  bahanList?: BahanItem[];
   onNavigateToKeuangan: (brand?: BrandId) => void;
+  onNavigateToResep?: () => void;
 }
 
 export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
   keuData,
-  onNavigateToKeuangan
+  resepList = [],
+  bahanList = [],
+  onNavigateToKeuangan,
+  onNavigateToResep
 }) => {
   // Hitung agregasi per brand
   const calculateTotals = (txns: KeuData['dikopi']) => {
@@ -59,6 +68,12 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
   ].sort((a, b) => new Date(b.created_at || b.tanggal || 0).getTime() - new Date(a.created_at || a.tanggal || 0).getTime());
 
   const recentTxns = allTxns.slice(0, 8);
+
+  // Dikopi Smart Inventory Check
+  const dikopiInventory = useMemo(() => {
+    if (bahanList.length === 0 || resepList.length === 0) return null;
+    return computeInventorySummary(bahanList, resepList, keuData.dikopi || []);
+  }, [bahanList, resepList, keuData.dikopi]);
 
   return (
     <div className="space-y-6">
@@ -240,6 +255,37 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Dikopi Smart Inventory Alert Banner */}
+      {dikopiInventory && dikopiInventory.kritisItems.length > 0 && (
+        <div className="glass-card p-4 rounded-2xl border border-rose-500/30 bg-rose-500/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-rose-300">
+                  Dikopi Smart Inventory Alert
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                  {dikopiInventory.kritisItems.length} Bahan Kritis
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-0.5">
+                Stok mendekati habis: <strong className="text-white">{dikopiInventory.kritisItems.map(k => k.bahan.nama).slice(0, 3).join(', ')}</strong>{dikopiInventory.kritisItems.length > 3 ? ` dan ${dikopiInventory.kritisItems.length - 3} lainnya` : ''}.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => onNavigateToResep && onNavigateToResep()}
+            className="px-3.5 py-2 text-xs font-semibold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-xl transition flex items-center gap-1.5 whitespace-nowrap shadow-sm self-end sm:self-auto"
+          >
+            <Boxes className="w-3.5 h-3.5" />
+            <span>Buka Smart Stok</span>
+          </button>
+        </div>
+      )}
 
       {/* Recent Activity Table */}
       <div className="glass-card rounded-2xl p-5 border border-white/5">
