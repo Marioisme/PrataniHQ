@@ -96,3 +96,37 @@ export interface TaskProject {
   brand: string;
   sheets: TaskSheet[];
 }
+
+export type KolektivaDocType = 'rab' | 'spk' | 'approval' | 'surat_jalan' | 'bast' | 'invoice' | 'kwitansi';
+
+export interface KolektivaOrderItem {
+  id: string;
+  nama: string;
+  spesifikasi: string;
+  qty: number;
+  hargaSatuan: number;
+  catatan?: string;
+}
+
+export interface KolektivaProject {
+  id: string;
+  nomorSurat: string;
+  tanggalSurat: string;
+  deadline: string;
+  klienNama: string;
+  klienInstansi: string;
+  klienPic: string;
+  klienJabatan: string;
+  klienTelp: string;
+  klienAlamat: string;
+  klienEmail?: string;
+  items: KolektivaOrderItem[];
+  dpPersen: number;
+  dpNominal: number;
+  statusPembayaran: 'belum_bayar' | 'dp_terbayar' | 'lunas';
+  metodePembayaran: string;
+  rekeningBank: string;
+  catatanKhusus?: string;
+  createdAt: string;
+}
+

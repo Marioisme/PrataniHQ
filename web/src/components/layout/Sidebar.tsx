@@ -170,6 +170,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </div>
         )}
+
+        {/* Brand Unit Spesifik: Kolektiva Documents */}
+        <div>
+          <div className="text-[10px] uppercase font-mono font-semibold tracking-wider text-slate-500 px-2 mb-2">
+            Dokumen & LPJ
+          </div>
+          <div className="space-y-0.5">
+            <button
+              onClick={() => setActiveTab('kolektiva-docs')}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                activeTab === 'kolektiva-docs'
+                  ? 'bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/20'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+              }`}
+            >
+              <ShoppingBag className="w-4 h-4 text-emerald-400" />
+              <span>Kolektiva 7-Doc LPJ</span>
+            </button>
+          </div>
+        </div>
       </nav>
 
       {/* Cloud Kasir Sync Quick Panel */}

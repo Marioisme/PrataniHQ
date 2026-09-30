@@ -11,12 +11,12 @@ import {
 import type { TransaksiItem } from '../types';
 
 export const FB_CONFIG = {
-  apiKey: "AIzaSyA0vR9gLFIG_dKE6T_0DhPc-vqYZBjsqc0",
-  authDomain: "kasir-dikopi.firebaseapp.com",
-  projectId: "kasir-dikopi",
-  storageBucket: "kasir-dikopi.firebasestorage.app",
-  messagingSenderId: "801730874094",
-  appId: "1:801730874094:web:6114dcdf24f1d65c6a81ff"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyA0vR9gLFIG_dKE6T_0DhPc-vqYZBjsqc0",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "kasir-dikopi.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "kasir-dikopi",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "kasir-dikopi.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "801730874094",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:801730874094:web:6114dcdf24f1d65c6a81ff"
 };
 
 const app = getApps().length > 0 ? getApp() : initializeApp(FB_CONFIG);

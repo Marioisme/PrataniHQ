@@ -6,6 +6,7 @@ import { BukuKasView } from './components/keuangan/BukuKasView';
 import { ResepView } from './components/resep/ResepView';
 import { ContentPlanView } from './components/todos/ContentPlanView';
 import { TasksView } from './components/tasks/TasksView';
+import { KolektivaDocView } from './components/kolektiva/KolektivaDocView';
 import { AddTransactionModal } from './components/keuangan/AddTransactionModal';
 import type { 
   BrandId, 
@@ -293,6 +294,10 @@ export const App: React.FC = () => {
               resepList={resepList}
               bahanList={bahanList}
             />
+          )}
+
+          {activeTab === 'kolektiva-docs' && (
+            <KolektivaDocView />
           )}
         </main>
       </div>
