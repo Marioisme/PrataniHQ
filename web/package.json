@@ -4,10 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "start": "vite build && vite preview --open",
     "dev": "vite --open",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview --open"
   },
   "dependencies": {
     "clsx": "^2.1.1",
