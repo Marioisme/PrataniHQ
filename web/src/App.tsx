@@ -3,14 +3,27 @@ import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { OverviewDashboard } from './components/dashboard/OverviewDashboard';
 import { BukuKasView } from './components/keuangan/BukuKasView';
-import type { BrandId, KeuData } from './types';
+import { ResepView } from './components/resep/ResepView';
+import { ContentPlanView } from './components/todos/ContentPlanView';
+import { TasksView } from './components/tasks/TasksView';
+import { AddTransactionModal } from './components/keuangan/AddTransactionModal';
+import type { 
+  BrandId, 
+  KeuData, 
+  TodoContentItem, 
+  ResepItem, 
+  BahanItem, 
+  TaskProject, 
+  TransaksiItem 
+} from './types';
 import { 
   loadDirectoryHandle, 
   saveDirectoryHandle, 
   requestDirectoryPermission, 
-  readJsonFromHandle 
+  readJsonFromHandle,
+  writeJsonToHandle
 } from './lib/fileSystem';
-import { Sparkles, CalendarDays, CheckSquare, UtensilsCrossed } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 
 const initialKeuData: KeuData = {
   dikopi: [],
@@ -24,7 +37,16 @@ export const App: React.FC = () => {
   const [activeBrand, setActiveBrand] = useState<BrandId>('dikopi');
   const [dirHandle, setDirHandle] = useState<FileSystemDirectoryHandle | null>(null);
   const [folderName, setFolderName] = useState<string | null>(null);
+  
+  // All Database States
   const [keuData, setKeuData] = useState<KeuData>(initialKeuData);
+  const [todosList, setTodosList] = useState<TodoContentItem[]>([]);
+  const [resepList, setResepList] = useState<ResepItem[]>([]);
+  const [bahanList, setBahanList] = useState<BahanItem[]>([]);
+  const [taskList, setTaskList] = useState<TaskProject[]>([]);
+  
+  // UI States
+  const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -32,15 +54,27 @@ export const App: React.FC = () => {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Muat data dari directory handle
-  const loadData = async (handle: FileSystemDirectoryHandle) => {
+  // Muat SELURUH data JSON dari directory handle
+  const loadAllData = async (handle: FileSystemDirectoryHandle) => {
     try {
-      const keu = await readJsonFromHandle<KeuData>(handle, 'keu.json', initialKeuData);
+      const [keu, todos, resep, bahan, tasks] = await Promise.all([
+        readJsonFromHandle<KeuData>(handle, 'keu.json', initialKeuData),
+        readJsonFromHandle<TodoContentItem[]>(handle, 'todos.json', []),
+        readJsonFromHandle<ResepItem[]>(handle, 'resep.json', []),
+        readJsonFromHandle<BahanItem[]>(handle, 'bahan.json', []),
+        readJsonFromHandle<TaskProject[]>(handle, 'todolist.json', [])
+      ]);
+
       setKeuData(keu);
-      showToast('✅ Data berhasil dimuat dari SSD');
+      setTodosList(todos);
+      setResepList(resep);
+      setBahanList(bahan);
+      setTaskList(tasks);
+
+      showToast(`✅ Database aktif: ${resep.length} resep, ${todos.length} konten, ${bahan.length} bahan`);
     } catch (err) {
-      console.error('Error saat load JSON:', err);
-      showToast('⚠️ Gagal membaca data JSON');
+      console.error('Error saat load data:', err);
+      showToast('⚠️ Gagal membaca data JSON dari folder');
     }
   };
 
@@ -53,7 +87,7 @@ export const App: React.FC = () => {
         if (hasPermission) {
           setDirHandle(savedHandle);
           setFolderName(savedHandle.name);
-          await loadData(savedHandle);
+          await loadAllData(savedHandle);
         }
       }
     };
@@ -74,7 +108,7 @@ export const App: React.FC = () => {
       setDirHandle(handle);
       setFolderName(handle.name);
       await saveDirectoryHandle(handle);
-      await loadData(handle);
+      await loadAllData(handle);
     } catch (err: unknown) {
       if (err instanceof Error && err.name !== 'AbortError') {
         showToast('❌ Gagal memilih folder');
@@ -84,10 +118,48 @@ export const App: React.FC = () => {
 
   const handleRefreshData = () => {
     if (dirHandle) {
-      loadData(dirHandle);
+      loadAllData(dirHandle);
     }
   };
 
+  // Simpan Transaksi Baru ke SSD (#DATA/keu.json)
+  const handleSaveTransaction = async (newTrx: TransaksiItem, targetBrand: BrandId) => {
+    const updatedKeu = { ...keuData };
+    if (!updatedKeu[targetBrand]) {
+      updatedKeu[targetBrand] = [];
+    }
+    updatedKeu[targetBrand] = [newTrx, ...updatedKeu[targetBrand]];
+    setKeuData(updatedKeu);
+
+    if (dirHandle) {
+      const success = await writeJsonToHandle(dirHandle, 'keu.json', updatedKeu);
+      if (success) {
+        showToast('✅ Transaksi berhasil dicatat dan disimpan ke keu.json');
+      } else {
+        showToast('⚠️ Gagal menulis perubahan ke disk SSD');
+      }
+    } else {
+      showToast('⚠️ Transaksi disimpan di memori sementara. Hubungkan folder data agar tersimpan permanen.');
+    }
+  };
+
+  // Toggle status konten plan dan simpan ke disk (#DATA/todos.json)
+  const handleToggleTodo = async (id: number | string) => {
+    const updatedTodos = todosList.map((t) => {
+      if (t.id === id) {
+        return { ...t, done: !t.done, boardStatus: (!t.done ? 'done' : 'todo') as TodoContentItem['boardStatus'] };
+      }
+      return t;
+    });
+    setTodosList(updatedTodos);
+
+    if (dirHandle) {
+      await writeJsonToHandle(dirHandle, 'todos.json', updatedTodos);
+      showToast('✅ Status konten diperbarui di disk');
+    }
+  };
+
+  // Trigger Cloud Kasir Sync
   const handleTriggerSync = async () => {
     showToast('🔄 Menghubungi POS kasir bridge server...');
     try {
@@ -98,7 +170,7 @@ export const App: React.FC = () => {
       if (res.ok) {
         const data = await res.json();
         showToast(data.message || '✅ Sinkronisasi kasir berhasil!');
-        if (dirHandle) loadData(dirHandle);
+        if (dirHandle) loadAllData(dirHandle);
       } else {
         showToast('⚠️ Gagal terhubung ke kasir server (port 3000)');
       }
@@ -114,11 +186,11 @@ export const App: React.FC = () => {
       case 'keuangan':
         return `Buku Kas — ${activeBrand.toUpperCase()}`;
       case 'todos':
-        return 'Content Plan Calendar';
+        return `Content Plan Calendar — ${activeBrand.toUpperCase()}`;
       case 'tasks':
-        return 'Task & Project Board';
+        return `Operational Tasks — ${activeBrand.toUpperCase()}`;
       case 'resep':
-        return 'Katalog Menu & Resep HPP';
+        return 'Katalog Menu & Resep HPP (Dikopi)';
       default:
         return 'Pratani Creative HQ';
     }
@@ -133,6 +205,14 @@ export const App: React.FC = () => {
           <span>{toastMessage}</span>
         </div>
       )}
+
+      {/* Add Transaction Modal */}
+      <AddTransactionModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        activeBrand={activeBrand}
+        onSave={handleSaveTransaction}
+      />
 
       {/* Main Sidebar */}
       <Sidebar
@@ -150,7 +230,7 @@ export const App: React.FC = () => {
           folderName={folderName}
           onConnectFolder={handleConnectFolder}
           onRefreshData={handleRefreshData}
-          onOpenAddModal={() => showToast('Form tambah transaksi')}
+          onOpenAddModal={() => setIsAddModalOpen(true)}
         />
 
         <main className="flex-1 p-6 max-w-7xl w-full mx-auto">
@@ -171,37 +251,32 @@ export const App: React.FC = () => {
               activeBrand={activeBrand}
               onBrandChange={setActiveBrand}
               onTriggerSync={handleTriggerSync}
+              onAddTransaction={() => setIsAddModalOpen(true)}
             />
           )}
 
           {activeTab === 'todos' && (
-            <div className="glass-card p-8 rounded-2xl border border-white/5 text-center">
-              <CalendarDays className="w-10 h-10 text-amber-400 mx-auto mb-3" />
-              <h4 className="text-base font-bold text-white">Content Plan Calendar</h4>
-              <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
-                Jadwal posting dan pilar konten untuk {activeBrand.toUpperCase()} siap dimigrasikan ke komponen modern.
-              </p>
-            </div>
+            <ContentPlanView
+              todos={todosList}
+              activeBrand={activeBrand}
+              onBrandChange={setActiveBrand}
+              onToggleTodo={handleToggleTodo}
+            />
           )}
 
           {activeTab === 'tasks' && (
-            <div className="glass-card p-8 rounded-2xl border border-white/5 text-center">
-              <CheckSquare className="w-10 h-10 text-purple-400 mx-auto mb-3" />
-              <h4 className="text-base font-bold text-white">To-Do List Kanban Board</h4>
-              <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
-                Manajemen backlog dan task operasional multi-brand Pratani.
-              </p>
-            </div>
+            <TasksView
+              taskList={taskList}
+              activeBrand={activeBrand}
+              onBrandChange={setActiveBrand}
+            />
           )}
 
           {activeTab === 'resep' && (
-            <div className="glass-card p-8 rounded-2xl border border-white/5 text-center">
-              <UtensilsCrossed className="w-10 h-10 text-amber-400 mx-auto mb-3" />
-              <h4 className="text-base font-bold text-white">Katalog Resep & Margin F&B</h4>
-              <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
-                Manajemen bahan baku, takaran gramasi, dan kalkulasi HPP otomatis Dikopi.
-              </p>
-            </div>
+            <ResepView
+              resepList={resepList}
+              bahanList={bahanList}
+            />
           )}
         </main>
       </div>

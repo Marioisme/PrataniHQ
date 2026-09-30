@@ -1,15 +1,5 @@
 export type BrandId = 'dikopi' | 'kolektiva' | 'imagineer' | 'evercraft' | 'snm' | 'pratani';
 
-export interface BrandConfig {
-  id: BrandId;
-  name: string;
-  tag: string;
-  color: string;
-  badgeBg: string;
-  badgeText: string;
-  icon: string;
-}
-
 export interface TransaksiItem {
   id: string | number;
   tanggal: string;
@@ -41,7 +31,9 @@ export interface KeuData {
   evercraft?: TransaksiItem[];
   snm?: TransaksiItem[];
   studio?: TransaksiItem[];
+  pratani?: TransaksiItem[];
   _meta?: Record<string, unknown>;
+  [key: string]: TransaksiItem[] | Record<string, unknown> | undefined;
 }
 
 export interface TodoContentItem {
@@ -57,34 +49,50 @@ export interface TodoContentItem {
   hashtag?: string;
   notes?: string;
   done: boolean;
-  boardStatus: 'todo' | 'in_progress' | 'review' | 'done';
+  boardStatus?: 'todo' | 'in_progress' | 'review' | 'done';
+}
+
+export interface ResepIngredient {
+  bahanId: number | string;
+  qty: number;
 }
 
 export interface ResepItem {
   id: number | string;
   nama: string;
-  kategori: string;
+  kategori?: string;
   channel?: string;
   hargaJual: number;
   hppSnapshot?: number;
   catatan?: string;
-  ingredients?: Array<{
-    bahanId: number | string;
-    nama: string;
-    qty: number;
-    unit: string;
-    subtotal: number;
-  }>;
+  ingredients: ResepIngredient[];
+  createdAt?: string;
 }
 
 export interface BahanItem {
   id: number | string;
   nama: string;
-  kategori: string;
+  satuan: string;
   hargaBeli: number;
-  isiBersih: number;
-  unit: string;
-  hargaPerUnit: number;
-  supplier?: string;
-  stok?: number;
+  qtyBeli: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface TaskSheetRow {
+  id: number | string;
+  cells: string[];
+  _status?: string | null;
+}
+
+export interface TaskSheet {
+  name: string;
+  columns: string[];
+  rows: TaskSheetRow[];
+}
+
+export interface TaskProject {
+  title: string;
+  brand: string;
+  sheets: TaskSheet[];
 }
