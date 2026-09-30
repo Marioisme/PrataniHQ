@@ -1,1 +1,82 @@
-[]
+[
+  {
+    "id": 1790617457380,
+    "brand": "dikopi",
+    "txnId": 1790614280152,
+    "editedAt": "2026-09-28T17:44:17.380Z",
+    "snapshot": {
+      "id": 1790614280152,
+      "tanggal": "2026-09-28",
+      "deskripsi": "Penjualan - Matcha x1, Bakso bakar x1",
+      "kategori": "Penjualan Langsung",
+      "tipe": "masuk",
+      "sumber": "cash",
+      "nominal": 20000,
+      "nota": null,
+      "nota_type": null,
+      "created_at": "2026-09-28T16:51:20.152Z",
+      "_source": "kasir",
+      "_margin": 13992
+    }
+  },
+  {
+    "id": 1790617466918,
+    "brand": "dikopi",
+    "txnId": 1790615852287,
+    "editedAt": "2026-09-28T17:44:26.918Z",
+    "snapshot": {
+      "id": 1790615852287,
+      "tanggal": "2026-09-28",
+      "deskripsi": "Penjualan - Kopi Susu x1, MIE GORENG x1",
+      "kategori": "Penjualan Langsung",
+      "tipe": "masuk",
+      "sumber": "cash",
+      "nominal": 24000,
+      "nota": null,
+      "nota_type": null,
+      "created_at": "2026-09-28T17:17:32.287Z",
+      "_source": "kasir",
+      "_margin": 15247
+    }
+  },
+  {
+    "id": 1790617470694,
+    "brand": "dikopi",
+    "txnId": 1790615965679,
+    "editedAt": "2026-09-28T17:44:30.694Z",
+    "snapshot": {
+      "id": 1790615965679,
+      "tanggal": "2026-09-28",
+      "deskripsi": "Penjualan - Cokelat x1",
+      "kategori": "Penjualan Langsung",
+      "tipe": "masuk",
+      "sumber": "rekening",
+      "nominal": 10000,
+      "nota": null,
+      "nota_type": null,
+      "created_at": "2026-09-28T17:19:25.679Z",
+      "_source": "kasir",
+      "_margin": 7952
+    }
+  },
+  {
+    "id": 1790617472508,
+    "brand": "dikopi",
+    "txnId": 1790615978002,
+    "editedAt": "2026-09-28T17:44:32.508Z",
+    "snapshot": {
+      "id": 1790615978002,
+      "tanggal": "2026-09-28",
+      "deskripsi": "Penjualan - Kopi Susu x1",
+      "kategori": "Penjualan Langsung",
+      "tipe": "masuk",
+      "sumber": "cash",
+      "nominal": 12000,
+      "nota": null,
+      "nota_type": null,
+      "created_at": "2026-09-28T17:19:38.002Z",
+      "_source": "kasir",
+      "_margin": 8747
+    }
+  }
+]
