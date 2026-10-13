@@ -21,6 +21,7 @@ ehthumbs.db
 *.swp
 *.swo
 *~
+*.bak
 
 # ── Build & Logs ──────────────────────────────────────
 *.log

@@ -157,9 +157,14 @@ app.post('/api/sync-event', async (req, res) => {
       }
     }
 
-    // 1D. Fallback dari payload request (misal LocalStorage dari client)
-    if (itemsToSync.length === 0 && req.body && Array.isArray(req.body.transactions)) {
-      itemsToSync = req.body.transactions.filter(t => !t.synced);
+    // 1D. Sinkronkan juga transaksi langsung dari payload request client (jika ada)
+    if (req.body && Array.isArray(req.body.transactions)) {
+      const existingKeySet = new Set(itemsToSync.map(item => String(item.id)));
+      req.body.transactions.forEach(t => {
+        if (!t.synced && !existingKeySet.has(String(t.id))) {
+          itemsToSync.push(t);
+        }
+      });
     }
 
     if (itemsToSync.length === 0) {
@@ -208,6 +213,9 @@ app.post('/api/sync-event', async (req, res) => {
       tipe: t.tipe || 'masuk',
       sumber: t.sumber || 'cash',
       nominal: Number(t.nominal) || 0,
+      nominalGross: t.nominalGross !== undefined ? Number(t.nominalGross) : (Number(t.nominal) || 0),
+      adminFee: t.adminFee !== undefined ? Number(t.adminFee) : 0,
+      _channel: t._channel || 'kedai',
       _margin: t._margin !== undefined ? Number(t._margin) : (Number(t.nominal) || 0),
       _hppTotal: Number(t._hppTotal) || 0,
       nota: t.nota || null,

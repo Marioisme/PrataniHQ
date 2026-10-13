@@ -52,6 +52,9 @@ export async function pullCloudTransactions(
         deskripsi: t.deskripsi || 'Penjualan Kasir Event',
         kategori: t.kategori || 'Penjualan Langsung',
         nominal: Number(t.nominal) || 0,
+        nominalGross: t.nominalGross !== undefined ? Number(t.nominalGross) : Number(t.nominal) || 0,
+        adminFee: t.adminFee !== undefined ? Number(t.adminFee) : 0,
+        _channel: t._channel || 'kedai',
         sumber: t.sumber || 'cash',
         _margin: t._margin !== undefined ? Number(t._margin) : Number(t.nominal) || 0,
         _hppTotal: Number(t._hppTotal) || 0,
@@ -133,6 +136,9 @@ export async function pushTransactionsToCloud(
         kategori: t.kategori,
         sumber: t.sumber || 'cash',
         nominal: t.nominal,
+        nominalGross: t.nominalGross !== undefined ? t.nominalGross : t.nominal,
+        adminFee: t.adminFee !== undefined ? t.adminFee : 0,
+        _channel: t._channel || 'kedai',
         _margin: t._margin !== undefined ? t._margin : t.nominal,
         _hppTotal: t._hppTotal || 0,
         items: t.items || [],
@@ -149,4 +155,80 @@ export async function pushTransactionsToCloud(
     updatedCount,
     message: `✅ Sync selesai! ${updatedCount} diupdate, ${deletedCount} dihapus dari Cloud.`
   };
+}
+
+/**
+ * Update single transaksi ke Cloud Firestore (Master Authority)
+ */
+export async function updateCloudTransaction(t: TransaksiItem): Promise<boolean> {
+  try {
+    const ref = doc(firestore, 'dikopi_transaksi', String(t.id));
+    await setDoc(ref, {
+      id: t.id,
+      tanggal: t.tanggal,
+      tipe: t.tipe,
+      deskripsi: t.deskripsi,
+      kategori: t.kategori,
+      sumber: t.sumber || 'cash',
+      nominal: t.nominal,
+      nominalGross: t.nominalGross !== undefined ? t.nominalGross : t.nominal,
+      adminFee: t.adminFee !== undefined ? t.adminFee : 0,
+      _channel: t._channel || 'kedai',
+      _margin: t._margin !== undefined ? t._margin : t.nominal,
+      _hppTotal: t._hppTotal || 0,
+      items: t.items || [],
+      synced: true,
+      updated_at: t.updated_at || new Date().toISOString(),
+      _admin_updated: true
+    }, { merge: true });
+    return true;
+  } catch (err) {
+    console.error('Gagal update single transaksi ke Firestore:', err);
+    return false;
+  }
+}
+
+/**
+ * Hapus single transaksi dari Cloud Firestore
+ */
+export async function deleteCloudTransaction(trxId: string | number): Promise<boolean> {
+  try {
+    const ref = doc(firestore, 'dikopi_transaksi', String(trxId));
+    await deleteDoc(ref);
+    return true;
+  } catch (err) {
+    console.error('Gagal hapus transaksi dari Firestore:', err);
+    return false;
+  }
+}
+
+/**
+ * Push resep menu ke Cloud Firestore (dikopi_resep)
+ */
+export async function pushRecipesToCloud(resepList: any[]): Promise<number> {
+  const BATCH_SIZE = 400;
+  let pushed = 0;
+  for (let i = 0; i < resepList.length; i += BATCH_SIZE) {
+    const batch = writeBatch(firestore);
+    resepList.slice(i, i + BATCH_SIZE).forEach((r) => {
+      const ref = doc(firestore, 'dikopi_resep', String(r.id));
+      batch.set(ref, {
+        id: r.id,
+        nama: r.nama || '',
+        hargaJual: r.hargaJual || 0,
+        hargaJualLarge: r.hargaJualLarge || null,
+        kategori: r.kategori || '',
+        channel: r.channel || 'kedai',
+        hppSnapshot: r.hppSnapshot || 0,
+        hppSnapshotLarge: r.hppSnapshotLarge || null,
+        catatan: r.catatan || '',
+        ingredients: r.ingredients || [],
+        variants: r.variants || null,
+        createdAt: r.createdAt || new Date().toISOString()
+      }, { merge: true });
+    });
+    await batch.commit();
+    pushed += Math.min(BATCH_SIZE, resepList.length - i);
+  }
+  return pushed;
 }

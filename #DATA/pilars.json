@@ -28,5 +28,35 @@
     "nama": "Testimonial",
     "bg": "rgba(200,200,200,0.12)",
     "color": "#9dbdd8"
+  },
+  {
+    "nama": "PRODUK",
+    "bg": "rgba(247,164,77,0.15)",
+    "color": "#f7a44d"
+  },
+  {
+    "nama": "DOKUMEN",
+    "bg": "rgba(77,158,247,0.15)",
+    "color": "#4d9ef7"
+  },
+  {
+    "nama": "SUASANA",
+    "bg": "rgba(155,130,245,0.15)",
+    "color": "#9b82f5"
+  },
+  {
+    "nama": "PEOPLE",
+    "bg": "rgba(76,201,160,0.15)",
+    "color": "#4cc9a0"
+  },
+  {
+    "nama": "PROSES",
+    "bg": "rgba(247,109,109,0.15)",
+    "color": "#f76d6d"
+  },
+  {
+    "nama": "EDUKASI",
+    "bg": "rgba(56,189,248,0.15)",
+    "color": "#38bdf8"
   }
 ]

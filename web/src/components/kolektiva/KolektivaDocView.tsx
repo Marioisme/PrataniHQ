@@ -134,52 +134,51 @@ export const KolektivaDocView: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       {/* Header bar (Non-print) */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/90 border border-slate-800 p-5 rounded-2xl print:hidden">
+      <div className="card print:hidden" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', padding: '18px 24px' }}>
         <div>
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className="pill pill-done">
               Kolektiva Engine
             </span>
-            <span className="text-xs text-slate-400 font-mono">0-Drama LPJ Guarantee</span>
+            <span style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: 'DM Mono' }}>0-Drama LPJ Guarantee</span>
           </div>
-          <h2 className="text-xl font-bold text-white mt-1">Generator 7 Dokumen Formal Vendor</h2>
-          <p className="text-xs text-slate-400">
+          <h2 style={{ fontFamily: 'Poppins', fontWeight: 700, fontSize: '18px', color: '#fff', marginTop: '4px' }}>
+            Generator 7 Dokumen Formal Vendor
+          </h2>
+          <p style={{ fontSize: '12px', color: 'var(--text2)', marginTop: '2px' }}>
             Satu klik render dokumen legal standar universitas & organisasi: RAB, SPK, Desain, Surat Jalan, BAST, Invoice, Kwitansi.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <button
             onClick={() => setProject(sampleProject)}
-            className="px-3 py-2 text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl transition flex items-center gap-1.5"
+            className="btn btn-ghost btn-sm"
             title="Reset ke contoh order HMP PGSD UPI"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
-            Muat Contoh Order
+            <RefreshCw style={{ width: '13px', height: '13px' }} />
+            <span>Muat Contoh Order</span>
           </button>
           <button
             onClick={handlePrint}
-            className="px-4 py-2 text-xs font-semibold text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-xl transition flex items-center gap-2 shadow-lg shadow-emerald-500/20"
+            className="btn btn-primary btn-sm"
           >
-            <Printer className="w-4 h-4" />
-            Cetak / Simpan PDF
+            <Printer style={{ width: '14px', height: '14px' }} />
+            <span>Cetak / Simpan PDF</span>
           </button>
         </div>
       </div>
 
       {/* Tabs Selector Dokumen (Non-print) */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 print:hidden scrollbar-thin">
+      <div className="filter-row print:hidden" style={{ marginBottom: 0, overflowX: 'auto', flexWrap: 'nowrap', paddingBottom: '4px' }}>
         {docTabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveDoc(tab.id)}
-            className={`px-3.5 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition flex items-center gap-2 border ${
-              activeDoc === tab.id
-                ? 'bg-slate-800 text-emerald-400 border-emerald-500/40 shadow-sm'
-                : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 border-slate-800/80 hover:bg-slate-850'
-            }`}
+            className={`filter-btn ${activeDoc === tab.id ? 'active' : ''}`}
+            style={{ whiteSpace: 'nowrap' }}
           >
             <span>{tab.icon}</span>
             <span>{tab.label}</span>
@@ -190,7 +189,7 @@ export const KolektivaDocView: React.FC = () => {
       {/* Grid: Editor Panel (Left) & Document Paper Preview (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Editor Form Controls (Non-print, 4 cols) */}
-        <div className="lg:col-span-4 bg-slate-900/80 border border-slate-800 p-5 rounded-2xl space-y-5 print:hidden">
+        <div className="lg:col-span-4 card space-y-5 print:hidden">
           <div className="flex items-center justify-between border-b border-slate-800 pb-3">
             <h3 className="text-sm font-semibold text-white flex items-center gap-2">
               <Layers className="w-4 h-4 text-emerald-400" />

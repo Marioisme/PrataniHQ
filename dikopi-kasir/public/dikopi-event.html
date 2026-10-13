@@ -200,7 +200,7 @@
       padding-bottom: 24px;
     }
 
-    /* ── CHANNEL TOGGLE ── */
+    /* ── CHANNEL TOGGLE (OPTIMIZED FOR MOBILE PORTRAIT) ── */
     .channel-toggle {
       display: flex;
       background: var(--surface);
@@ -209,19 +209,27 @@
       padding: 3px;
       margin-bottom: 12px;
       gap: 3px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .channel-toggle::-webkit-scrollbar {
+      display: none;
     }
 
     .channel-btn {
       flex: 1;
+      min-width: 66px;
       text-align: center;
-      padding: 7px 8px;
+      padding: 7px 5px;
       border-radius: 6px;
-      font-size: 11.5px;
+      font-size: 11px;
       font-weight: 700;
       color: var(--text2);
       cursor: pointer;
       transition: all 0.15s;
       white-space: nowrap;
+      user-select: none;
     }
 
     .channel-btn.active {
@@ -236,6 +244,11 @@
 
     .channel-btn.shopee.active {
       background: #ee4d2d;
+      color: #fff;
+    }
+
+    .channel-btn.gofood.active {
+      background: #00aa13;
       color: #fff;
     }
 
@@ -1033,11 +1046,156 @@
       color: #22c55e;
     }
 
-    .riwayat-empty {
+    /* ── VARIANT MODAL ── */
+    .variant-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(4px);
+      z-index: 120;
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      animation: fadeIn 0.15s ease;
+    }
+    .variant-modal-backdrop.show {
+      display: flex;
+    }
+    .variant-modal-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px 20px 0 0;
+      padding: 18px 16px 24px;
+      width: 100%;
+      max-width: 480px;
+      box-shadow: 0 -8px 30px rgba(0,0,0,0.5);
+    }
+    .variant-modal-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.2;
+    }
+    .variant-modal-sub {
+      font-size: 11px;
+      color: var(--text2);
+      margin-top: 2px;
+    }
+    .variant-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 14px 0 12px;
+    }
+    .variant-btn {
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 10px;
       text-align: center;
-      padding: 28px 16px;
-      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .variant-btn:active {
+      transform: scale(0.96);
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+    .variant-btn .v-title {
       font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .variant-btn .v-price {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--accent);
+      font-family: 'DM Mono', monospace;
+    }
+    .variant-btn .v-qty {
+      font-size: 10px;
+      color: var(--green);
+      margin-top: 4px;
+      font-weight: 700;
+      min-height: 14px;
+    }
+
+    /* ── RIWAYAT 30 HARI BUFFER & FILTERS ── */
+    .riwayat-filter-bar {
+      display: flex;
+      gap: 5px;
+      overflow-x: auto;
+      margin-bottom: 10px;
+      padding-bottom: 2px;
+      scrollbar-width: none;
+    }
+    .riwayat-filter-bar::-webkit-scrollbar {
+      display: none;
+    }
+    .riwayat-filter-btn {
+      flex-shrink: 0;
+      padding: 6px 11px;
+      border-radius: 99px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text2);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .riwayat-filter-btn.active {
+      background: var(--accent);
+      color: var(--bg);
+      border-color: var(--accent);
+    }
+    .riwayat-backup-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 9px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .riwayat-backup-btn:active {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+    }
+    .channel-badge {
+      display: inline-block;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 4px;
+      margin-right: 4px;
+      text-transform: uppercase;
+    }
+    .channel-badge.kedai { background: rgba(255,255,255,0.08); color: var(--text); }
+    .channel-badge.cfd { background: rgba(245, 158, 11, 0.18); color: #f59e0b; }
+    .channel-badge.shopeefood, .channel-badge.marketplace { background: rgba(238, 77, 45, 0.18); color: #ee4d2d; }
+    .channel-badge.gofood { background: rgba(0, 170, 19, 0.18); color: #00aa13; }
+    .channel-badge.tiktokgo { background: rgba(0, 242, 254, 0.18); color: #00f2fe; }
+
+    .sync-tag.hq {
+      background: rgba(34, 197, 94, 0.15);
+      color: #22c55e;
+      border: 1px solid rgba(34, 197, 94, 0.3);
+    }
+    .sync-tag.cloud {
+      background: rgba(245, 158, 11, 0.15);
+      color: #f59e0b;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    .sync-tag.local {
+      background: rgba(239, 68, 68, 0.15);
+      color: #ef4444;
+      border: 1px solid rgba(239, 68, 68, 0.3);
     }
 
     /* ── TAB BAR ── */
@@ -1272,7 +1430,8 @@
         <div class="channel-toggle">
           <div class="channel-btn active" id="chKedai" onclick="selectChannel('kedai')">🏠 Kedai</div>
           <div class="channel-btn cfd" id="chCfd" onclick="selectChannel('cfd')">⚡ CFD</div>
-          <div class="channel-btn shopee" id="chShopee" onclick="selectChannel('marketplace')">🛵 Shopee</div>
+          <div class="channel-btn shopee" id="chShopee" onclick="selectChannel('shopeefood')">🧡 Shopee</div>
+          <div class="channel-btn gofood" id="chGofood" onclick="selectChannel('gofood')">🟢 GoFood</div>
           <div class="channel-btn tiktok" id="chTiktok" onclick="selectChannel('tiktokgo')">📱 TikTokGo</div>
         </div>
 
@@ -1436,11 +1595,43 @@
   <!-- PAGE: RIWAYAT -->
   <div class="page" id="page-riwayat">
     <div class="scroll-area">
-      <div class="riwayat-section" style="margin-top:16px;">
-        <div class="riwayat-header">
-          <div class="riwayat-title" id="riwayatAllTitle">Semua Transaksi Hari Ini</div>
-          <div class="riwayat-count" id="riwayatAllCount">0 transaksi</div>
+      <div class="riwayat-section" style="margin-top:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:8px;">
+          <div class="riwayat-title" id="riwayatAllTitle">Riwayat Penjualan (Buffer 30 Hari)</div>
+          <div style="display:flex; gap:6px;">
+            <button class="riwayat-backup-btn" style="background:var(--accent); color:var(--bg); font-weight:700;" onclick="syncKePrataniHQ()" title="Kirim/Tarik transaksi langsung ke Pratani HQ">
+              ⚡ Sync HQ
+            </button>
+            <button class="riwayat-backup-btn" onclick="exportBackupJSON()" title="Download cadangan data offline">
+              📥 Backup JSON
+            </button>
+          </div>
         </div>
+
+        <!-- Filter Range Tabs -->
+        <div class="riwayat-filter-bar">
+          <button class="riwayat-filter-btn active" id="rfToday" onclick="setRiwayatFilter('today')">Hari Ini</button>
+          <button class="riwayat-filter-btn" id="rf7d" onclick="setRiwayatFilter('7d')">7 Hari</button>
+          <button class="riwayat-filter-btn" id="rf30d" onclick="setRiwayatFilter('30d')">30 Hari</button>
+          <button class="riwayat-filter-btn" id="rfUnsynced" onclick="setRiwayatFilter('unsynced')">Belum Sync HQ</button>
+        </div>
+
+        <!-- Stats Card for Filtered Range -->
+        <div class="summary-bar" style="margin-bottom:12px;">
+          <div class="summary-card">
+            <div class="summary-label">Omset Net</div>
+            <div class="summary-val accent" id="riwayatSumOmset">Rp 0</div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-label">Margin</div>
+            <div class="summary-val" id="riwayatSumMargin">Rp 0</div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-label">Transaksi</div>
+            <div class="summary-val" id="riwayatSumCount">0</div>
+          </div>
+        </div>
+
         <div id="riwayatAllList"></div>
       </div>
     </div>
@@ -1474,6 +1665,34 @@
       <div class="sukses-kembalian" id="suksesKembalian" style="display:none"></div>
       <div class="sukses-kem-label" id="suksesKemLabel" style="display:none">Kembalian</div>
       <button class="btn-sukses-ok" onclick="closeSukses()">Transaksi Baru</button>
+    </div>
+  </div>
+
+  <!-- VARIANT SELECTION MODAL -->
+  <div class="variant-modal-backdrop" id="variantModal" onclick="closeVariantModal(event)">
+    <div class="variant-modal-card" onclick="event.stopPropagation()">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+        <div>
+          <div class="variant-modal-title" id="vmTitle">Pilih Ukuran</div>
+          <div class="variant-modal-sub" id="vmSub">Americano Robusta</div>
+        </div>
+        <button onclick="closeVariantModal()" style="background:none; border:none; color:var(--text2); font-size:22px; cursor:pointer; line-height:1; padding:0 4px;">✕</button>
+      </div>
+      <div class="variant-grid">
+        <div class="variant-btn" onclick="selectVariantAndAdd('Regular')">
+          <div class="v-title">🥤 Regular</div>
+          <div class="v-price" id="vmRegPrice">Rp 10.000</div>
+          <div class="v-qty" id="vmRegQty"></div>
+        </div>
+        <div class="variant-btn" onclick="selectVariantAndAdd('Large')">
+          <div class="v-title">🥤 Large</div>
+          <div class="v-price" id="vmLargePrice">Rp 13.000</div>
+          <div class="v-qty" id="vmLargeQty"></div>
+        </div>
+      </div>
+      <button class="btn-ghost" onclick="closeVariantModal()" style="width:100%; border-radius:var(--radius-sm); padding:10px; font-weight:600; font-size:12px; cursor:pointer; background:var(--surface2); border:1px solid var(--border); color:var(--text);">
+        Tutup
+      </button>
     </div>
   </div>
 
@@ -1518,9 +1737,29 @@
     let filteredMenus = [];
     let offlineQueue = [];
 
-    const KOMISI_SHOPEE_PER_CUP = 3500;
+    const CHANNEL_COMMISSIONS = {
+      kedai: { type: 'percent', rate: 0, label: 'Kedai' },
+      cfd: { type: 'percent', rate: 0, label: 'CFD' },
+      shopeefood: { type: 'percent', rate: 20, label: 'ShopeeFood' },
+      marketplace: { type: 'percent', rate: 20, label: 'ShopeeFood' }, // alias kompatibilitas
+      gofood: { type: 'percent', rate: 20, label: 'GoFood' },
+      tiktokgo: { type: 'percent', rate: 12, label: 'TikTokGo' }
+    };
+
+    function getChannelRate(ch) {
+      return CHANNEL_COMMISSIONS[ch]?.rate || 0;
+    }
+
+    function getChannelLabel(ch) {
+      return CHANNEL_COMMISSIONS[ch]?.label || ch;
+    }
+
+    function isMarketplaceChannel(ch) {
+      return ch === 'shopeefood' || ch === 'marketplace' || ch === 'gofood' || ch === 'tiktokgo';
+    }
 
     const EMOJI_MAP = {
+      'pelajar': '🎓', 'kopi pelajar': '🎓',
       'americano': '☕', 'kopi susu': '☕', 'gula aren': '☕', 'butterscotch': '☕',
       'caramel': '☕', 'almond': '☕', 'cappuccino': '☕', 'espresso': '☕',
       'latte': '☕', 'flat white': '☕', 'lungo': '☕', 'robusta': '☕', 'arabika': '☕',
@@ -1533,6 +1772,7 @@
 
     const KATEGORI_EMOJI = {
       'PROMO': '🎁',
+      'Kopi Pelajar': '🎓',
       'Coffee': '☕',
       'Non Coffee': '🧋',
       'Manual Brew': '🫗',
@@ -1550,6 +1790,33 @@
       return '☕';
     }
 
+    function processRawMenu(d, id) {
+      const nama = d.nama || '';
+      const kat = d.kategori || 'Coffee';
+      const isDrink = kat !== 'Snack' && kat !== 'Makanan';
+      const hargaReg = Number(d.hargaJual) || 0;
+      const hargaLarge = Number(d.hargaJualLarge || d.hargaLarge) || (isDrink ? hargaReg + 3000 : hargaReg);
+      const hppReg = Number(d.hppSnapshot) || 0;
+      const hppLarge = Number(d.hppSnapshotLarge || d.hppLarge) || (isDrink ? hppReg + 1200 : hppReg);
+      const rawCh = (d.channel || 'kedai').toLowerCase();
+      const ch = rawCh === 'marketplace' ? 'shopeefood' : rawCh;
+
+      return {
+        id: String(id),
+        nama: nama,
+        harga: hargaReg,
+        hargaRegular: hargaReg,
+        hargaLarge: hargaLarge,
+        hpp: hppReg,
+        hppRegular: hppReg,
+        hppLarge: hppLarge,
+        kategori: kat,
+        channel: ch,
+        hasSizes: isDrink,
+        emoji: getEmoji(nama)
+      };
+    }
+
     // ════════════════════════════════════════════════════════════════
     // 3. LOAD MENU FROM FIRESTORE
     // ════════════════════════════════════════════════════════════════
@@ -1562,18 +1829,7 @@
         try {
           const snap = await fbDb.collection('dikopi_resep').get();
           if (!snap.empty) {
-            RAW_MENUS = snap.docs.map(doc => {
-              const d = doc.data();
-              return {
-                id: doc.id,
-                nama: d.nama || '',
-                harga: Number(d.hargaJual) || 0,
-                hpp: Number(d.hppSnapshot) || 0,
-                kategori: d.kategori || 'Coffee',
-                channel: d.channel || 'kedai',
-                emoji: getEmoji(d.nama)
-              };
-            });
+            RAW_MENUS = snap.docs.map(doc => processRawMenu(doc.data(), doc.id));
             // Simpan ke offline cache
             try { localStorage.setItem('dikopi_resep_cache', JSON.stringify(RAW_MENUS)); } catch(e){}
             updateOnlineBanner(true);
@@ -1596,14 +1852,37 @@
         } catch(e){}
       }
 
-      // 3. Fallback Statis
+      // 3. Fallback Statis (Kedai, Kopi Pelajar, dan ShopeeFood)
       RAW_MENUS = [
-        { id: '1', nama: 'Americano Robusta', harga: 10000, hpp: 1838, kategori: 'Coffee', channel: 'kedai', emoji: '☕' },
-        { id: '2', nama: 'Kopi Susu', harga: 12000, hpp: 3253, kategori: 'Coffee', channel: 'kedai', emoji: '☕' },
-        { id: '3', nama: 'Gula Aren', harga: 13000, hpp: 3876, kategori: 'Coffee', channel: 'kedai', emoji: '☕' },
-        { id: '4', nama: 'Butterscotch Latte', harga: 13000, hpp: 5146, kategori: 'Coffee', channel: 'kedai', emoji: '☕' },
-        { id: '5', nama: 'Matcha', harga: 10000, hpp: 2408, kategori: 'Non Coffee', channel: 'kedai', emoji: '🍵' },
-        { id: '6', nama: 'Cokelat', harga: 10000, hpp: 2048, kategori: 'Non Coffee', channel: 'kedai', emoji: '🍫' }
+        // ── KEDAI REGULER ──
+        { id: '1', nama: 'Americano Robusta', harga: 10000, hargaRegular: 10000, hargaLarge: 13000, hpp: 1838, hppRegular: 1838, hppLarge: 3038, kategori: 'Coffee', channel: 'kedai', hasSizes: true, emoji: '☕' },
+        { id: '2', nama: 'Kopi Susu', harga: 12000, hargaRegular: 12000, hargaLarge: 15000, hpp: 3253, hppRegular: 3253, hppLarge: 4453, kategori: 'Coffee', channel: 'kedai', hasSizes: true, emoji: '☕' },
+        { id: '3', nama: 'Gula Aren', harga: 13000, hargaRegular: 13000, hargaLarge: 16000, hpp: 3876, hppRegular: 3876, hppLarge: 5076, kategori: 'Coffee', channel: 'kedai', hasSizes: true, emoji: '☕' },
+        { id: '4', nama: 'Butterscotch Latte', harga: 13000, hargaRegular: 13000, hargaLarge: 16000, hpp: 5146, hppRegular: 5146, hppLarge: 6346, kategori: 'Coffee', channel: 'kedai', hasSizes: true, emoji: '☕' },
+        { id: '5', nama: 'Matcha', harga: 10000, hargaRegular: 10000, hargaLarge: 13000, hpp: 2408, hppRegular: 2408, hppLarge: 3608, kategori: 'Non Coffee', channel: 'kedai', hasSizes: true, emoji: '🍵' },
+        { id: '6', nama: 'Cokelat', harga: 10000, hargaRegular: 10000, hargaLarge: 13000, hpp: 2048, hppRegular: 2048, hppLarge: 3248, kategori: 'Non Coffee', channel: 'kedai', hasSizes: true, emoji: '🍫' },
+
+        // ── LINI KOPI PELAJAR (KEDAI) ──
+        { id: 'kp1', nama: 'Americano (Pelajar)', harga: 6000, hargaRegular: 6000, hargaLarge: 8000, hpp: 1520, hppRegular: 1520, hppLarge: 2220, kategori: 'Kopi Pelajar', channel: 'kedai', hasSizes: true, emoji: '🎓' },
+        { id: 'kp2', nama: 'Kopi Susu (Pelajar)', harga: 8000, hargaRegular: 8000, hargaLarge: 11000, hpp: 2650, hppRegular: 2650, hppLarge: 3850, kategori: 'Kopi Pelajar', channel: 'kedai', hasSizes: true, emoji: '🎓' },
+        { id: 'kp3', nama: 'Gula Aren (Pelajar)', harga: 8000, hargaRegular: 8000, hargaLarge: 11000, hpp: 2950, hppRegular: 2950, hppLarge: 4150, kategori: 'Kopi Pelajar', channel: 'kedai', hasSizes: true, emoji: '🎓' },
+        { id: 'kp4', nama: 'Matcha (Pelajar)', harga: 8000, hargaRegular: 8000, hargaLarge: 11000, hpp: 2800, hppRegular: 2800, hppLarge: 4000, kategori: 'Kopi Pelajar', channel: 'kedai', hasSizes: true, emoji: '🎓' },
+        { id: 'kp5', nama: 'Cokelat (Pelajar)', harga: 8000, hargaRegular: 8000, hargaLarge: 11000, hpp: 2700, hppRegular: 2700, hppLarge: 3900, kategori: 'Kopi Pelajar', channel: 'kedai', hasSizes: true, emoji: '🎓' },
+
+        // ── SHOPEEFOOD MENUS (13 ITEM RESMI) ──
+        { id: 'sf1', nama: 'Americano', harga: 11000, hargaRegular: 11000, hargaLarge: 14000, hpp: 2681, hppRegular: 2681, hppLarge: 3881, kategori: 'Coffee', channel: 'shopeefood', hasSizes: true, emoji: '☕' },
+        { id: 'sf2', nama: 'Kopi Susu', harga: 14000, hargaRegular: 14000, hargaLarge: 17000, hpp: 4611, hppRegular: 4611, hppLarge: 5811, kategori: 'Coffee', channel: 'shopeefood', hasSizes: true, emoji: '☕' },
+        { id: 'sf3', nama: 'Gula Aren', harga: 16000, hargaRegular: 16000, hargaLarge: 19000, hpp: 5234, hppRegular: 5234, hppLarge: 6434, kategori: 'Coffee', channel: 'shopeefood', hasSizes: true, emoji: '☕' },
+        { id: 'sf4', nama: 'Almond Latte', harga: 16000, hargaRegular: 16000, hargaLarge: 19000, hpp: 6090, hppRegular: 6090, hppLarge: 7290, kategori: 'Coffee', channel: 'shopeefood', hasSizes: true, emoji: '☕' },
+        { id: 'sf5', nama: 'Butterscotch Latte', harga: 16000, hargaRegular: 16000, hargaLarge: 19000, hpp: 6504, hppRegular: 6504, hppLarge: 7704, kategori: 'Coffee', channel: 'shopeefood', hasSizes: true, emoji: '☕' },
+        { id: 'sf6', nama: 'Caramel Latte', harga: 16000, hargaRegular: 16000, hargaLarge: 19000, hpp: 6482, hppRegular: 6482, hppLarge: 7682, kategori: 'Coffee', channel: 'shopeefood', hasSizes: true, emoji: '☕' },
+        { id: 'sf7', nama: 'MONT BLANC', harga: 16000, hargaRegular: 16000, hargaLarge: 19000, hpp: 6654, hppRegular: 6654, hppLarge: 7854, kategori: 'Coffee', channel: 'shopeefood', hasSizes: true, emoji: '☕' },
+        { id: 'sf8', nama: 'Matcha', harga: 11000, hargaRegular: 11000, hargaLarge: 14000, hpp: 3608, hppRegular: 3608, hppLarge: 4808, kategori: 'Non Coffee', channel: 'shopeefood', hasSizes: true, emoji: '🍵' },
+        { id: 'sf9', nama: 'Red Velvet', harga: 11000, hargaRegular: 11000, hargaLarge: 14000, hpp: 3352, hppRegular: 3352, hppLarge: 4552, kategori: 'Non Coffee', channel: 'shopeefood', hasSizes: true, emoji: '🍰' },
+        { id: 'sf10', nama: 'Cokelat', harga: 11000, hargaRegular: 11000, hargaLarge: 14000, hpp: 3352, hppRegular: 3352, hppLarge: 4552, kategori: 'Non Coffee', channel: 'shopeefood', hasSizes: true, emoji: '🍫' },
+        { id: 'sf11', nama: 'Hazelnut', harga: 11000, hargaRegular: 11000, hargaLarge: 14000, hpp: 3652, hppRegular: 3652, hppLarge: 4852, kategori: 'Non Coffee', channel: 'shopeefood', hasSizes: true, emoji: '🌰' },
+        { id: 'sf12', nama: 'Telang Tea', harga: 8000, hargaRegular: 8000, hargaLarge: 11000, hpp: 2742, hppRegular: 2742, hppLarge: 3942, kategori: 'Non Coffee', channel: 'shopeefood', hasSizes: true, emoji: '🫖' },
+        { id: 'sf13', nama: 'Rosella Tea', harga: 8000, hargaRegular: 8000, hargaLarge: 11000, hpp: 3312, hppRegular: 3312, hppLarge: 4512, kategori: 'Non Coffee', channel: 'shopeefood', hasSizes: true, emoji: '🫖' }
       ];
       applyChannelFilter();
     }
@@ -1615,7 +1894,8 @@
 
       document.getElementById('chKedai').classList.toggle('active', ch === 'kedai');
       document.getElementById('chCfd').classList.toggle('active', ch === 'cfd');
-      document.getElementById('chShopee').classList.toggle('active', ch === 'marketplace');
+      document.getElementById('chShopee').classList.toggle('active', ch === 'shopeefood' || ch === 'marketplace');
+      document.getElementById('chGofood').classList.toggle('active', ch === 'gofood');
       document.getElementById('chTiktok').classList.toggle('active', ch === 'tiktokgo');
 
       updateFloatBayar();
@@ -1624,11 +1904,13 @@
 
     function applyChannelFilter() {
       // Filter menu by channel
-      let list = RAW_MENUS.filter(m => m.channel === currentChannel);
-      // Kalau channel cfd/tiktokgo masih sedikit, include kedai sebagai base
-      if (list.length === 0 && currentChannel !== 'kedai') {
-        list = RAW_MENUS.filter(m => m.channel === 'kedai');
-      }
+      let list = RAW_MENUS.filter(m => {
+        const itemCh = (m.channel || 'kedai').toLowerCase();
+        if (currentChannel === 'shopeefood') return itemCh === 'shopeefood' || itemCh === 'marketplace';
+        return itemCh === currentChannel;
+      });
+
+      // PENTING: GoFood harus kosong jika memang belum diisi, jangan fallback ke kedai!
       MENUS = list;
       filteredMenus = [...MENUS];
       renderCatTabs();
@@ -1668,7 +1950,14 @@
     function renderGrid() {
       const grid = document.getElementById('productGrid');
       if (filteredMenus.length === 0) {
-        grid.innerHTML = '<div style="grid-column:span 2;text-align:center;padding:40px 0;color:var(--text2);font-size:13px;">Menu tidak ditemukan 🥲</div>';
+        const chLabel = getChannelLabel(currentChannel);
+        grid.innerHTML = `
+          <div style="grid-column:span 2;text-align:center;padding:50px 16px;color:var(--text2);">
+            <div style="font-size:36px;margin-bottom:8px;">📭</div>
+            <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;">Belum Ada Menu di Channel ${chLabel}</div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.5;">Channel ini belum memiliki menu terdaftar.<br>Tambahkan resep untuk channel ini di Pratani HQ.</div>
+          </div>
+        `;
         return;
       }
 
@@ -1694,49 +1983,129 @@
     }
 
     function cardHTML(m) {
-      const qty = cart[m.id]?.qty || 0;
-      const selected = qty > 0 ? 'selected' : '';
+      const totalQty = Object.values(cart)
+        .filter(c => String(c.menuId) === String(m.id))
+        .reduce((sum, c) => sum + c.qty, 0);
+      const selected = totalQty > 0 ? 'selected' : '';
+
+      const priceLabel = m.hasSizes 
+        ? `${fmtRp(m.hargaRegular)} <span style="font-size:10px;color:var(--text2);font-weight:normal;">/ Lrg ${fmtRp(m.hargaLarge)}</span>`
+        : fmtRp(m.hargaRegular);
+
       return `
         <div class="product-card ${selected}" id="card-${m.id}" onclick="clickMenu('${m.id}')">
           <div class="card-emoji">${m.emoji}</div>
           <div class="card-info">
             <div class="card-name">${m.nama}</div>
-            <div class="card-price">${fmtRp(m.harga)}</div>
+            <div class="card-price">${priceLabel}</div>
           </div>
           <div class="card-qty" id="qty-${m.id}">
-            <div class="qty-btn minus" onclick="event.stopPropagation(); changeQty('${m.id}', -1)">−</div>
-            <div class="qty-num" id="qn-${m.id}">${qty}</div>
-            <div class="qty-btn plus" onclick="event.stopPropagation(); changeQty('${m.id}', 1)">+</div>
+            <div class="qty-btn minus" onclick="event.stopPropagation(); changeCardQty('${m.id}', -1)">−</div>
+            <div class="qty-num" id="qn-${m.id}">${totalQty}</div>
+            <div class="qty-btn plus" onclick="event.stopPropagation(); changeCardQty('${m.id}', 1)">+</div>
           </div>
         </div>
       `;
     }
 
+    let currentModalMenu = null;
+
     function clickMenu(id) {
-      changeQty(id, 1);
+      const item = MENUS.find(m => String(m.id) === String(id)) || RAW_MENUS.find(m => String(m.id) === String(id));
+      if (!item) return;
+
+      if (!item.hasSizes) {
+        changeQty(id, 'Standard', 1);
+        return;
+      }
+
+      currentModalMenu = item;
+      document.getElementById('vmTitle').textContent = item.nama;
+      document.getElementById('vmSub').textContent = `${item.kategori} · Channel: ${getChannelLabel(currentChannel)}`;
+      document.getElementById('vmRegPrice').textContent = fmtRp(item.hargaRegular);
+      document.getElementById('vmLargePrice').textContent = fmtRp(item.hargaLarge);
+
+      const regKey = `${item.id}_regular`;
+      const largeKey = `${item.id}_large`;
+      const regQty = cart[regKey]?.qty || 0;
+      const lrgQty = cart[largeKey]?.qty || 0;
+      document.getElementById('vmRegQty').textContent = regQty > 0 ? `(${regQty} di keranjang)` : '';
+      document.getElementById('vmLargeQty').textContent = lrgQty > 0 ? `(${lrgQty} di keranjang)` : '';
+
+      document.getElementById('variantModal').classList.add('show');
     }
 
-    function changeQty(id, delta) {
-      const cur = cart[id]?.qty || 0;
+    function closeVariantModal(e) {
+      if (e && e.target !== e.currentTarget && e.currentTarget.id === 'variantModal') return;
+      document.getElementById('variantModal').classList.remove('show');
+      currentModalMenu = null;
+    }
+
+    function selectVariantAndAdd(size) {
+      if (!currentModalMenu) return;
+      changeQty(currentModalMenu.id, size, 1);
+      closeVariantModal();
+    }
+
+    function changeCardQty(menuId, delta) {
+      const item = MENUS.find(m => String(m.id) === String(menuId)) || RAW_MENUS.find(m => String(m.id) === String(menuId));
+      if (!item) return;
+      if (delta > 0) {
+        clickMenu(menuId);
+      } else {
+        const lrgKey = `${menuId}_large`;
+        const regKey = `${menuId}_regular`;
+        const stdKey = `${menuId}_standard`;
+        if (cart[lrgKey] && cart[lrgKey].qty > 0) {
+          changeQty(menuId, 'Large', -1);
+        } else if (cart[regKey] && cart[regKey].qty > 0) {
+          changeQty(menuId, 'Regular', -1);
+        } else if (cart[stdKey] && cart[stdKey].qty > 0) {
+          changeQty(menuId, 'Standard', -1);
+        }
+      }
+    }
+
+    function changeQty(menuId, size, delta) {
+      const key = `${menuId}_${size.toLowerCase()}`;
+      const cur = cart[key]?.qty || 0;
       const next = Math.max(0, cur + delta);
       if (next === 0) {
-        delete cart[id];
+        delete cart[key];
       } else {
-        const item = MENUS.find(m => String(m.id) === String(id)) || RAW_MENUS.find(m => String(m.id) === String(id));
-        if (item) cart[id] = { ...item, qty: next };
+        const m = MENUS.find(x => String(x.id) === String(menuId)) || RAW_MENUS.find(x => String(x.id) === String(menuId));
+        if (m) {
+          const isLarge = size.toLowerCase() === 'large';
+          const price = isLarge ? m.hargaLarge : m.hargaRegular;
+          const hpp = isLarge ? m.hppLarge : m.hppRegular;
+          const displayName = size === 'Standard' ? m.nama : `${m.nama} (${size})`;
+          cart[key] = {
+            id: key,
+            menuId: m.id,
+            nama: displayName,
+            baseNama: m.nama,
+            size: size,
+            harga: price,
+            hpp: hpp,
+            qty: next
+          };
+        }
       }
-      updateCardUI(id);
+      updateCardUI(menuId);
       updateFloatBayar();
     }
 
-    function updateCardUI(id) {
-      const qty = cart[id]?.qty || 0;
-      const card = document.getElementById('card-' + id);
-      const qn = document.getElementById('qn-' + id);
+    function updateCardUI(menuId) {
+      const card = document.getElementById('card-' + menuId);
+      const qn = document.getElementById('qn-' + menuId);
       if (!card) return;
-      if (qty > 0) {
+      const totalMenuQty = Object.values(cart)
+        .filter(c => String(c.menuId) === String(menuId))
+        .reduce((sum, c) => sum + c.qty, 0);
+
+      if (totalMenuQty > 0) {
         card.classList.add('selected');
-        if (qn) qn.textContent = qty;
+        if (qn) qn.textContent = totalMenuQty;
       } else {
         card.classList.remove('selected');
         if (qn) qn.textContent = 0;
@@ -1775,12 +2144,11 @@
       document.getElementById('kembalianRow').classList.remove('show');
       document.getElementById('btnKonfirmasi').disabled = false;
 
-      const isShopee = currentChannel === 'marketplace';
-      const isTiktok = currentChannel === 'tiktokgo';
+      const isMkt = isMarketplaceChannel(currentChannel);
       const methodSec = document.getElementById('paymentMethodSec');
       const cashWrap = document.getElementById('cashInputWrap');
 
-      if (isShopee || isTiktok) {
+      if (isMkt) {
         methodSec.style.display = 'none';
         cashWrap.classList.remove('show');
       } else {
@@ -1796,13 +2164,13 @@
 
     function renderOrderSummary() {
       const items = getCartItems();
-      const total = getTotal();
-      const isShopee = currentChannel === 'marketplace';
-      const totalQty = items.reduce((s, i) => s + i.qty, 0);
-      const komisi = isShopee ? KOMISI_SHOPEE_PER_CUP * totalQty : 0;
-      const net = total - komisi;
+      const totalGross = getTotal();
+      const isMkt = isMarketplaceChannel(currentChannel);
+      const rate = getChannelRate(currentChannel);
+      const komisi = Math.round(totalGross * (rate / 100));
+      const net = totalGross - komisi;
 
-      document.getElementById('payTotal').textContent = fmtRp(total);
+      document.getElementById('payTotal').textContent = fmtRp(totalGross);
       document.getElementById('orderItems').innerHTML = items.map(i => `
         <div class="order-item">
           <div class="order-item-name">${i.nama}</div>
@@ -1811,11 +2179,22 @@
         </div>
       `).join('');
 
-      document.getElementById('komisiRow').style.display = isShopee ? 'flex' : 'none';
-      document.getElementById('netTotalRow').style.display = isShopee ? 'flex' : 'none';
-      if (isShopee) {
-        document.getElementById('komisiVal').textContent = '- ' + fmtRp(komisi);
-        document.getElementById('payNetTotal').textContent = fmtRp(net);
+      const komisiRow = document.getElementById('komisiRow');
+      const netTotalRow = document.getElementById('netTotalRow');
+      const komisiLabel = document.getElementById('komisiLabel');
+      const komisiVal = document.getElementById('komisiVal');
+      const payNetTotal = document.getElementById('payNetTotal');
+
+      if (rate > 0) {
+        komisiRow.style.display = 'flex';
+        netTotalRow.style.display = 'flex';
+        const chLabel = getChannelLabel(currentChannel);
+        komisiLabel.textContent = `🛵 Potongan ${chLabel} (${rate}%)`;
+        komisiVal.textContent = '- ' + fmtRp(komisi);
+        payNetTotal.textContent = fmtRp(net);
+      } else {
+        komisiRow.style.display = 'none';
+        netTotalRow.style.display = 'none';
       }
     }
 
@@ -1869,45 +2248,48 @@
     }
 
     // ════════════════════════════════════════════════════════════════
-    // 6. KONFIRMASI TRANSAKSI & CLOUD SYNC
+    // 6. KONFIRMASI TRANSAKSI & LOCAL RETENTION (30 HARI BUFFER)
     // ════════════════════════════════════════════════════════════════
     async function konfirmasiTransaksi() {
       const items = getCartItems();
-      const total = getTotal();
+      const totalGross = getTotal();
       const bayar = getRpVal('cashInput');
-      const isShopee = currentChannel === 'marketplace';
-      const isTiktok = currentChannel === 'tiktokgo';
+      const isMkt = isMarketplaceChannel(currentChannel);
+      const rate = getChannelRate(currentChannel);
+      const komisi = Math.round(totalGross * (rate / 100));
+      const nominalNet = totalGross - komisi;
 
-      if (!isShopee && !isTiktok && currentMethod === 'cash' && bayar < total) {
+      if (!isMkt && currentMethod === 'cash' && bayar < totalGross) {
         showToast('⚠️ Nominal bayar kurang dari total!');
         return;
       }
 
-      const kemb = currentMethod === 'cash' ? bayar - total : 0;
+      const kemb = (!isMkt && currentMethod === 'cash') ? bayar - totalGross : 0;
       const descItems = items.map(i => `${i.nama} (${i.qty}x)`).join(', ');
-      const totalQty = items.reduce((s, i) => s + i.qty, 0);
-      const komisi = isShopee ? KOMISI_SHOPEE_PER_CUP * totalQty : 0;
-      const nominalNet = total - komisi;
-
       const totalHPP = items.reduce((sum, i) => sum + ((i.hpp || 0) * i.qty), 0);
       const margin = nominalNet - totalHPP;
+      const chLabel = getChannelLabel(currentChannel);
 
-      let channelLabel = 'Kedai';
-      if (currentChannel === 'cfd') channelLabel = 'CFD';
-      if (isShopee) channelLabel = 'Shopee Food';
-      if (isTiktok) channelLabel = 'TikTokGo';
+      let sumberDana = 'cash';
+      if (currentChannel === 'shopeefood' || currentChannel === 'marketplace') sumberDana = 'shopee';
+      else if (currentChannel === 'gofood') sumberDana = 'gofood';
+      else if (currentChannel === 'tiktokgo') sumberDana = 'tiktok';
+      else if (currentMethod === 'qris') sumberDana = 'rekening';
 
       const trxId = Date.now();
       const payload = {
         id: trxId,
         tanggal: todayStr(),
-        deskripsi: `Penjualan [${channelLabel}] - ` + descItems,
+        deskripsi: `Penjualan [${chLabel}] - ` + descItems,
         kategori: 'Penjualan Langsung',
         tipe: 'masuk',
-        sumber: isShopee ? 'shopee' : isTiktok ? 'tiktok' : (currentMethod === 'cash' ? 'cash' : 'rekening'),
+        sumber: sumberDana,
         nominal: nominalNet,
+        nominalGross: totalGross,
+        adminFee: komisi,
         items: items.map(i => ({
           name: i.nama,
+          size: i.size || 'Regular',
           qty: i.qty,
           price: i.harga,
           subtotal: i.harga * i.qty,
@@ -1923,7 +2305,10 @@
 
       document.getElementById('btnKonfirmasi').disabled = true;
 
-      // 1. Simpan ke Firestore
+      // 1. Simpan ke Local Retention Buffer 30 Hari
+      saveToLocalHistory(payload);
+
+      // 2. Simpan ke Firestore jika Online
       let savedToCloud = false;
       if (isCloudOnline && fbDb) {
         try {
@@ -1934,7 +2319,7 @@
         }
       }
 
-      // 2. Jika offline, antrekan
+      // 3. Jika offline, masukkan ke queue
       if (!savedToCloud) {
         addToOfflineQueue(payload);
       }
@@ -1956,7 +2341,7 @@
       const suksesK = document.getElementById('suksesKembalian');
       const suksesKL = document.getElementById('suksesKemLabel');
       document.getElementById('suksesTitle').textContent = 'Transaksi Berhasil! 🎉';
-      const metodeLbl = isShopee ? 'Shopee Food' : isTiktok ? 'TikTok' : (currentMethod === 'cash' ? 'Tunai' : 'QRIS');
+      const metodeLbl = isMkt ? chLabel : (currentMethod === 'cash' ? 'Tunai' : 'QRIS');
       document.getElementById('suksesSub').textContent = fmtRp(nominalNet) + ' · ' + metodeLbl;
 
       if (currentMethod === 'cash' && kemb > 0) {
@@ -1999,10 +2384,14 @@
         tipe: 'keluar',
         sumber: currentSrc,
         nominal,
+        _channel: currentChannel,
         _source: 'kasir_event',
         synced: false,
         created_at: new Date().toISOString()
       };
+
+      // Simpan ke local retention buffer
+      saveToLocalHistory(payload);
 
       let savedToCloud = false;
       if (isCloudOnline && fbDb) {
@@ -2030,16 +2419,137 @@
     }
 
     // ════════════════════════════════════════════════════════════════
-    // 8. RIWAYAT & REALTIME LISTENER
+    // 8. LOCAL RETENTION BUFFER (30 HARI) & RIWAYAT
     // ════════════════════════════════════════════════════════════════
+    const LOCAL_HISTORY_KEY = 'dikopi_local_trx_history_v2';
+
+    function getLocalHistory() {
+      try {
+        const raw = localStorage.getItem(LOCAL_HISTORY_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch(e) {
+        return [];
+      }
+    }
+
+    function saveToLocalHistory(trx) {
+      try {
+        let history = getLocalHistory();
+        const existingIdx = history.findIndex(t => String(t.id) === String(trx.id));
+        if (existingIdx >= 0) {
+          history[existingIdx] = { ...history[existingIdx], ...trx };
+        } else {
+          history.unshift(trx);
+        }
+
+        // Simpan riwayat hingga 30 hari ke belakang
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - 30);
+        const cutoffStr = cutoffDate.toISOString().split('T')[0];
+
+        history = history.filter(t => (t.tanggal || '').localeCompare(cutoffStr) >= 0);
+        localStorage.setItem(LOCAL_HISTORY_KEY, JSON.stringify(history));
+      } catch(e) {
+        console.warn("Gagal simpan ke local history buffer:", e);
+      }
+    }
+
+    function exportBackupJSON() {
+      const history = getLocalHistory();
+      if (history.length === 0) {
+        showToast('⚠️ Belum ada data transaksi di memori.');
+        return;
+      }
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(history, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `dikopi_backup_transaksi_${todayStr()}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast(`✅ ${history.length} transaksi berhasil dibackup ke JSON!`);
+    }
+
+    async function syncKePrataniHQ() {
+      const history = getLocalHistory();
+      if (history.length === 0) {
+        showToast('ℹ️ Belum ada transaksi untuk disinkronkan.');
+        return;
+      }
+      showToast('⏳ Menyinkronkan ke Pratani HQ...');
+
+      // 1. Coba sync langsung via POS Server endpoint /api/sync-event
+      try {
+        const res = await fetch('/api/sync-event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ transactions: history })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            history.forEach(t => { t.synced = true; });
+            localStorage.setItem(LOCAL_HISTORY_KEY, JSON.stringify(history));
+            offlineQueue = [];
+            saveOfflineQueue();
+            allTransaksi.forEach(t => { t.synced = true; });
+            renderRiwayatAll();
+            showToast(data.message || `✅ Berhasil sinkron ke #DATA/keu.json HQ!`);
+            return;
+          }
+        }
+      } catch (e) {
+        // Local server tidak terjangkau (misal koneksi HP direct cloud)
+      }
+
+      // 2. Fallback via Cloud Firestore jika online
+      if (isCloudOnline && fbDb) {
+        await manualSync();
+        renderRiwayatAll();
+        showToast('✅ Antrean tersinkron ke Cloud Firestore (menunggu tarik HQ)');
+        return;
+      }
+
+      showToast('⚠️ Koneksi offline. Data aman tersimpan di memori HP (buffer 30 hari).');
+    }
+
+    let currentRiwayatFilter = 'today';
+
+    function setRiwayatFilter(f) {
+      currentRiwayatFilter = f;
+      document.getElementById('rfToday').classList.toggle('active', f === 'today');
+      document.getElementById('rf7d').classList.toggle('active', f === '7d');
+      document.getElementById('rf30d').classList.toggle('active', f === '30d');
+      document.getElementById('rfUnsynced').classList.toggle('active', f === 'unsynced');
+      renderRiwayatAll();
+    }
+
     function initRealtimeTransactions() {
+      // 1. Load dari local retention buffer terlebih dahulu
+      const local = getLocalHistory();
+      if (local.length > 0) {
+        allTransaksi = [...local];
+        renderSummary();
+        renderRiwayatAll();
+        renderRiwayatPen();
+      }
+
       if (!isCloudOnline || !fbDb) return;
-      const today = todayStr();
+
+      // 2. Query Firestore 30 hari terakhir
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - 30);
+      const cutoffStr = cutoffDate.toISOString().split('T')[0];
 
       fbDb.collection('dikopi_transaksi')
-        .where('tanggal', '==', today)
+        .where('tanggal', '>=', cutoffStr)
         .onSnapshot(snap => {
-          allTransaksi = snap ? snap.docs.map(d => d.data()) : [];
+          if (!snap) return;
+          const cloudList = snap.docs.map(d => d.data());
+          // Update local history dengan data cloud yang mungkin sudah ter-synced
+          cloudList.forEach(c => saveToLocalHistory(c));
+
+          allTransaksi = cloudList;
           allTransaksi.sort((a, b) => new Date(b.created_at || b.id) - new Date(a.created_at || a.id));
           renderSummary();
           renderRiwayatAll();
@@ -2051,22 +2561,60 @@
 
     function renderRiwayatAll() {
       const list = document.getElementById('riwayatAllList');
-      const count = document.getElementById('riwayatAllCount');
-      const today = allTransaksi.filter(t => t.tanggal === todayStr());
+      if (!list) return;
 
-      count.textContent = today.length + ' transaksi';
-      if (today.length === 0) {
-        list.innerHTML = '<div class="riwayat-empty">Belum ada transaksi hari ini</div>';
+      // Gabungkan data allTransaksi dan getLocalHistory secara unik
+      const map = new Map();
+      getLocalHistory().forEach(t => map.set(String(t.id), t));
+      allTransaksi.forEach(t => {
+        const existing = map.get(String(t.id));
+        map.set(String(t.id), existing ? { ...existing, ...t } : t);
+      });
+
+      const combined = Array.from(map.values()).sort(
+        (a, b) => new Date(b.created_at || b.id) - new Date(a.created_at || a.id)
+      );
+
+      const now = new Date();
+      const today = todayStr();
+
+      const filtered = combined.filter(t => {
+        if (currentRiwayatFilter === 'today') return t.tanggal === today;
+        if (currentRiwayatFilter === 'unsynced') return !t.synced;
+
+        const trxDate = new Date(t.tanggal || t.created_at || now);
+        const diffDays = Math.floor((now - trxDate) / (1000 * 60 * 60 * 24));
+        if (currentRiwayatFilter === '7d') return diffDays <= 7;
+        if (currentRiwayatFilter === '30d') return diffDays <= 30;
+        return true;
+      });
+
+      // Update KPI cards in Riwayat
+      const sumOmsetEl = document.getElementById('riwayatSumOmset');
+      const sumMarginEl = document.getElementById('riwayatSumMargin');
+      const sumCountEl = document.getElementById('riwayatSumCount');
+
+      const masukTrx = filtered.filter(t => t.tipe === 'masuk');
+      const totalOmset = masukTrx.reduce((s, t) => s + (Number(t.nominal) || 0), 0);
+      const totalMargin = masukTrx.reduce((s, t) => s + (Number(t._margin) || 0), 0);
+
+      if (sumOmsetEl) sumOmsetEl.textContent = fmtRp(totalOmset);
+      if (sumMarginEl) sumMarginEl.textContent = fmtRp(totalMargin);
+      if (sumCountEl) sumCountEl.textContent = filtered.length;
+
+      if (filtered.length === 0) {
+        list.innerHTML = '<div class="riwayat-empty">Tidak ada transaksi pada filter ini</div>';
         return;
       }
-      list.innerHTML = today.map(t => riwayatItemHTML(t)).join('');
+      list.innerHTML = filtered.map(t => riwayatItemHTML(t)).join('');
     }
 
     function renderRiwayatPen() {
       const list = document.getElementById('riwayatPenList');
       const count = document.getElementById('riwayatPenCount');
-      const today = allTransaksi.filter(t => t.tanggal === todayStr() && t.tipe === 'keluar');
+      if (!list || !count) return;
 
+      const today = allTransaksi.filter(t => t.tanggal === todayStr() && t.tipe === 'keluar');
       count.textContent = today.length + ' transaksi';
       if (today.length === 0) {
         list.innerHTML = '<div class="riwayat-empty">Belum ada pengeluaran hari ini</div>';
@@ -2077,14 +2625,28 @@
 
     function riwayatItemHTML(t) {
       const isKeluar = t.tipe === 'keluar';
-      const syncTag = `<span class="sync-tag ${t.synced ? 'synced' : 'pending'}">${t.synced ? '✅ synced HQ' : '⏳ cloud'}</span>`;
+      const ch = t._channel || 'kedai';
+      const chBadge = `<span class="channel-badge ${ch}">${getChannelLabel(ch)}</span>`;
+      
+      let syncTag = '';
+      const inOffline = offlineQueue.some(q => String(q.id) === String(t.id));
+      if (t.synced) {
+        syncTag = `<span class="sync-tag hq">✅ Synced HQ</span>`;
+      } else if (inOffline) {
+        syncTag = `<span class="sync-tag local">🔴 Antrean Offline HP</span>`;
+      } else if (isCloudOnline) {
+        syncTag = `<span class="sync-tag cloud">🟡 Cloud (Tunggu Tarik)</span>`;
+      } else {
+        syncTag = `<span class="sync-tag local">🔴 Lokal HP</span>`;
+      }
+
       return `
         <div class="riwayat-item">
           <div class="riwayat-dot ${isKeluar ? 'keluar' : ''}"></div>
           <div class="riwayat-info">
-            <div class="riwayat-desc">${t.deskripsi}</div>
-            <div class="riwayat-meta">${t.kategori} · ${t.sumber === 'cash' ? 'Cash' : t.sumber === 'qris' ? 'QRIS' : t.sumber} · ${fmtWaktu(t.created_at)}</div>
-            ${syncTag}
+            <div class="riwayat-desc">${chBadge}${t.deskripsi}</div>
+            <div class="riwayat-meta">${t.kategori} · ${t.sumber} · ${t.tanggal || ''} ${fmtWaktu(t.created_at)}</div>
+            <div style="margin-top:3px;">${syncTag}</div>
           </div>
           <div class="riwayat-nominal ${isKeluar ? 'keluar' : ''}">${isKeluar ? '-' : '+'}${fmtRp(t.nominal)}</div>
         </div>

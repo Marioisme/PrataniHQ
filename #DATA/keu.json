@@ -7039,7 +7039,7 @@
       "tanggal": "2026-09-29",
       "tipe": "keluar",
       "deskripsi": "Bahan Baku - fee",
-      "kategori": "Bahan Baku",
+      "kategori": "Gaji/Honorarium",
       "nominal": 33000,
       "sumber": "cash",
       "_margin": 33000,
@@ -7047,7 +7047,1247 @@
       "items": [],
       "_source": "kasir_event",
       "created_at": "2026-09-29T16:46:52.727Z",
+      "synced": true,
+      "updated_at": "2026-10-11T04:29:29.227Z"
+    },
+    {
+      "id": 1790785037936,
+      "tanggal": "2026-09-30",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Shopee Food] - Almond Latte (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 12500,
+      "sumber": "shopee",
+      "_margin": 6410,
+      "_hppTotal": 6090,
+      "items": [
+        {
+          "hppSnapshot": 6090,
+          "name": "Almond Latte",
+          "qty": 1,
+          "price": 16000,
+          "subtotal": 16000
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-09-30T16:17:17.936Z",
       "synced": true
+    },
+    {
+      "id": 1790947713969,
+      "tanggal": "2026-10-02",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Kedai] - Butterscotch Latte (1x), Kentang Goreng (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 23000,
+      "sumber": "cash",
+      "_margin": 14254,
+      "_hppTotal": 8746,
+      "items": [
+        {
+          "qty": 1,
+          "hppSnapshot": 5146,
+          "name": "Butterscotch Latte",
+          "price": 13000,
+          "subtotal": 13000
+        },
+        {
+          "qty": 1,
+          "hppSnapshot": 3600,
+          "subtotal": 10000,
+          "price": 10000,
+          "name": "Kentang Goreng"
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-02T13:28:33.969Z",
+      "synced": true
+    },
+    {
+      "id": 1790952307423,
+      "tanggal": "2026-10-02",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Kedai] - Kopi Susu (5x), Matcha (5x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 110000,
+      "sumber": "cash",
+      "_margin": 81695,
+      "_hppTotal": 28305,
+      "items": [
+        {
+          "price": 12000,
+          "qty": 5,
+          "subtotal": 60000,
+          "name": "Kopi Susu",
+          "hppSnapshot": 3253
+        },
+        {
+          "qty": 5,
+          "hppSnapshot": 2408,
+          "name": "Matcha",
+          "price": 10000,
+          "subtotal": 50000
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-02T14:45:07.423Z",
+      "synced": true
+    },
+    {
+      "id": 1790953976238,
+      "tanggal": "2026-10-02",
+      "tipe": "keluar",
+      "deskripsi": "Bahan Baku - es batu",
+      "kategori": "Bahan Baku",
+      "nominal": 12000,
+      "sumber": "cash",
+      "_margin": 12000,
+      "_hppTotal": 0,
+      "items": [],
+      "_source": "kasir_event",
+      "created_at": "2026-10-02T15:12:56.238Z",
+      "synced": true
+    },
+    {
+      "id": 1790955122722,
+      "tanggal": "2026-10-02",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Kedai] - Cokelat (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 10000,
+      "sumber": "cash",
+      "_margin": 7952,
+      "_hppTotal": 2048,
+      "items": [
+        {
+          "hppSnapshot": 2048,
+          "qty": 1,
+          "name": "Cokelat",
+          "price": 10000,
+          "subtotal": 10000
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-02T15:32:02.722Z",
+      "synced": true
+    },
+    {
+      "id": 1791125272837,
+      "tanggal": "2026-10-04",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Kedai] - Kopi Susu (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 12000,
+      "sumber": "cash",
+      "_margin": 8747,
+      "_hppTotal": 3253,
+      "items": [
+        {
+          "hppSnapshot": 3253,
+          "name": "Kopi Susu",
+          "subtotal": 12000,
+          "qty": 1,
+          "price": 12000
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-04T14:47:52.837Z",
+      "synced": true
+    },
+    {
+      "id": 1791125281409,
+      "tanggal": "2026-10-04",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Kedai] - Matcha (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 10000,
+      "sumber": "cash",
+      "_margin": 7592,
+      "_hppTotal": 2408,
+      "items": [
+        {
+          "hppSnapshot": 2408,
+          "subtotal": 10000,
+          "qty": 1,
+          "name": "Matcha",
+          "price": 10000
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-04T14:48:01.409Z",
+      "synced": true
+    },
+    {
+      "id": 1791125299704,
+      "tanggal": "2026-10-04",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Kedai] - Kopi Susu (5x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 60000,
+      "sumber": "cash",
+      "_margin": 43735,
+      "_hppTotal": 16265,
+      "items": [
+        {
+          "price": 12000,
+          "qty": 5,
+          "name": "Kopi Susu",
+          "subtotal": 60000,
+          "hppSnapshot": 3253
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-04T14:48:19.704Z",
+      "synced": true
+    },
+    {
+      "id": 1791125306731,
+      "tanggal": "2026-10-04",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Kedai] - Matcha (5x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 50000,
+      "sumber": "cash",
+      "_margin": 37960,
+      "_hppTotal": 12040,
+      "items": [
+        {
+          "price": 10000,
+          "name": "Matcha",
+          "qty": 5,
+          "hppSnapshot": 2408,
+          "subtotal": 50000
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-04T14:48:26.731Z",
+      "synced": true
+    },
+    {
+      "id": 1791125313344,
+      "tanggal": "2026-10-04",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Kedai] - Cokelat (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 10000,
+      "sumber": "cash",
+      "_margin": 7952,
+      "_hppTotal": 2048,
+      "items": [
+        {
+          "subtotal": 10000,
+          "price": 10000,
+          "hppSnapshot": 2048,
+          "qty": 1,
+          "name": "Cokelat"
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-04T14:48:33.344Z",
+      "synced": true
+    },
+    {
+      "id": 1791125431887,
+      "tanggal": "2026-10-04",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Kedai] - Kentang Goreng (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 10000,
+      "sumber": "cash",
+      "_margin": 6400,
+      "_hppTotal": 3600,
+      "items": [
+        {
+          "qty": 1,
+          "price": 10000,
+          "hppSnapshot": 3600,
+          "name": "Kentang Goreng",
+          "subtotal": 10000
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-04T14:50:31.887Z",
+      "synced": true
+    },
+    {
+      "id": 1791125460194,
+      "tanggal": "2026-10-04",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Kedai] - Butterscotch Latte (1x), Kentang Goreng (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 23000,
+      "sumber": "cash",
+      "_margin": 14254,
+      "_hppTotal": 8746,
+      "items": [
+        {
+          "subtotal": 13000,
+          "name": "Butterscotch Latte",
+          "qty": 1,
+          "price": 13000,
+          "hppSnapshot": 5146
+        },
+        {
+          "hppSnapshot": 3600,
+          "name": "Kentang Goreng",
+          "qty": 1,
+          "subtotal": 10000,
+          "price": 10000
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-04T14:51:00.194Z",
+      "synced": true
+    },
+    {
+      "id": 1791475880780,
+      "tanggal": "2026-10-08",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Kedai] - Matcha (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 10000,
+      "sumber": "cash",
+      "_margin": 7592,
+      "_hppTotal": 2408,
+      "items": [
+        {
+          "name": "Matcha",
+          "qty": 1,
+          "subtotal": 10000,
+          "hppSnapshot": 2408,
+          "price": 10000
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-08T16:11:20.780Z",
+      "synced": true
+    },
+    {
+      "id": 1791475899741,
+      "tanggal": "2026-10-08",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Kedai] - Americano Arabika (3x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 36000,
+      "sumber": "cash",
+      "_margin": 21294,
+      "_hppTotal": 14706,
+      "items": [
+        {
+          "price": 12000,
+          "subtotal": 36000,
+          "hppSnapshot": 4902,
+          "name": "Americano Arabika",
+          "qty": 3
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-08T16:11:39.741Z",
+      "synced": true
+    },
+    {
+      "id": 1791475911532,
+      "tanggal": "2026-10-08",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Kedai] - Gula Aren (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 13000,
+      "sumber": "cash",
+      "_margin": 9124,
+      "_hppTotal": 3876,
+      "items": [
+        {
+          "price": 13000,
+          "name": "Gula Aren",
+          "hppSnapshot": 3876,
+          "qty": 1,
+          "subtotal": 13000
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-08T16:11:51.532Z",
+      "synced": true
+    },
+    {
+      "id": 1791475929849,
+      "tanggal": "2026-10-08",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Kedai] - Americano Arabika (1x), Gula Aren (1x), Kentang Goreng (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 35000,
+      "sumber": "cash",
+      "_margin": 22622,
+      "_hppTotal": 12378,
+      "items": [
+        {
+          "qty": 1,
+          "subtotal": 12000,
+          "price": 12000,
+          "name": "Americano Arabika",
+          "hppSnapshot": 4902
+        },
+        {
+          "name": "Gula Aren",
+          "price": 13000,
+          "qty": 1,
+          "hppSnapshot": 3876,
+          "subtotal": 13000
+        },
+        {
+          "hppSnapshot": 3600,
+          "price": 10000,
+          "subtotal": 10000,
+          "qty": 1,
+          "name": "Kentang Goreng"
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-08T16:12:09.849Z",
+      "synced": true
+    },
+    {
+      "id": 1791563188029,
+      "tanggal": "2026-10-09",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Kedai] - Cokelat (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 10000,
+      "sumber": "cash",
+      "_margin": 7952,
+      "_hppTotal": 2048,
+      "items": [
+        {
+          "name": "Cokelat",
+          "price": 10000,
+          "hppSnapshot": 2048,
+          "qty": 1,
+          "subtotal": 10000
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-09T16:26:28.030Z",
+      "synced": true
+    },
+    {
+      "id": 1791563196072,
+      "tanggal": "2026-10-09",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Kedai] - Gula Aren (1x), Bakso bakar (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 23000,
+      "sumber": "cash",
+      "_margin": 15524,
+      "_hppTotal": 7476,
+      "items": [
+        {
+          "subtotal": 13000,
+          "hppSnapshot": 3876,
+          "price": 13000,
+          "qty": 1,
+          "name": "Gula Aren"
+        },
+        {
+          "subtotal": 10000,
+          "hppSnapshot": 3600,
+          "price": 10000,
+          "qty": 1,
+          "name": "Bakso bakar"
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-09T16:26:36.072Z",
+      "synced": true
+    },
+    {
+      "id": 1791563237726,
+      "tanggal": "2026-10-09",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Shopee Food] - Red Velvet (1x), Hazelnut (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 15000,
+      "sumber": "shopee",
+      "_margin": 7996,
+      "_hppTotal": 7004,
+      "items": [
+        {
+          "price": 11000,
+          "qty": 1,
+          "hppSnapshot": 3352,
+          "name": "Red Velvet",
+          "subtotal": 11000
+        },
+        {
+          "qty": 1,
+          "hppSnapshot": 3652,
+          "price": 11000,
+          "subtotal": 11000,
+          "name": "Hazelnut"
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-09T16:27:17.726Z",
+      "synced": true
+    },
+    {
+      "id": 1791644312145,
+      "tanggal": "2026-10-10",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Kedai] - Matcha (1x), Red Velvet (1x), Kentang Goreng (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 30000,
+      "sumber": "rekening",
+      "_margin": 21944,
+      "_hppTotal": 8056,
+      "items": [
+        {
+          "name": "Matcha",
+          "subtotal": 10000,
+          "qty": 1,
+          "price": 10000,
+          "hppSnapshot": 2408
+        },
+        {
+          "subtotal": 10000,
+          "qty": 1,
+          "price": 10000,
+          "hppSnapshot": 2048,
+          "name": "Red Velvet"
+        },
+        {
+          "qty": 1,
+          "name": "Kentang Goreng",
+          "subtotal": 10000,
+          "hppSnapshot": 3600,
+          "price": 10000
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-10T14:58:32.146Z",
+      "synced": true
+    },
+    {
+      "id": 1791644328920,
+      "tanggal": "2026-10-10",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Kedai] - Caramel Latte (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 13000,
+      "sumber": "cash",
+      "_margin": 7877,
+      "_hppTotal": 5123,
+      "items": [
+        {
+          "name": "Caramel Latte",
+          "hppSnapshot": 5123,
+          "qty": 1,
+          "price": 13000,
+          "subtotal": 13000
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-10T14:58:48.920Z",
+      "synced": true
+    },
+    {
+      "id": 1791644648074,
+      "tanggal": "2026-10-10",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Kedai] - Butterscotch Latte (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 13000,
+      "sumber": "cash",
+      "_margin": 7854,
+      "_hppTotal": 5146,
+      "items": [
+        {
+          "qty": 1,
+          "subtotal": 13000,
+          "name": "Butterscotch Latte",
+          "price": 13000,
+          "hppSnapshot": 5146
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-10T15:04:08.075Z",
+      "synced": true
+    },
+    {
+      "id": 1791644683282,
+      "tanggal": "2026-10-10",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Kedai] - Gula Aren (1x), Kentang Goreng (1x), Nugget (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 33000,
+      "sumber": "rekening",
+      "_margin": 19924,
+      "_hppTotal": 13076,
+      "items": [
+        {
+          "subtotal": 13000,
+          "price": 13000,
+          "hppSnapshot": 3876,
+          "name": "Gula Aren",
+          "qty": 1
+        },
+        {
+          "name": "Kentang Goreng",
+          "hppSnapshot": 3600,
+          "qty": 1,
+          "subtotal": 10000,
+          "price": 10000
+        },
+        {
+          "subtotal": 10000,
+          "price": 10000,
+          "hppSnapshot": 5600,
+          "name": "Nugget",
+          "qty": 1
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-10T15:04:43.282Z",
+      "synced": true
+    },
+    {
+      "id": 1791644690150,
+      "tanggal": "2026-10-10",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Kedai] - Bakso bakar (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 10000,
+      "sumber": "cash",
+      "_margin": 6400,
+      "_hppTotal": 3600,
+      "items": [
+        {
+          "subtotal": 10000,
+          "hppSnapshot": 3600,
+          "price": 10000,
+          "name": "Bakso bakar",
+          "qty": 1
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-10T15:04:50.150Z",
+      "synced": true
+    },
+    {
+      "id": 1791645857139,
+      "tanggal": "2026-10-10",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Shopee Food] - Rosella Tea (1x), Red Velvet (1x), Americano (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 19500,
+      "sumber": "shopee",
+      "_margin": 10155,
+      "_hppTotal": 9345,
+      "items": [
+        {
+          "name": "Rosella Tea",
+          "subtotal": 8000,
+          "price": 8000,
+          "qty": 1,
+          "hppSnapshot": 3312
+        },
+        {
+          "name": "Red Velvet",
+          "hppSnapshot": 3352,
+          "subtotal": 11000,
+          "qty": 1,
+          "price": 11000
+        },
+        {
+          "qty": 1,
+          "subtotal": 11000,
+          "hppSnapshot": 2681,
+          "price": 11000,
+          "name": "Americano"
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-10T15:24:17.139Z",
+      "synced": true
+    },
+    {
+      "id": 1791651193764,
+      "tanggal": "2026-10-10",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Kedai] - Rosella Tea (1x), Matcha (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 18000,
+      "sumber": "cash",
+      "_margin": 13639,
+      "_hppTotal": 4361,
+      "items": [
+        {
+          "price": 8000,
+          "name": "Rosella Tea",
+          "hppSnapshot": 1953,
+          "subtotal": 8000,
+          "qty": 1
+        },
+        {
+          "qty": 1,
+          "price": 10000,
+          "subtotal": 10000,
+          "name": "Matcha",
+          "hppSnapshot": 2408
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-10T16:53:13.764Z",
+      "synced": true
+    },
+    {
+      "id": 1791651332675,
+      "tanggal": "2026-10-10",
+      "tipe": "keluar",
+      "deskripsi": "Bahan Baku - fee",
+      "kategori": "Gaji/Honorarium",
+      "nominal": 34000,
+      "sumber": "cash",
+      "_margin": 34000,
+      "_hppTotal": 0,
+      "items": [],
+      "_source": "kasir_event",
+      "created_at": "2026-10-10T16:55:32.676Z",
+      "synced": true,
+      "updated_at": "2026-10-10T17:02:04.869Z"
+    },
+    {
+      "id": 1791677831348,
+      "tanggal": "2026-10-11",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [CFD] - AMERICANO 1 SHOT (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 10000,
+      "sumber": "cash",
+      "_margin": 7959,
+      "_hppTotal": 2041,
+      "items": [
+        {
+          "hppSnapshot": 2041,
+          "price": 10000,
+          "subtotal": 10000,
+          "qty": 1,
+          "name": "AMERICANO 1 SHOT"
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-11T00:17:11.348Z",
+      "synced": true
+    },
+    {
+      "id": 1791677837131,
+      "tanggal": "2026-10-11",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [CFD] - KOPI SUSU (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 12000,
+      "sumber": "cash",
+      "_margin": 8479,
+      "_hppTotal": 3521,
+      "items": [
+        {
+          "subtotal": 12000,
+          "price": 12000,
+          "qty": 1,
+          "hppSnapshot": 3521,
+          "name": "KOPI SUSU"
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-11T00:17:17.131Z",
+      "synced": true
+    },
+    {
+      "id": 1791677846893,
+      "tanggal": "2026-10-11",
+      "tipe": "keluar",
+      "deskripsi": "Bahan Baku - skm",
+      "kategori": "Bahan Baku",
+      "nominal": 24000,
+      "sumber": "cash",
+      "_margin": 24000,
+      "_hppTotal": 0,
+      "items": [],
+      "_source": "kasir_event",
+      "created_at": "2026-10-11T00:17:26.893Z",
+      "synced": true
+    },
+    {
+      "id": 1791678617011,
+      "tanggal": "2026-10-11",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Kedai] - Americano Robusta (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 10000,
+      "sumber": "cash",
+      "_margin": 8162,
+      "_hppTotal": 1838,
+      "items": [
+        {
+          "name": "Americano Robusta",
+          "price": 10000,
+          "qty": 1,
+          "hppSnapshot": 1838,
+          "subtotal": 10000
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-11T00:30:17.011Z",
+      "synced": true
+    },
+    {
+      "id": 1791678622646,
+      "tanggal": "2026-10-11",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Kedai] - Gula Aren (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 13000,
+      "sumber": "cash",
+      "_margin": 9124,
+      "_hppTotal": 3876,
+      "items": [
+        {
+          "hppSnapshot": 3876,
+          "subtotal": 13000,
+          "qty": 1,
+          "price": 13000,
+          "name": "Gula Aren"
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-11T00:30:22.646Z",
+      "synced": true
+    },
+    {
+      "id": 1791678626534,
+      "tanggal": "2026-10-11",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Kedai] - Butterscotch Latte (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 13000,
+      "sumber": "cash",
+      "_margin": 7854,
+      "_hppTotal": 5146,
+      "items": [
+        {
+          "name": "Butterscotch Latte",
+          "qty": 1,
+          "subtotal": 13000,
+          "price": 13000,
+          "hppSnapshot": 5146
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-11T00:30:26.534Z",
+      "synced": true
+    },
+    {
+      "id": 1791679734517,
+      "tanggal": "2026-10-11",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [CFD] - GULA AREN (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 13000,
+      "sumber": "cash",
+      "_margin": 8856,
+      "_hppTotal": 4144,
+      "items": [
+        {
+          "subtotal": 13000,
+          "qty": 1,
+          "hppSnapshot": 4144,
+          "name": "GULA AREN",
+          "price": 13000
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-11T00:48:54.517Z",
+      "synced": true
+    },
+    {
+      "id": 1791679814223,
+      "tanggal": "2026-10-11",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [CFD] - Hazelnut (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 10000,
+      "sumber": "cash",
+      "_margin": 6338,
+      "_hppTotal": 3662,
+      "items": [
+        {
+          "price": 10000,
+          "subtotal": 10000,
+          "name": "Hazelnut",
+          "qty": 1,
+          "hppSnapshot": 3662
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-11T00:50:14.223Z",
+      "synced": true
+    },
+    {
+      "id": 1791681279127,
+      "tanggal": "2026-10-11",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [CFD] - Cokelat (1x), Matcha (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 20000,
+      "sumber": "rekening",
+      "_margin": 12916,
+      "_hppTotal": 7084,
+      "items": [
+        {
+          "price": 10000,
+          "subtotal": 10000,
+          "name": "Cokelat",
+          "qty": 1,
+          "hppSnapshot": 3362
+        },
+        {
+          "price": 10000,
+          "name": "Matcha",
+          "subtotal": 10000,
+          "qty": 1,
+          "hppSnapshot": 3722
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-11T01:14:39.127Z",
+      "synced": true
+    },
+    {
+      "id": 1791681292896,
+      "tanggal": "2026-10-11",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [CFD] - Matcha (2x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 20000,
+      "sumber": "cash",
+      "_margin": 12556,
+      "_hppTotal": 7444,
+      "items": [
+        {
+          "hppSnapshot": 3722,
+          "name": "Matcha",
+          "price": 10000,
+          "qty": 2,
+          "subtotal": 20000
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-11T01:14:52.896Z",
+      "synced": true
+    },
+    {
+      "id": 1791681297900,
+      "tanggal": "2026-10-11",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [CFD] - KOPI SUSU (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 12000,
+      "sumber": "cash",
+      "_margin": 8479,
+      "_hppTotal": 3521,
+      "items": [
+        {
+          "price": 12000,
+          "qty": 1,
+          "hppSnapshot": 3521,
+          "name": "KOPI SUSU",
+          "subtotal": 12000
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-11T01:14:57.900Z",
+      "synced": true
+    },
+    {
+      "id": 1791681338785,
+      "tanggal": "2026-10-11",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [CFD] - Red Velvet (1x), KOPI SUSU (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 22000,
+      "sumber": "cash",
+      "_margin": 15117,
+      "_hppTotal": 6883,
+      "items": [
+        {
+          "name": "Red Velvet",
+          "subtotal": 10000,
+          "qty": 1,
+          "price": 10000,
+          "hppSnapshot": 3362
+        },
+        {
+          "hppSnapshot": 3521,
+          "qty": 1,
+          "name": "KOPI SUSU",
+          "subtotal": 12000,
+          "price": 12000
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-11T01:15:38.785Z",
+      "synced": true
+    },
+    {
+      "id": 1791682178810,
+      "tanggal": "2026-10-11",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [CFD] - KOPI SUSU (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 12000,
+      "sumber": "cash",
+      "_margin": 8479,
+      "_hppTotal": 3521,
+      "items": [
+        {
+          "price": 12000,
+          "subtotal": 12000,
+          "name": "KOPI SUSU",
+          "hppSnapshot": 3521,
+          "qty": 1
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-11T01:29:38.810Z",
+      "synced": true
+    },
+    {
+      "id": 1791682719161,
+      "tanggal": "2026-10-11",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Kedai] - Caramel Latte (1x), Almond Latte (1x), Butterscotch Latte (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 39000,
+      "sumber": "cash",
+      "_margin": 23539,
+      "_hppTotal": 15461,
+      "items": [
+        {
+          "price": 13000,
+          "subtotal": 13000,
+          "name": "Caramel Latte",
+          "hppSnapshot": 5123,
+          "qty": 1
+        },
+        {
+          "qty": 1,
+          "price": 13000,
+          "subtotal": 13000,
+          "name": "Almond Latte",
+          "hppSnapshot": 5192
+        },
+        {
+          "name": "Butterscotch Latte",
+          "qty": 1,
+          "subtotal": 13000,
+          "price": 13000,
+          "hppSnapshot": 5146
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-11T01:38:39.161Z",
+      "synced": true
+    },
+    {
+      "id": 1791682803278,
+      "tanggal": "2026-10-11",
+      "tipe": "keluar",
+      "deskripsi": "Bahan Baku - es batu",
+      "kategori": "Bahan Baku",
+      "nominal": 20000,
+      "sumber": "cash",
+      "_margin": 20000,
+      "_hppTotal": 0,
+      "items": [],
+      "_source": "kasir_event",
+      "created_at": "2026-10-11T01:40:03.278Z",
+      "synced": true
+    },
+    {
+      "id": 1791683103489,
+      "tanggal": "2026-10-11",
+      "tipe": "keluar",
+      "deskripsi": "Bahan Baku - susu",
+      "kategori": "Susu",
+      "nominal": 22000,
+      "sumber": "cash",
+      "_margin": 22000,
+      "_hppTotal": 0,
+      "items": [],
+      "_source": "kasir_event",
+      "created_at": "2026-10-11T01:45:03.489Z",
+      "synced": true,
+      "updated_at": "2026-10-11T04:16:50.527Z"
+    },
+    {
+      "id": 1791684278278,
+      "tanggal": "2026-10-11",
+      "tipe": "masuk",
+      "deskripsi": "Penjualan [Kedai] - Caramel Latte (1x)",
+      "kategori": "Penjualan Langsung",
+      "nominal": 13000,
+      "sumber": "cash",
+      "_margin": 7877,
+      "_hppTotal": 5123,
+      "items": [
+        {
+          "hppSnapshot": 5123,
+          "price": 13000,
+          "name": "Caramel Latte",
+          "subtotal": 13000,
+          "qty": 1
+        }
+      ],
+      "_source": "kasir_event",
+      "created_at": "2026-10-11T02:04:38.279Z",
+      "synced": true
+    },
+    {
+      "id": 1791687693110,
+      "tanggal": "2026-10-11",
+      "tipe": "keluar",
+      "deskripsi": "Fee",
+      "kategori": "Fee",
+      "nominal": 37000,
+      "sumber": "cash",
+      "_margin": 37000,
+      "_hppTotal": 0,
+      "items": [],
+      "_source": "kasir_event",
+      "created_at": "2026-10-11T03:01:33.110Z",
+      "synced": true
+    },
+    {
+      "id": 1791692107106,
+      "tanggal": "2026-10-11",
+      "tipe": "keluar",
+      "deskripsi": "Operasional - parkir cfd",
+      "kategori": "Operasional",
+      "nominal": 10000,
+      "sumber": "cash",
+      "_margin": 10000,
+      "_hppTotal": 0,
+      "items": [],
+      "_source": "kasir_event",
+      "created_at": "2026-10-11T04:15:07.106Z",
+      "synced": true
+    },
+    {
+      "id": 1791692293758,
+      "tanggal": "2026-10-11",
+      "deskripsi": "Withdrawal Shopee",
+      "kategori": "Mutasi",
+      "tipe": "mutasi",
+      "sumber": "shopee2rek",
+      "nominal": 34500,
+      "transaction_class": "transfer",
+      "nota": null,
+      "created_at": "2026-10-11T04:18:13.757Z"
+    },
+    {
+      "id": 1791692789783,
+      "tanggal": "2026-10-02",
+      "deskripsi": "Robusta  500g",
+      "kategori": "Biji Kopi",
+      "tipe": "keluar",
+      "sumber": "cash",
+      "nominal": 70000,
+      "transaction_class": "hpp",
+      "nota": null,
+      "nota_type": null,
+      "_source": "manual",
+      "created_at": "2026-10-11T04:26:29.783Z",
+      "updated_at": "2026-10-11T04:41:09.081Z"
+    },
+    {
+      "id": 1791692897817,
+      "tanggal": "2026-10-01",
+      "deskripsi": "paper filter mokapot",
+      "kategori": "Lain-lain",
+      "tipe": "keluar",
+      "sumber": "cash",
+      "nominal": 14500,
+      "transaction_class": "operational",
+      "nota": null,
+      "nota_type": null,
+      "_source": "manual",
+      "created_at": "2026-10-11T04:28:17.817Z",
+      "updated_at": "2026-10-11T04:40:52.242Z"
+    },
+    {
+      "id": 1791692933901,
+      "tanggal": "2026-10-03",
+      "deskripsi": "Matcha",
+      "kategori": "Lain-lain HPP",
+      "tipe": "keluar",
+      "sumber": "cash",
+      "nominal": 47000,
+      "transaction_class": "hpp",
+      "nota": null,
+      "nota_type": null,
+      "_source": "manual",
+      "created_at": "2026-10-11T04:28:53.901Z",
+      "updated_at": "2026-10-11T04:41:23.382Z"
+    },
+    {
+      "id": 1791693017545,
+      "tanggal": "2026-09-11",
+      "deskripsi": "Beli Aset: Frother",
+      "kategori": "Pembelian Aset",
+      "transaction_class": "asset_purchase",
+      "tipe": "keluar",
+      "sumber": "cash",
+      "nominal": 40000,
+      "nota": null,
+      "created_at": "2026-10-11T04:30:17.545Z",
+      "updated_at": "2026-10-11T04:42:20.350Z"
+    },
+    {
+      "id": 1791693296977,
+      "tanggal": "2026-10-09",
+      "deskripsi": "fee",
+      "kategori": "Gaji/Honorarium",
+      "tipe": "keluar",
+      "sumber": "cash",
+      "nominal": 20000,
+      "transaction_class": "operational",
+      "nota": null,
+      "nota_type": null,
+      "_source": "manual",
+      "created_at": "2026-10-11T04:34:56.977Z"
+    },
+    {
+      "id": 1791693323464,
+      "tanggal": "2026-10-11",
+      "deskripsi": "Setor Cash ke Rekening",
+      "kategori": "Mutasi",
+      "tipe": "mutasi",
+      "sumber": "cash",
+      "nominal": 4000,
+      "transaction_class": "transfer",
+      "nota": null,
+      "created_at": "2026-10-11T04:35:23.464Z"
+    },
+    {
+      "id": 1791693386428,
+      "tanggal": "2026-10-01",
+      "deskripsi": "Ambil Uang Pribadi",
+      "kategori": "Ambil Uang Pribadi",
+      "transaction_class": "owner_draw",
+      "tipe": "keluar",
+      "sumber": "cash",
+      "nominal": 32500,
+      "nota": null,
+      "created_at": "2026-10-11T04:36:26.428Z",
+      "updated_at": "2026-10-11T04:40:40.069Z"
     }
   ],
   "studio": [],
@@ -7103,6 +8343,9 @@
     "dikopiChannels": [],
     "dikopi_cash_2026-09": 0,
     "dikopi_rek_2026-09": 38500,
-    "dikopi_setup_2026-09": true
+    "dikopi_setup_2026-09": true,
+    "dikopi_cash_2026-10": 0,
+    "dikopi_rek_2026-10": 0,
+    "dikopi_setup_2026-10": true
   }
 }

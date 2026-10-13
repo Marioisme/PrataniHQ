@@ -20,7 +20,9 @@
     ],
     "hppSnapshot": 1838,
     "createdAt": "2026-05-17T14:38:07.324Z",
-    "kategori": "Coffee"
+    "kategori": "Coffee",
+    "hargaJualLarge": 13000,
+    "hppSnapshotLarge": 3038
   },
   {
     "id": 1779808767804,
@@ -48,7 +50,9 @@
       }
     ],
     "hppSnapshot": 4902,
-    "createdAt": "2026-05-26T15:19:27.804Z"
+    "createdAt": "2026-05-26T15:19:27.804Z",
+    "hargaJualLarge": 15000,
+    "hppSnapshotLarge": 6102
   },
   {
     "id": 1779028706584,
@@ -78,7 +82,9 @@
       }
     ],
     "hppSnapshot": 3253,
-    "createdAt": "2026-05-17T14:38:26.584Z"
+    "createdAt": "2026-05-17T14:38:26.584Z",
+    "hargaJualLarge": 15000,
+    "hppSnapshotLarge": 4453
   },
   {
     "id": 1779028736764,
@@ -113,7 +119,9 @@
     ],
     "hppSnapshot": 3876,
     "createdAt": "2026-05-17T14:38:56.764Z",
-    "kategori": "Coffee"
+    "kategori": "Coffee",
+    "hargaJualLarge": 16000,
+    "hppSnapshotLarge": 5076
   },
   {
     "id": 1779028753666,
@@ -148,7 +156,9 @@
     ],
     "hppSnapshot": 5146,
     "createdAt": "2026-05-17T14:39:13.666Z",
-    "kategori": "Coffee"
+    "kategori": "Coffee",
+    "hargaJualLarge": 16000,
+    "hppSnapshotLarge": 6346
   },
   {
     "id": 1779028767170,
@@ -183,7 +193,9 @@
     ],
     "hppSnapshot": 5123,
     "createdAt": "2026-05-17T14:39:27.170Z",
-    "kategori": "Coffee"
+    "kategori": "Coffee",
+    "hargaJualLarge": 16000,
+    "hppSnapshotLarge": 6323
   },
   {
     "id": 1779028781424,
@@ -218,7 +230,9 @@
     ],
     "hppSnapshot": 5192,
     "createdAt": "2026-05-17T14:39:41.424Z",
-    "kategori": "Coffee"
+    "kategori": "Coffee",
+    "hargaJualLarge": 16000,
+    "hppSnapshotLarge": 6392
   },
   {
     "id": 1779028814634,
@@ -253,7 +267,9 @@
     ],
     "hppSnapshot": 2048,
     "createdAt": "2026-05-17T14:40:14.634Z",
-    "kategori": "Non Coffee"
+    "kategori": "Non Coffee",
+    "hargaJualLarge": 13000,
+    "hppSnapshotLarge": 3248
   },
   {
     "id": 1779028809028,
@@ -288,7 +304,9 @@
     ],
     "hppSnapshot": 2348,
     "createdAt": "2026-05-17T14:40:09.028Z",
-    "kategori": "Non Coffee"
+    "kategori": "Non Coffee",
+    "hargaJualLarge": 13000,
+    "hppSnapshotLarge": 3548
   },
   {
     "id": 1779028802778,
@@ -323,7 +341,9 @@
     ],
     "hppSnapshot": 2048,
     "createdAt": "2026-05-17T14:40:02.778Z",
-    "kategori": "Non Coffee"
+    "kategori": "Non Coffee",
+    "hargaJualLarge": 13000,
+    "hppSnapshotLarge": 3248
   },
   {
     "id": 1779028793000,
@@ -358,7 +378,9 @@
     ],
     "hppSnapshot": 2408,
     "createdAt": "2026-05-17T14:39:53.000Z",
-    "kategori": "Non Coffee"
+    "kategori": "Non Coffee",
+    "hargaJualLarge": 13000,
+    "hppSnapshotLarge": 3608
   },
   {
     "id": 1779028842398,
@@ -377,7 +399,9 @@
     ],
     "hppSnapshot": 2325,
     "createdAt": "2026-05-17T14:40:42.398Z",
-    "kategori": "Manual Brew"
+    "kategori": "Manual Brew",
+    "hargaJualLarge": 10000,
+    "hppSnapshotLarge": 3525
   },
   {
     "id": 1779028852020,
@@ -396,7 +420,9 @@
     ],
     "hppSnapshot": 5285,
     "createdAt": "2026-05-17T14:40:52.020Z",
-    "kategori": "Manual Brew"
+    "kategori": "Manual Brew",
+    "hargaJualLarge": 15000,
+    "hppSnapshotLarge": 6485
   },
   {
     "id": 1779028862146,
@@ -411,7 +437,9 @@
     ],
     "hppSnapshot": 1750,
     "createdAt": "2026-05-17T14:41:02.146Z",
-    "kategori": "Manual Brew"
+    "kategori": "Manual Brew",
+    "hargaJualLarge": 8000,
+    "hppSnapshotLarge": 2950
   },
   {
     "id": 1779028888618,
@@ -426,7 +454,9 @@
     ],
     "hppSnapshot": 4710,
     "createdAt": "2026-05-17T14:41:28.618Z",
-    "kategori": "Manual Brew"
+    "kategori": "Manual Brew",
+    "hargaJualLarge": 13000,
+    "hppSnapshotLarge": 5910
   },
   {
     "id": 1779028900868,
@@ -514,7 +544,9 @@
       }
     ],
     "hppSnapshot": 2041,
-    "createdAt": "2026-06-21T15:57:08.180Z"
+    "createdAt": "2026-06-21T15:57:08.180Z",
+    "hargaJualLarge": 13000,
+    "hppSnapshotLarge": 3241
   },
   {
     "id": 1782057511026,
@@ -542,7 +574,9 @@
       }
     ],
     "hppSnapshot": 2691,
-    "createdAt": "2026-06-21T15:58:31.026Z"
+    "createdAt": "2026-06-21T15:58:31.026Z",
+    "hargaJualLarge": 16000,
+    "hppSnapshotLarge": 3891
   },
   {
     "id": 1782058852038,
@@ -570,7 +604,9 @@
       }
     ],
     "hppSnapshot": 3341,
-    "createdAt": "2026-06-21T16:20:52.039Z"
+    "createdAt": "2026-06-21T16:20:52.039Z",
+    "hargaJualLarge": 18000,
+    "hppSnapshotLarge": 4541
   },
   {
     "id": 1782058942402,
@@ -614,7 +650,9 @@
       }
     ],
     "hppSnapshot": 3722,
-    "createdAt": "2026-06-21T16:22:22.402Z"
+    "createdAt": "2026-06-21T16:22:22.402Z",
+    "hargaJualLarge": 13000,
+    "hppSnapshotLarge": 4922
   },
   {
     "id": 1782059109685,
@@ -658,7 +696,9 @@
       }
     ],
     "hppSnapshot": 3362,
-    "createdAt": "2026-06-21T16:25:09.685Z"
+    "createdAt": "2026-06-21T16:25:09.685Z",
+    "hargaJualLarge": 13000,
+    "hppSnapshotLarge": 4562
   },
   {
     "id": 1782059215601,
@@ -702,7 +742,9 @@
       }
     ],
     "hppSnapshot": 3362,
-    "createdAt": "2026-06-21T16:26:55.601Z"
+    "createdAt": "2026-06-21T16:26:55.601Z",
+    "hargaJualLarge": 13000,
+    "hppSnapshotLarge": 4562
   },
   {
     "id": 1782059308881,
@@ -746,7 +788,9 @@
     "hppSnapshot": 3662,
     "createdAt": "2026-06-21T16:28:28.881Z",
     "kategori": "Non Coffee",
-    "channel": "cfd"
+    "channel": "cfd",
+    "hargaJualLarge": 13000,
+    "hppSnapshotLarge": 4862
   },
   {
     "id": 1782059646242,
@@ -786,7 +830,9 @@
     "hppSnapshot": 3521,
     "createdAt": "2026-06-21T16:34:06.242Z",
     "channel": "cfd",
-    "kategori": "Coffee"
+    "kategori": "Coffee",
+    "hargaJualLarge": 15000,
+    "hppSnapshotLarge": 4721
   },
   {
     "id": 1782059686592,
@@ -830,7 +876,9 @@
     "hppSnapshot": 4144,
     "createdAt": "2026-06-21T16:34:46.592Z",
     "kategori": "Coffee",
-    "channel": "cfd"
+    "channel": "cfd",
+    "hargaJualLarge": 16000,
+    "hppSnapshotLarge": 5344
   },
   {
     "id": 1782059723586,
@@ -874,7 +922,9 @@
     "hppSnapshot": 5414,
     "createdAt": "2026-06-21T16:35:23.586Z",
     "kategori": "Coffee",
-    "channel": "cfd"
+    "channel": "cfd",
+    "hargaJualLarge": 16000,
+    "hppSnapshotLarge": 6614
   },
   {
     "id": 1782135211474,
@@ -918,7 +968,9 @@
     "hppSnapshot": 5380,
     "createdAt": "2026-06-22T13:33:31.474Z",
     "kategori": "Coffee",
-    "channel": "cfd"
+    "channel": "cfd",
+    "hargaJualLarge": 16000,
+    "hppSnapshotLarge": 6580
   },
   {
     "id": 1782135284801,
@@ -966,7 +1018,9 @@
     "hppSnapshot": 5451,
     "createdAt": "2026-06-22T13:34:44.801Z",
     "kategori": "Coffee",
-    "channel": "cfd"
+    "channel": "cfd",
+    "hargaJualLarge": 16000,
+    "hppSnapshotLarge": 6651
   },
   {
     "id": 1782135477444,
@@ -998,7 +1052,9 @@
       }
     ],
     "hppSnapshot": 6832,
-    "createdAt": "2026-06-22T13:37:57.444Z"
+    "createdAt": "2026-06-22T13:37:57.444Z",
+    "hargaJualLarge": 17000,
+    "hppSnapshotLarge": 8032
   },
   {
     "id": 1782231604118,
@@ -1032,7 +1088,7 @@
     "id": 1782576207437,
     "nama": "Americano",
     "kategori": "Coffee",
-    "channel": "marketplace",
+    "channel": "shopeefood",
     "hargaJual": 11000,
     "catatan": "",
     "ingredients": [
@@ -1054,7 +1110,9 @@
       }
     ],
     "hppSnapshot": 2681,
-    "createdAt": "2026-06-27T16:03:27.437Z"
+    "createdAt": "2026-06-27T16:03:27.437Z",
+    "hargaJualLarge": 14000,
+    "hppSnapshotLarge": 3881
   },
   {
     "id": 1782576262872,
@@ -1098,7 +1156,9 @@
     "hppSnapshot": 6090,
     "createdAt": "2026-06-27T16:04:22.872Z",
     "kategori": "Coffee",
-    "channel": "marketplace"
+    "channel": "shopeefood",
+    "hargaJualLarge": 19000,
+    "hppSnapshotLarge": 7290
   },
   {
     "id": 1782576519768,
@@ -1137,7 +1197,10 @@
     ],
     "hppSnapshot": 4611,
     "createdAt": "2026-06-27T16:08:39.768Z",
-    "channel": "marketplace"
+    "channel": "shopeefood",
+    "hargaJualLarge": 17000,
+    "hppSnapshotLarge": 5811,
+    "kategori": "Coffee"
   },
   {
     "id": 1782576553348,
@@ -1181,7 +1244,9 @@
     "hppSnapshot": 5234,
     "createdAt": "2026-06-27T16:09:13.348Z",
     "kategori": "Coffee",
-    "channel": "marketplace"
+    "channel": "shopeefood",
+    "hargaJualLarge": 19000,
+    "hppSnapshotLarge": 6434
   },
   {
     "id": 1782576587726,
@@ -1225,7 +1290,9 @@
     "hppSnapshot": 6504,
     "createdAt": "2026-06-27T16:09:47.726Z",
     "kategori": "Coffee",
-    "channel": "marketplace"
+    "channel": "shopeefood",
+    "hargaJualLarge": 19000,
+    "hppSnapshotLarge": 7704
   },
   {
     "id": 1782576750108,
@@ -1265,13 +1332,15 @@
     "hppSnapshot": 3608,
     "createdAt": "2026-06-27T16:12:30.108Z",
     "kategori": "Non Coffee",
-    "channel": "marketplace"
+    "channel": "shopeefood",
+    "hargaJualLarge": 14000,
+    "hppSnapshotLarge": 4808
   },
   {
     "id": 1782576880872,
     "nama": "Red Velvet",
     "kategori": "Non Coffee",
-    "channel": "marketplace",
+    "channel": "shopeefood",
     "hargaJual": 11000,
     "catatan": "",
     "ingredients": [
@@ -1309,13 +1378,15 @@
       }
     ],
     "hppSnapshot": 3352,
-    "createdAt": "2026-06-27T16:14:40.872Z"
+    "createdAt": "2026-06-27T16:14:40.872Z",
+    "hargaJualLarge": 14000,
+    "hppSnapshotLarge": 4552
   },
   {
     "id": 1782576896912,
     "nama": "Cokelat",
     "kategori": "Non Coffee",
-    "channel": "marketplace",
+    "channel": "shopeefood",
     "hargaJual": 11000,
     "catatan": "",
     "ingredients": [
@@ -1353,7 +1424,9 @@
       }
     ],
     "hppSnapshot": 3352,
-    "createdAt": "2026-06-27T16:14:56.912Z"
+    "createdAt": "2026-06-27T16:14:56.912Z",
+    "hargaJualLarge": 14000,
+    "hppSnapshotLarge": 4552
   },
   {
     "id": 1782576944852,
@@ -1397,7 +1470,9 @@
     "hppSnapshot": 3652,
     "createdAt": "2026-06-27T16:15:44.852Z",
     "kategori": "Non Coffee",
-    "channel": "marketplace"
+    "channel": "shopeefood",
+    "hargaJualLarge": 14000,
+    "hppSnapshotLarge": 4852
   },
   {
     "id": 1782751039166,
@@ -1417,7 +1492,9 @@
       }
     ],
     "hppSnapshot": 1383,
-    "createdAt": "2026-06-29T16:37:19.166Z"
+    "createdAt": "2026-06-29T16:37:19.166Z",
+    "hargaJualLarge": 11000,
+    "hppSnapshotLarge": 2583
   },
   {
     "id": 1782915828948,
@@ -1437,7 +1514,9 @@
       }
     ],
     "hppSnapshot": 1953,
-    "createdAt": "2026-07-01T14:23:48.948Z"
+    "createdAt": "2026-07-01T14:23:48.948Z",
+    "hargaJualLarge": 11000,
+    "hppSnapshotLarge": 3153
   },
   {
     "id": 1782916382912,
@@ -1483,7 +1562,7 @@
     "id": 1787586206038,
     "nama": "Telang Tea",
     "kategori": "Non Coffee",
-    "channel": "marketplace",
+    "channel": "shopeefood",
     "hargaJual": 8000,
     "catatan": "",
     "ingredients": [
@@ -1509,13 +1588,15 @@
       }
     ],
     "hppSnapshot": 2742,
-    "createdAt": "2026-08-24T15:43:26.038Z"
+    "createdAt": "2026-08-24T15:43:26.038Z",
+    "hargaJualLarge": 11000,
+    "hppSnapshotLarge": 3942
   },
   {
     "id": 1787586883989,
     "nama": "Rosella Tea",
     "kategori": "Non Coffee",
-    "channel": "marketplace",
+    "channel": "shopeefood",
     "hargaJual": 8000,
     "catatan": "",
     "ingredients": [
@@ -1541,7 +1622,9 @@
       }
     ],
     "hppSnapshot": 3312,
-    "createdAt": "2026-08-24T15:54:43.989Z"
+    "createdAt": "2026-08-24T15:54:43.989Z",
+    "hargaJualLarge": 11000,
+    "hppSnapshotLarge": 4512
   },
   {
     "id": 1787926462075,
@@ -1574,7 +1657,9 @@
     "createdAt": "2026-08-28T14:14:22.075Z",
     "kategori": "Coffee",
     "channel": "tiktokgo",
-    "komisiAfiliate": 8
+    "komisiAfiliate": 8,
+    "hargaJualLarge": 18000,
+    "hppSnapshotLarge": 4395
   },
   {
     "id": 1787926757017,
@@ -1603,7 +1688,9 @@
     ],
     "hppSnapshot": 6101,
     "createdAt": "2026-08-28T14:19:17.017Z",
-    "komisiAfiliate": 5.88
+    "komisiAfiliate": 5.88,
+    "hargaJualLarge": 20000,
+    "hppSnapshotLarge": 7301
   },
   {
     "id": 1787928047863,
@@ -1648,7 +1735,9 @@
     "createdAt": "2026-08-28T14:40:47.863Z",
     "kategori": "Coffee",
     "channel": "tiktokgo",
-    "komisiAfiliate": 7
+    "komisiAfiliate": 7,
+    "hargaJualLarge": 19000,
+    "hppSnapshotLarge": 7750
   },
   {
     "id": 1787929281547,
@@ -1688,7 +1777,9 @@
     "hppSnapshot": 4611,
     "createdAt": "2026-08-28T15:01:21.547Z",
     "channel": "tiktokgo",
-    "komisiAfiliate": 6
+    "komisiAfiliate": 6,
+    "hargaJualLarge": 17000,
+    "hppSnapshotLarge": 5811
   },
   {
     "id": 1787930382658,
@@ -1733,7 +1824,9 @@
     "createdAt": "2026-08-28T15:19:42.658Z",
     "kategori": "Coffee",
     "channel": "tiktokgo",
-    "komisiAfiliate": 6
+    "komisiAfiliate": 6,
+    "hargaJualLarge": 19000,
+    "hppSnapshotLarge": 6434
   },
   {
     "id": 1787930946111,
@@ -1782,7 +1875,9 @@
     "createdAt": "2026-08-28T15:29:06.111Z",
     "kategori": "Coffee",
     "channel": "tiktokgo",
-    "komisiAfiliate": 6
+    "komisiAfiliate": 6,
+    "hargaJualLarge": 19000,
+    "hppSnapshotLarge": 7705
   },
   {
     "id": 1787931771901,
@@ -1831,7 +1926,9 @@
     "createdAt": "2026-08-28T15:42:51.901Z",
     "kategori": "Coffee",
     "channel": "tiktokgo",
-    "komisiAfiliate": 6
+    "komisiAfiliate": 6,
+    "hargaJualLarge": 19000,
+    "hppSnapshotLarge": 7682
   },
   {
     "id": 1787932158442,
@@ -1879,14 +1976,16 @@
     "hppSnapshot": 6482,
     "createdAt": "2026-08-28T15:49:18.442Z",
     "kategori": "Coffee",
-    "channel": "marketplace",
-    "komisiAfiliate": 10
+    "channel": "shopeefood",
+    "komisiAfiliate": 10,
+    "hargaJualLarge": 19000,
+    "hppSnapshotLarge": 7682
   },
   {
     "id": 1787932303420,
     "nama": "MONT BLANC",
     "kategori": "Coffee",
-    "channel": "marketplace",
+    "channel": "shopeefood",
     "hargaJual": 16000,
     "catatan": "",
     "ingredients": [
@@ -1928,7 +2027,9 @@
       }
     ],
     "hppSnapshot": 6654,
-    "createdAt": "2026-08-28T15:51:43.420Z"
+    "createdAt": "2026-08-28T15:51:43.420Z",
+    "hargaJualLarge": 19000,
+    "hppSnapshotLarge": 7854
   },
   {
     "id": 1787932509634,
@@ -1965,6 +2066,162 @@
     ],
     "hppSnapshot": 6833,
     "createdAt": "2026-08-28T15:55:09.634Z",
-    "komisiAfiliate": 0
+    "komisiAfiliate": 0,
+    "hargaJualLarge": 19000,
+    "hppSnapshotLarge": 8033
+  },
+  {
+    "id": 1789900000001,
+    "nama": "Americano (Pelajar)",
+    "kategori": "Kopi Pelajar",
+    "channel": "kedai",
+    "hargaJual": 6000,
+    "hargaJualLarge": 8000,
+    "catatan": "Tarif khusus tunjukkan kartu pelajar/mahasiswa",
+    "ingredients": [
+      {
+        "bahanId": 1779033835037,
+        "qty": 12
+      },
+      {
+        "bahanId": 1779035263736,
+        "qty": 50
+      },
+      {
+        "bahanId": 1779202657310,
+        "qty": 1
+      }
+    ],
+    "hppSnapshot": 1520,
+    "hppSnapshotLarge": 2220,
+    "createdAt": "2026-10-13T15:20:37.729Z"
+  },
+  {
+    "id": 1789900000002,
+    "nama": "Kopi Susu (Pelajar)",
+    "kategori": "Kopi Pelajar",
+    "channel": "kedai",
+    "hargaJual": 8000,
+    "hargaJualLarge": 11000,
+    "catatan": "Tarif khusus tunjukkan kartu pelajar/mahasiswa",
+    "ingredients": [
+      {
+        "bahanId": 1779033835037,
+        "qty": 12
+      },
+      {
+        "bahanId": 1779034145985,
+        "qty": 35
+      },
+      {
+        "bahanId": 1779034872085,
+        "qty": 5
+      },
+      {
+        "bahanId": 1779034629196,
+        "qty": 8
+      },
+      {
+        "bahanId": 1779202657310,
+        "qty": 1
+      }
+    ],
+    "hppSnapshot": 2650,
+    "hppSnapshotLarge": 3850,
+    "createdAt": "2026-10-13T15:20:37.729Z"
+  },
+  {
+    "id": 1789900000003,
+    "nama": "Gula Aren (Pelajar)",
+    "kategori": "Kopi Pelajar",
+    "channel": "kedai",
+    "hargaJual": 8000,
+    "hargaJualLarge": 11000,
+    "catatan": "Tarif khusus tunjukkan kartu pelajar/mahasiswa",
+    "ingredients": [
+      {
+        "bahanId": 1779033835037,
+        "qty": 12
+      },
+      {
+        "bahanId": 1779204853975,
+        "qty": 12
+      },
+      {
+        "bahanId": 1779034145985,
+        "qty": 35
+      },
+      {
+        "bahanId": 1779034629196,
+        "qty": 8
+      },
+      {
+        "bahanId": 1779202657310,
+        "qty": 1
+      }
+    ],
+    "hppSnapshot": 2950,
+    "hppSnapshotLarge": 4150,
+    "createdAt": "2026-10-13T15:20:37.729Z"
+  },
+  {
+    "id": 1789900000004,
+    "nama": "Matcha (Pelajar)",
+    "kategori": "Kopi Pelajar",
+    "channel": "kedai",
+    "hargaJual": 8000,
+    "hargaJualLarge": 11000,
+    "catatan": "Tarif khusus tunjukkan kartu pelajar/mahasiswa",
+    "ingredients": [
+      {
+        "bahanId": 1779034688640,
+        "qty": 10
+      },
+      {
+        "bahanId": 1779034145985,
+        "qty": 40
+      },
+      {
+        "bahanId": 1779034629196,
+        "qty": 10
+      },
+      {
+        "bahanId": 1779202657310,
+        "qty": 1
+      }
+    ],
+    "hppSnapshot": 2800,
+    "hppSnapshotLarge": 4000,
+    "createdAt": "2026-10-13T15:20:37.729Z"
+  },
+  {
+    "id": 1789900000005,
+    "nama": "Cokelat (Pelajar)",
+    "kategori": "Kopi Pelajar",
+    "channel": "kedai",
+    "hargaJual": 8000,
+    "hargaJualLarge": 11000,
+    "catatan": "Tarif khusus tunjukkan kartu pelajar/mahasiswa",
+    "ingredients": [
+      {
+        "bahanId": 1779554428619,
+        "qty": 12
+      },
+      {
+        "bahanId": 1779034145985,
+        "qty": 40
+      },
+      {
+        "bahanId": 1779034629196,
+        "qty": 10
+      },
+      {
+        "bahanId": 1779202657310,
+        "qty": 1
+      }
+    ],
+    "hppSnapshot": 2700,
+    "hppSnapshotLarge": 3900,
+    "createdAt": "2026-10-13T15:20:37.729Z"
   }
 ]

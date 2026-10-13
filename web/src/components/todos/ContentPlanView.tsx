@@ -1,277 +1,631 @@
 import React, { useState, useMemo } from 'react';
-import { 
-  CalendarDays, 
-  CheckCircle2, 
-  Circle, 
-  Search, 
-  Video, 
-  Image, 
-  Layers, 
-  Hash
-} from 'lucide-react';
-import type { TodoContentItem, BrandId } from '../../types';
+import type { TodoContentItem, PilarItem, BrandId } from '../../types';
+import {
+  getHari,
+  fmtTanggal,
+  getPilarStyle,
+  BRAND_LABEL,
+  BRAND_ICONS
+} from '../../lib/contentPlanUtils';
+import { getBulanLabel } from '../../lib/keuanganUtils';
+import {
+  ContentDetailModal,
+  AddEditContentModal,
+  KelolaPilarModal,
+  BulkImportTodosModal
+} from './ContentPlanModals';
 
-interface ContentPlanViewProps {
+export interface ContentPlanViewProps {
   todos: TodoContentItem[];
+  pilars: PilarItem[];
   activeBrand: BrandId;
   onBrandChange: (brand: BrandId) => void;
-  onToggleTodo?: (id: number | string) => void;
+  onSaveTodo: (todo: TodoContentItem) => Promise<void>;
+  onUpdateTodo: (todo: TodoContentItem) => Promise<void>;
+  onDeleteTodo: (id: number | string) => Promise<void>;
+  onToggleTodo: (id: number | string) => Promise<void>;
+  onSetBoardStatus: (id: number | string, status: 'not_started' | 'in_progress' | 'done') => Promise<void>;
+  onSavePilars: (pilars: PilarItem[]) => Promise<void>;
+  onBulkImportTodos: (items: TodoContentItem[], mode: 'append' | 'replaceBrand', targetBrand?: string) => Promise<void>;
 }
 
 export const ContentPlanView: React.FC<ContentPlanViewProps> = ({
   todos,
+  pilars,
   activeBrand,
   onBrandChange,
-  onToggleTodo
+  onSaveTodo,
+  onUpdateTodo,
+  onDeleteTodo,
+  onToggleTodo,
+  onSetBoardStatus,
+  onSavePilars,
+  onBulkImportTodos
 }) => {
-  const [selectedBulan, setSelectedBulan] = useState<string>('all');
-  const [selectedStatus, setSelectedStatus] = useState<'all' | 'todo' | 'done'>('all');
-  const [searchTerm, setSearchTerm] = useState('');
+  // View mode: 'table' or 'board'
+  const [viewMode, setViewMode] = useState<'table' | 'board'>('table');
+  const [searchTerm, setSearchTerm] = useState<string>('');
+
+  // Accordion collapsed state per month/brand
+  const [collapsedMonths, setCollapsedMonths] = useState<Record<string, boolean>>({});
+
+  // Modal states
+  const [selectedDetailItem, setSelectedDetailItem] = useState<TodoContentItem | null>(null);
+  const [selectedEditItem, setSelectedEditItem] = useState<TodoContentItem | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [addModalInitialBulan, setAddModalInitialBulan] = useState<string>('');
+  const [isKelolaPilarOpen, setIsKelolaPilarOpen] = useState(false);
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
+
+  // Drag & drop state for Board view
+  const [draggedId, setDraggedId] = useState<number | string | null>(null);
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
   // Filter per brand aktif
   const brandTodos = useMemo(() => {
     return todos.filter((t) => (t.brand || '').toLowerCase() === activeBrand.toLowerCase());
   }, [todos, activeBrand]);
 
-  // Daftar bulan yang tersedia
-  const availableMonths = useMemo(() => {
-    const set = new Set<string>();
-    brandTodos.forEach((t) => {
-      if (t.bulan) set.add(t.bulan);
-    });
-    return Array.from(set).sort().reverse();
-  }, [brandTodos]);
+  // Current month key (YYYY-MM)
+  const [currentMonthKey] = useState(() => new Date().toISOString().substring(0, 7));
 
-  // Filtered list
-  const filteredTodos = useMemo(() => {
+  // Filter by search
+  const searchedTodos = useMemo(() => {
+    if (!searchTerm.trim()) return brandTodos;
+    const q = searchTerm.toLowerCase();
     return brandTodos.filter((t) => {
-      if (selectedBulan !== 'all' && t.bulan !== selectedBulan) return false;
-      if (selectedStatus === 'done' && !t.done) return false;
-      if (selectedStatus === 'todo' && t.done) return false;
-      if (searchTerm) {
-        const term = searchTerm.toLowerCase();
-        const jMatch = (t.judul || '').toLowerCase().includes(term);
-        const pMatch = (t.pilar || '').toLowerCase().includes(term);
-        const hMatch = (t.hook || '').toLowerCase().includes(term);
-        if (!jMatch && !pMatch && !hMatch) return false;
-      }
-      return true;
-    }).sort((a, b) => (a.tanggalPosting || '').localeCompare(b.tanggalPosting || ''));
-  }, [brandTodos, selectedBulan, selectedStatus, searchTerm]);
+      const matchJudul = (t.judul || '').toLowerCase().includes(q);
+      const matchPilar = (t.pilar || '').toLowerCase().includes(q);
+      const matchHook = (t.hook || '').toLowerCase().includes(q);
+      const matchNotes = (t.notes || '').toLowerCase().includes(q);
+      const matchFormat = (t.format || '').toLowerCase().includes(q);
+      return matchJudul || matchPilar || matchHook || matchNotes || matchFormat;
+    });
+  }, [brandTodos, searchTerm]);
+
+  // Grouped by month for Table View
+  const { sortedMonths, byMonth } = useMemo(() => {
+    const map: Record<string, TodoContentItem[]> = {};
+    const sorted = [...searchedTodos].sort((a, b) => {
+      return (a.tanggalPosting || '').localeCompare(b.tanggalPosting || '');
+    });
+
+    sorted.forEach((t) => {
+      const key = t.bulan || (t.tanggalPosting ? t.tanggalPosting.substring(0, 7) : 'unset');
+      if (!map[key]) map[key] = [];
+      map[key].push(t);
+    });
+
+    // Ascending = oldest first, matching PrataniHQ_v4.2.html
+    const months = Object.keys(map).sort((a, b) => a.localeCompare(b));
+    return { sortedMonths: months, byMonth: map };
+  }, [searchedTodos]);
+
+  // Toggle month collapse
+  const toggleMonth = (key: string) => {
+    setCollapsedMonths((prev) => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  // Helper status for board
+  const getStatus = (t: TodoContentItem): 'not_started' | 'in_progress' | 'done' => {
+    if (t.boardStatus === 'done' || t.done) return 'done';
+    if (t.boardStatus === 'in_progress') return 'in_progress';
+    return 'not_started';
+  };
+
+  // Board columns configuration
+  const boardCols = [
+    { key: 'not_started' as const, label: 'Not Started', dot: '#5a7a9a', cls: 'col-not-started' },
+    { key: 'in_progress' as const, label: 'In Progress', dot: 'var(--accent)', cls: 'col-in-progress' },
+    { key: 'done' as const, label: 'Done', dot: 'var(--green)', cls: 'col-done' }
+  ];
+
+  // Drag handlers
+  const handleDragStart = (e: React.DragEvent, id: number | string) => {
+    setDraggedId(id);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(id));
+  };
+
+  const handleDragEnd = () => {
+    setDraggedId(null);
+    setDragOverCol(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent, colKey: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverCol !== colKey) setDragOverCol(colKey);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    const related = e.relatedTarget as Node | null;
+    if (!e.currentTarget.contains(related)) {
+      setDragOverCol(null);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent, colKey: 'not_started' | 'in_progress' | 'done') => {
+    e.preventDefault();
+    setDragOverCol(null);
+    if (!draggedId) return;
+    await onSetBoardStatus(draggedId, colKey);
+    setDraggedId(null);
+  };
 
   // Progress stats
-  const totalCount = brandTodos.length;
-  const doneCount = brandTodos.filter((t) => t.done).length;
-  const progressPct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+  const totalBrandCount = brandTodos.length;
+  const doneBrandCount = brandTodos.filter((t) => t.done).length;
+  const progressPct = totalBrandCount > 0 ? Math.round((doneBrandCount / totalBrandCount) * 100) : 0;
 
-  const getFormatIcon = (format: string) => {
-    const f = (format || '').toLowerCase();
-    if (f.includes('video') || f.includes('reels') || f.includes('tiktok')) {
-      return <Video className="w-3.5 h-3.5 text-rose-400" />;
-    }
-    if (f.includes('carousel')) {
-      return <Layers className="w-3.5 h-3.5 text-purple-400" />;
-    }
-    return <Image className="w-3.5 h-3.5 text-sky-400" />;
-  };
-
-  const getPilarBadgeClass = (pilar: string) => {
-    const p = (pilar || '').toLowerCase();
-    if (p.includes('produk')) return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
-    if (p.includes('edukasi') || p.includes('educational')) return 'bg-sky-500/10 text-sky-400 border-sky-500/20';
-    if (p.includes('behind') || p.includes('suasana')) return 'bg-rose-500/10 text-rose-400 border-rose-500/20';
-    if (p.includes('inspirational') || p.includes('vibes')) return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
-    return 'bg-purple-500/10 text-purple-400 border-purple-500/20';
-  };
+  let rowCounter = 0; // global counter per brand view
 
   return (
-    <div className="space-y-5">
-      {/* Top Header & Brand Switcher */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h3 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-            <CalendarDays className="w-5 h-5 text-amber-400" />
-            <span>Content Plan Calendar & Social Media Board</span>
-          </h3>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Manajemen kalender editorial, pilar konten, copy hook & CTA brand {activeBrand.toUpperCase()}.
-          </p>
-        </div>
-
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {/* ── TOPBAR: BRAND TABS & VIEW TOGGLE & ACTIONS ── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
         {/* Brand Selector */}
-        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-surface border border-white/5">
-          {(['dikopi', 'kolektiva', 'imagineer'] as BrandId[]).map((b) => (
-            <button
-              key={b}
-              onClick={() => onBrandChange(b)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
-                activeBrand === b
-                  ? 'bg-amber-500 text-slate-950 shadow-sm'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              {b}
-            </button>
-          ))}
+        <div className="filter-row" style={{ marginBottom: 0 }}>
+          {(['dikopi', 'kolektiva', 'imagineer'] as BrandId[]).map((b) => {
+            const count = todos.filter((t) => (t.brand || '').toLowerCase() === b.toLowerCase()).length;
+            return (
+              <button
+                key={b}
+                onClick={() => onBrandChange(b)}
+                className={`filter-btn ${activeBrand === b ? 'active' : ''}`}
+                style={{ textTransform: 'capitalize', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <span>{BRAND_ICONS[b]} {BRAND_LABEL[b]}</span>
+                <span style={{ fontSize: '10px', background: activeBrand === b ? 'rgba(255,255,255,0.2)' : 'var(--surface2)', padding: '1px 6px', borderRadius: '99px' }}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
         </div>
-      </div>
 
-      {/* Progress Card */}
-      <div className="glass-card p-4 rounded-xl border border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex-1">
-          <div className="flex justify-between items-center text-xs font-semibold mb-1.5">
-            <span className="text-slate-300">Eksekusi Konten {activeBrand.toUpperCase()}</span>
-            <span className="font-mono text-emerald-400 font-bold">{doneCount} / {totalCount} Selesai ({progressPct}%)</span>
-          </div>
-          <div className="w-full h-2 rounded-full bg-white/5 overflow-hidden">
-            <div 
-              className="h-full bg-gradient-to-r from-amber-500 to-emerald-400 rounded-full transition-all duration-500"
-              style={{ width: `${progressPct}%` }}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Filter and Search Bar */}
-      <div className="glass-card p-3 rounded-xl border border-white/5 flex flex-wrap items-center justify-between gap-3">
-        <div className="relative flex-1 min-w-[240px]">
-          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        {/* View Toggle & Actions */}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Search Box */}
           <input
             type="text"
-            placeholder="Cari judul, pilar, atau hook..."
+            className="form-input"
+            placeholder="🔍 Cari konten / pilar / hook..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-[#0a0e17] border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
+            style={{ width: '210px', padding: '6px 12px', fontSize: '12px' }}
+          />
+
+          {/* View Toggle */}
+          <div className="view-toggle">
+            <button
+              type="button"
+              className={`view-toggle-btn ${viewMode === 'table' ? 'active' : ''}`}
+              onClick={() => setViewMode('table')}
+            >
+              ≡ Table
+            </button>
+            <button
+              type="button"
+              className={`view-toggle-btn ${viewMode === 'board' ? 'active' : ''}`}
+              onClick={() => setViewMode('board')}
+            >
+              ⊞ Board
+            </button>
+          </div>
+
+          {/* Kelola Pilar */}
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() => setIsKelolaPilarOpen(true)}
+            title="Kelola Konten Pilar & Warna"
+          >
+            🏷️ Kelola Pilar
+          </button>
+
+          {/* Bulk Import JSON */}
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() => setIsBulkImportOpen(true)}
+            style={{ borderColor: 'rgba(56, 189, 248, 0.3)', color: 'var(--accent)' }}
+            title="Upload Bulk Data dari File JSON"
+          >
+            📥 Import JSON
+          </button>
+
+          {/* Tambah Konten */}
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={() => {
+              setAddModalInitialBulan(currentMonthKey);
+              setIsAddModalOpen(true);
+            }}
+          >
+            + Konten
+          </button>
+        </div>
+      </div>
+
+      {/* ── EXECUTION PROGRESS STRIP ── */}
+      <div className="card" style={{ padding: '12px 18px', marginBottom: '2px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '14px' }}>{BRAND_ICONS[activeBrand]}</span>
+            <span style={{ fontWeight: 600, fontSize: '13px' }}>
+              Eksekusi Konten — {BRAND_LABEL[activeBrand].toUpperCase()}
+            </span>
+          </div>
+          <div style={{ fontFamily: 'DM Mono', fontSize: '12px', color: 'var(--muted)' }}>
+            <strong style={{ color: 'var(--green)' }}>{doneBrandCount}</strong> dari {totalBrandCount} posted ({progressPct}%)
+          </div>
+        </div>
+        <div className="progress-bar" style={{ height: '6px' }}>
+          <div
+            className="progress-fill"
+            style={{
+              width: `${progressPct}%`,
+              background: progressPct === 100 ? 'var(--green)' : 'var(--accent)'
+            }}
           />
         </div>
-
-        <div className="flex items-center gap-2">
-          {/* Status filter */}
-          <div className="flex items-center rounded-lg bg-[#0a0e17] p-0.5 border border-white/10 text-xs">
-            <button
-              onClick={() => setSelectedStatus('all')}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
-                selectedStatus === 'all' ? 'bg-white/10 text-white font-bold' : 'text-slate-400'
-              }`}
-            >
-              Semua
-            </button>
-            <button
-              onClick={() => setSelectedStatus('todo')}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
-                selectedStatus === 'todo' ? 'bg-amber-500/20 text-amber-300 font-bold' : 'text-slate-400'
-              }`}
-            >
-              Belum
-            </button>
-            <button
-              onClick={() => setSelectedStatus('done')}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
-                selectedStatus === 'done' ? 'bg-emerald-500/20 text-emerald-300 font-bold' : 'text-slate-400'
-              }`}
-            >
-              Selesai
-            </button>
-          </div>
-
-          {/* Month selector */}
-          <select
-            value={selectedBulan}
-            onChange={(e) => setSelectedBulan(e.target.value)}
-            className="px-2.5 py-1.5 rounded-lg bg-[#0a0e17] border border-white/10 text-[11px] font-mono text-slate-300 focus:outline-none"
-          >
-            <option value="all">Semua Bulan</option>
-            {availableMonths.map((m) => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
-        </div>
       </div>
 
-      {/* Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredTodos.length === 0 ? (
-          <div className="col-span-full py-12 text-center text-slate-500 glass-card rounded-2xl">
-            Tidak ada rencana konten yang cocok dengan filter ini.
-          </div>
-        ) : (
-          filteredTodos.map((item) => (
-            <div
-              key={item.id}
-              className={`glass-card rounded-2xl p-5 border transition-all flex flex-col justify-between ${
-                item.done ? 'border-emerald-500/20 bg-emerald-500/[0.02]' : 'border-white/5 hover:border-amber-500/30'
-              }`}
-            >
-              <div>
-                {/* Card Top: Date & Badges */}
-                <div className="flex items-start justify-between gap-2 mb-2.5">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => onToggleTodo && onToggleTodo(item.id)}
-                      className="text-slate-400 hover:text-emerald-400 transition-colors"
-                      title={item.done ? 'Tandai belum selesai' : 'Tandai sudah diposting'}
-                    >
-                      {item.done ? (
-                        <CheckCircle2 className="w-5 h-5 text-emerald-400 fill-emerald-400/20" />
-                      ) : (
-                        <Circle className="w-5 h-5 text-slate-600 hover:text-amber-400" />
+      {/* ========================================================= */}
+      {/* ── 1. TABLE VIEW (ACCORDION MONTH BLOCKS) ─────────────── */}
+      {/* ========================================================= */}
+      {viewMode === 'table' ? (
+        <div>
+          {sortedMonths.length === 0 ? (
+            <div className="empty">
+              <div className="empty-icon">📅</div>
+              Belum ada konten planning untuk brand {BRAND_LABEL[activeBrand]}
+            </div>
+          ) : (
+            sortedMonths.map((key) => {
+              const items = byMonth[key];
+              const doneCount = items.filter((t) => t.done).length;
+              const allDone = doneCount === items.length && items.length > 0;
+              const collapseKey = `${activeBrand}_${key}`;
+              const isCollapsed = collapsedMonths[collapseKey] ?? (key !== currentMonthKey && allDone);
+              const label = key === 'unset' ? 'Belum ada tanggal' : getBulanLabel(key);
+
+              return (
+                <div key={key} className="month-block">
+                  {/* Month Header (Accordion Trigger) */}
+                  <div
+                    className={`month-header ${isCollapsed ? 'collapsed' : ''}`}
+                    onClick={() => toggleMonth(collapseKey)}
+                  >
+                    <div className="month-header-left">
+                      <span className="month-chevron">▾</span>
+                      <span className="month-title">{label}</span>
+                      <span className="month-count">{items.length} konten</span>
+                      {doneCount > 0 && (
+                        <span className="month-done-count">· {doneCount} done</span>
                       )}
-                    </button>
-                    <span className="font-mono text-xs font-semibold text-slate-300">
-                      {item.tanggalPosting}
-                    </span>
+                      {allDone && (
+                        <span className="pill pill-done" style={{ fontSize: '10px' }}>
+                          ✅ Selesai
+                        </span>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAddModalInitialBulan(key !== 'unset' ? key : currentMonthKey);
+                          setIsAddModalOpen(true);
+                        }}
+                      >
+                        + Konten
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
-                    <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono bg-white/5 text-slate-300 border border-white/10">
-                      {getFormatIcon(item.format)}
-                      <span>{item.format}</span>
-                    </span>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-mono border ${getPilarBadgeClass(item.pilar)}`}>
-                      {item.pilar}
-                    </span>
-                  </div>
+                  {/* Month Table Body */}
+                  {!isCollapsed && (
+                    <div className="content-table-wrap">
+                      <table className="content-table">
+                        <thead>
+                          <tr>
+                            <th className="td-no">No</th>
+                            <th className="td-tanggal">Tgl Posting</th>
+                            <th className="td-hari">Hari</th>
+                            <th className="td-pilar">Pilar</th>
+                            <th className="td-brand">Brand</th>
+                            <th className="td-format">Format</th>
+                            <th className="td-judul">Judul / Tema</th>
+                            <th className="td-hook">Caption Hook</th>
+                            <th className="td-cta">CTA</th>
+                            <th className="td-hashtag">Hashtag Bucket</th>
+                            <th className="td-status">Status</th>
+                            <th className="td-notes">Notes</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {items.map((t) => {
+                            rowCounter++;
+                            return (
+                              <tr
+                                key={t.id}
+                                className={t.done ? 'row-done' : ''}
+                                style={{ cursor: 'pointer' }}
+                                onClick={() => setSelectedDetailItem(t)}
+                              >
+                                <td className="td-no">{rowCounter}</td>
+                                <td className="td-tanggal">{fmtTanggal(t.tanggalPosting)}</td>
+                                <td className="td-hari">{getHari(t.tanggalPosting)}</td>
+                                <td className="td-pilar">
+                                  <span
+                                    className="pill-pilar"
+                                    style={getPilarStyle(t.pilar, pilars)}
+                                  >
+                                    {t.pilar || '—'}
+                                  </span>
+                                </td>
+                                <td className="td-brand">
+                                  <span style={{ color: `var(--${t.brand})`, fontSize: '10.5px', fontWeight: 600 }}>
+                                    {BRAND_LABEL[t.brand] || '—'}
+                                  </span>
+                                </td>
+                                <td className="td-format">{t.format || '—'}</td>
+                                <td className="td-judul">
+                                  <strong style={{ color: t.done ? 'var(--text2)' : 'var(--text)' }}>
+                                    {t.judul || '—'}
+                                  </strong>
+                                </td>
+                                <td className="td-hook">{t.hook || '—'}</td>
+                                <td className="td-cta">{t.cta || '—'}</td>
+                                <td className="td-hashtag">{t.hashtag || '—'}</td>
+                                <td className="td-status" onClick={(e) => e.stopPropagation()}>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>
+                                    <div
+                                      className={`tbl-check ${t.done ? 'done' : ''}`}
+                                      onClick={() => onToggleTodo(t.id)}
+                                      title={t.done ? 'Done (Klik untuk batal)' : 'Belum (Klik untuk selesai)'}
+                                    >
+                                      {t.done ? '✓' : ''}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      className="tbl-action-btn tbl-edit"
+                                      onClick={() => setSelectedEditItem(t)}
+                                      title="Edit Konten"
+                                    >
+                                      ✏️
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="tbl-action-btn tbl-del"
+                                      onClick={async () => {
+                                        if (window.confirm('Hapus konten ini?')) {
+                                          await onDeleteTodo(t.id);
+                                        }
+                                      }}
+                                      title="Hapus Konten"
+                                    >
+                                      🗑️
+                                    </button>
+                                  </div>
+                                </td>
+                                <td className="td-notes">{t.notes || '—'}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+
+          {/* Add New Content Global Button */}
+          <button
+            type="button"
+            className="month-add-btn"
+            onClick={() => {
+              setAddModalInitialBulan(currentMonthKey);
+              setIsAddModalOpen(true);
+            }}
+          >
+            + Tambah Konten Baru
+          </button>
+        </div>
+      ) : (
+        /* ========================================================= */
+        /* ── 2. BOARD VIEW (KANBAN WITH DRAG & DROP) ─────────────── */
+        /* ========================================================= */
+        <div className="board-wrap">
+          {boardCols.map((col) => {
+            const colItems = searchedTodos
+              .filter((t) => getStatus(t) === col.key)
+              .sort((a, b) => (a.tanggalPosting || '').localeCompare(b.tanggalPosting || ''));
+            const isColumnOver = dragOverCol === col.key;
+
+            return (
+              <div key={col.key} className={`board-col ${col.cls}`}>
+                {/* Column Header */}
+                <div className="board-col-header">
+                  <div className="board-col-dot" style={{ background: col.dot }} />
+                  <div className="board-col-title">{col.label}</div>
+                  <div className="board-col-count">{colItems.length}</div>
                 </div>
 
-                {/* Title */}
-                <h4 className={`font-bold text-sm leading-snug mt-1 ${item.done ? 'line-through text-slate-400' : 'text-white'}`}>
-                  {item.judul}
-                </h4>
+                {/* Cards Container with Drag and Drop */}
+                <div
+                  className={`board-cards ${isColumnOver ? 'drag-over' : ''}`}
+                  onDragOver={(e) => handleDragOver(e, col.key)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, col.key)}
+                >
+                  {colItems.map((t) => {
+                    const status = getStatus(t);
+                    const otherStatuses = boardCols.filter((c) => c.key !== status);
+                    const isDraggingThis = draggedId === t.id;
 
-                {/* Hook & CTA */}
-                {item.hook && (
-                  <div className="mt-2.5 p-2 rounded-lg bg-white/[0.02] border border-white/5 text-[11px] text-slate-300">
-                    <span className="font-semibold text-amber-400 block text-[10px] uppercase font-mono mb-0.5">Hook:</span>
-                    {item.hook}
-                  </div>
-                )}
+                    return (
+                      <div
+                        key={t.id}
+                        className={`board-card ${isDraggingThis ? 'dragging' : ''}`}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, t.id)}
+                        onDragEnd={handleDragEnd}
+                        onClick={() => setSelectedDetailItem(t)}
+                      >
+                        <div
+                          className="board-card-brand"
+                          style={{ color: `var(--${t.brand})` }}
+                        >
+                          {BRAND_LABEL[t.brand] || t.brand}
+                        </div>
+                        <div className="board-card-konsep">
+                          {t.judul || 'Tanpa judul'}
+                        </div>
+                        <div className="board-card-meta">
+                          {t.pilar && (
+                            <span
+                              className="pill-pilar"
+                              style={{ ...getPilarStyle(t.pilar, pilars), fontSize: '10px', padding: '2px 8px', borderRadius: '99px' }}
+                            >
+                              {t.pilar}
+                            </span>
+                          )}
+                          {t.tanggalPosting && (
+                            <span className="board-card-date">
+                              📅 {fmtTanggal(t.tanggalPosting)}
+                            </span>
+                          )}
+                        </div>
 
-                {item.cta && (
-                  <div className="mt-2 text-[11px] text-slate-400">
-                    <span className="text-slate-500 font-semibold font-mono text-[10px] uppercase mr-1">CTA:</span>
-                    {item.cta}
-                  </div>
-                )}
+                        {/* Quick Card Actions */}
+                        <div
+                          className="board-card-actions"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {otherStatuses.map((s) => (
+                            <button
+                              key={s.key}
+                              type="button"
+                              className="board-action-btn"
+                              onClick={() => onSetBoardStatus(t.id, s.key)}
+                              title={`Pindahkan ke ${s.label}`}
+                            >
+                              → {s.label}
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            className="board-action-btn"
+                            onClick={() => setSelectedEditItem(t)}
+                            title="Edit"
+                            style={{ flex: '0 0 auto', padding: '4px 6px' }}
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            type="button"
+                            className="board-action-btn danger"
+                            onClick={async () => {
+                              if (window.confirm('Hapus konten ini?')) {
+                                await onDeleteTodo(t.id);
+                              }
+                            }}
+                            title="Hapus"
+                            style={{ flex: '0 0 auto', padding: '4px 6px' }}
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Add Card to this Column */}
+                <button
+                  type="button"
+                  className="board-add-btn"
+                  onClick={() => {
+                    setAddModalInitialBulan(currentMonthKey);
+                    setIsAddModalOpen(true);
+                  }}
+                >
+                  + New page
+                </button>
               </div>
+            );
+          })}
+        </div>
+      )}
 
-              {/* Bottom: Notes & Hashtags */}
-              <div className="mt-3 pt-3 border-t border-white/5 space-y-2">
-                {item.hashtag && (
-                  <div className="flex items-start gap-1.5 text-[10px] font-mono text-slate-500">
-                    <Hash className="w-3 h-3 text-slate-500 shrink-0 mt-0.5" />
-                    <span className="truncate">{item.hashtag}</span>
-                  </div>
-                )}
-                {item.notes && (
-                  <div className="text-[10px] text-slate-400 bg-surface-2 p-2 rounded-lg leading-relaxed max-h-20 overflow-y-auto">
-                    {item.notes}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+      {/* ========================================================= */}
+      {/* ── MODALS ─────────────────────────────────────────────── */}
+      {/* ========================================================= */}
+      {/* Detail Modal */}
+      {Boolean(selectedDetailItem) && (
+        <ContentDetailModal
+          isOpen={true}
+          onClose={() => setSelectedDetailItem(null)}
+          item={selectedDetailItem}
+          pilars={pilars}
+          onEdit={(item) => setSelectedEditItem(item)}
+          onDelete={onDeleteTodo}
+          onToggleDone={onToggleTodo}
+        />
+      )}
+
+      {/* Add & Edit Modal */}
+      {(isAddModalOpen || Boolean(selectedEditItem)) && (
+        <AddEditContentModal
+          isOpen={true}
+          onClose={() => {
+            setIsAddModalOpen(false);
+            setSelectedEditItem(null);
+          }}
+          itemToEdit={selectedEditItem}
+          initialBrand={activeBrand}
+          initialBulan={addModalInitialBulan}
+          pilars={pilars}
+          onSave={async (todo) => {
+            if (selectedEditItem) {
+              await onUpdateTodo(todo);
+            } else {
+              await onSaveTodo(todo);
+            }
+          }}
+        />
+      )}
+
+      {/* Kelola Pilar Modal */}
+      {isKelolaPilarOpen && (
+        <KelolaPilarModal
+          isOpen={true}
+          onClose={() => setIsKelolaPilarOpen(false)}
+          pilars={pilars}
+          onSavePilars={onSavePilars}
+        />
+      )}
+
+      {/* Bulk Import JSON Modal */}
+      {isBulkImportOpen && (
+        <BulkImportTodosModal
+          isOpen={true}
+          onClose={() => setIsBulkImportOpen(false)}
+          activeBrand={activeBrand}
+          onImport={onBulkImportTodos}
+        />
+      )}
     </div>
   );
 };
