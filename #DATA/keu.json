@@ -8299,8 +8299,10 @@
     "channelLabels": {
       "cfd": "🏃 CFD",
       "kedai": "☕ Kedai",
-      "marketplace": "🛒 Shopeefood",
-      "tiktokgo": "🛒  Tiktokgo"
+      "shopeefood": "🧡 ShopeeFood",
+      "gofood": "🟢 GoFood",
+      "tiktokgo": "🎵 TikTokGo",
+      "marketplace": "🧡 ShopeeFood"
     },
     "dikopi_cash_2026-06": 175000,
     "dikopi_rek_2026-06": 158569,
@@ -8309,6 +8311,10 @@
       {
         "key": "Coffee",
         "label": "☕ Coffee"
+      },
+      {
+        "key": "Kopi Pelajar",
+        "label": "🎓 Kopi Pelajar"
       },
       {
         "key": "Non Coffee",

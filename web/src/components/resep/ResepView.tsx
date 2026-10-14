@@ -1107,7 +1107,14 @@ export const ResepView: React.FC<ResepViewProps> = ({
   const resepGroups: ResepGroupItem[] = useMemo(() => {
     const stored = keuMeta?.resepGroups;
     if (stored && Array.isArray(stored) && stored.length > 0) {
-      return stored;
+      const existingKeys = new Set(stored.map((g) => g.key.toLowerCase()));
+      const merged = [...stored];
+      RESEP_GROUPS_DEFAULT.forEach((def) => {
+        if (!existingKeys.has(def.key.toLowerCase())) {
+          merged.push(def);
+        }
+      });
+      return merged;
     }
     return RESEP_GROUPS_DEFAULT;
   }, [keuMeta?.resepGroups]);

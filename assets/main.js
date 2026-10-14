@@ -7997,23 +7997,38 @@ let resepActiveChannel = 'kedai';
 
 const RESEP_GROUPS_DEFAULT = [
   { key:'Coffee',      label:'☕ Coffee' },
+  { key:'Kopi Pelajar',label:'🎓 Kopi Pelajar' },
   { key:'Non Coffee',  label:'🥤 Non Coffee' },
+  { key:'Tisane',      label:'🍵 Teh' },
   { key:'Manual Brew', label:'🫗 Manual Brew' },
   { key:'Snack',       label:'🍪 Snack' },
+  { key:'Makanan',     label:'🥘 Makanan' },
 ];
 
 function getResepGroups() {
-  const stored = db.keu._meta?.resepGroups;
-  return (stored && stored.length) ? stored : RESEP_GROUPS_DEFAULT.map(g=>({...g}));
+  const stored = db.keu._meta?.resepGroups || [];
+  const existingKeys = new Set(stored.map(g=>(g.key||'').toLowerCase()));
+  const merged = [...stored];
+  RESEP_GROUPS_DEFAULT.forEach(def => {
+    if (!existingKeys.has(def.key.toLowerCase())) merged.push(def);
+  });
+  return merged.length ? merged : RESEP_GROUPS_DEFAULT.map(g=>({...g}));
 }
 
 function getResepChannels() {
   const custom = (db.keu._meta?.dikopiChannels) || [];
-  const defaults = ['kedai','cfd','marketplace','tiktokgo'];
+  const defaults = ['kedai','cfd','shopeefood','gofood','tiktokgo'];
   const all = [...new Set([...defaults, ...custom])];
   return all;
 }
-const CHANNEL_LABEL = { kedai:'☕ Kedai', cfd:'🏃 CFD', marketplace:'🛒 Marketplace', tiktokgo:'🎵 TikTokGo' };
+const CHANNEL_LABEL = {
+  kedai: '☕ Kedai',
+  cfd: '🏃 CFD',
+  shopeefood: '🧡 ShopeeFood',
+  gofood: '🟢 GoFood',
+  tiktokgo: '🎵 TikTokGo',
+  marketplace: '🧡 ShopeeFood'
+};
 function getChannelLabel(ch) {
   const custom = db?.keu?._meta?.channelLabels?.[ch];
   if (custom) return custom;
@@ -8136,7 +8151,11 @@ function renderResep() {
     </div>` : '';
 
   // Active resep detail — filter by active channel
-  const channelResep = db.resep.filter(r=>(r.channel||'kedai')===resepActiveChannel);
+  const channelResep = db.resep.filter(r=>{
+    const c = (r.channel||'kedai').toLowerCase();
+    if (resepActiveChannel === 'shopeefood') return c === 'shopeefood' || c === 'marketplace';
+    return c === resepActiveChannel;
+  });
   const activeResep = resepActiveId ? channelResep.find(r=>r.id===resepActiveId) : channelResep[0];
   if (activeResep && !resepActiveId) resepActiveId = activeResep.id;
 
@@ -8144,9 +8163,15 @@ function renderResep() {
     <div class="empty"><div class="empty-icon">☕</div>Pilih atau buat resep di kiri</div>`;
 
   const RESEP_GROUPS = getResepGroups();
+  const knownKeys = new Set(RESEP_GROUPS.map(g=>(g.key||'').toLowerCase()));
   const grouped = RESEP_GROUPS.map(g=>({
-    ...g, items: channelResep.filter(r=>(r.kategori||'Coffee')===g.key)
+    ...g, items: channelResep.filter(r=>(r.kategori||'Coffee').toLowerCase()===g.key.toLowerCase())
   })).filter(g=>g.items.length>0);
+
+  const otherItems = channelResep.filter(r=>!knownKeys.has((r.kategori||'Coffee').toLowerCase()));
+  if (otherItems.length) {
+    grouped.push({ key:'Lainnya', label:'🍽️ Lainnya', items: otherItems });
+  }
 
   const resepList = grouped.length ? grouped.map(g=>`
     <div style="margin-bottom:12px">
@@ -8225,8 +8250,9 @@ function renderResep() {
 
 function renderResepDetail(r) {
   const hpp = hitungHPPResep(r);
-  const isMarketplace = (r.channel||'') === 'marketplace';
-  const isTiktokGo = (r.channel||'') === 'tiktokgo';
+  const ch = (r.channel||'').toLowerCase();
+  const isMarketplace = ch === 'marketplace' || ch === 'shopeefood' || ch === 'gofood';
+  const isTiktokGo = ch === 'tiktokgo';
   const komisiRate = isMarketplace ? getMarketplaceCommissionRate() : 0;
   const komisiRp = isMarketplace && r.hargaJual ? Math.round(r.hargaJual * (komisiRate/100)) : 0;
   const netSetelahKomisi = isMarketplace && r.hargaJual ? Math.round(r.hargaJual * (1 - komisiRate/100)) : (r.hargaJual||0);
