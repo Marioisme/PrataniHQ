@@ -940,6 +940,8 @@ export const BukuKasView: React.FC<BukuKasViewProps> = ({
                                         ? 'rgba(0, 242, 254, 0.15)'
                                         : t._channel === 'cfd'
                                         ? 'rgba(245, 158, 11, 0.15)'
+                                        : t._channel === 'kopipelajar'
+                                        ? 'rgba(56, 189, 248, 0.15)'
                                         : 'rgba(76, 201, 160, 0.15)',
                                     color:
                                       t._channel === 'gofood'
@@ -950,12 +952,14 @@ export const BukuKasView: React.FC<BukuKasViewProps> = ({
                                         ? '#00f2fe'
                                         : t._channel === 'cfd'
                                         ? '#f59e0b'
+                                        : t._channel === 'kopipelajar'
+                                        ? '#38bdf8'
                                         : '#4cc9a0',
                                     fontFamily: 'DM Mono',
                                     fontWeight: 700
                                   }}
                                 >
-                                  {t._channel.toUpperCase()}
+                                  {t._channel === 'kopipelajar' ? 'KOPI PELAJAR' : t._channel.toUpperCase()}
                                 </span>
                               )}
                               {t.nominalGross && t.adminFee ? (

@@ -8017,13 +8017,14 @@ function getResepGroups() {
 
 function getResepChannels() {
   const custom = (db.keu._meta?.dikopiChannels) || [];
-  const defaults = ['kedai','cfd','shopeefood','gofood','tiktokgo'];
+  const defaults = ['kedai','cfd','kopipelajar','shopeefood','gofood','tiktokgo'];
   const all = [...new Set([...defaults, ...custom])];
   return all;
 }
 const CHANNEL_LABEL = {
   kedai: '☕ Kedai',
   cfd: '🏃 CFD',
+  kopipelajar: '🎓 Kopi Pelajar',
   shopeefood: '🧡 ShopeeFood',
   gofood: '🟢 GoFood',
   tiktokgo: '🎵 TikTokGo',

@@ -10,11 +10,12 @@ export const RESEP_GROUPS_DEFAULT: ResepGroupItem[] = [
   { key: 'Makanan', label: '🍜 Makanan' },
 ];
 
-export const DEFAULT_CHANNELS = ['kedai', 'cfd', 'shopeefood', 'gofood', 'tiktokgo'];
+export const DEFAULT_CHANNELS = ['kedai', 'cfd', 'kopipelajar', 'shopeefood', 'gofood', 'tiktokgo'];
 
 export const CHANNEL_LABEL_DEFAULT: Record<string, string> = {
   kedai: '☕ Kedai',
   cfd: '🏃 CFD',
+  kopipelajar: '🎓 Kopi Pelajar',
   shopeefood: '🧡 ShopeeFood',
   gofood: '🟢 GoFood',
   tiktokgo: '🎵 TikTokGo',
@@ -31,7 +32,7 @@ export function getChannelAdminFeeRate(channel: string): number {
   if (ch === 'shopeefood' || ch === 'marketplace') return DEFAULT_SHOPEE_COMMISSION_RATE;
   if (ch === 'gofood') return DEFAULT_GOFOOD_COMMISSION_RATE;
   if (ch === 'tiktokgo') return DEFAULT_TIKTOK_ADMIN_RATE;
-  return 0; // kedai & cfd
+  return 0; // kedai, cfd, & kopipelajar
 }
 
 export function hitungChannelNet(

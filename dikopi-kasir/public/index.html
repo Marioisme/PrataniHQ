@@ -242,6 +242,11 @@
       color: #000;
     }
 
+    .channel-btn.pelajar.active {
+      background: #38bdf8;
+      color: #000;
+    }
+
     .channel-btn.shopee.active {
       background: #ee4d2d;
       color: #fff;
@@ -1430,6 +1435,7 @@
         <div class="channel-toggle">
           <div class="channel-btn active" id="chKedai" onclick="selectChannel('kedai')">🏠 Kedai</div>
           <div class="channel-btn cfd" id="chCfd" onclick="selectChannel('cfd')">⚡ CFD</div>
+          <div class="channel-btn pelajar" id="chPelajar" onclick="selectChannel('kopipelajar')">🎓 Kopi Pelajar</div>
           <div class="channel-btn shopee" id="chShopee" onclick="selectChannel('shopeefood')">🧡 Shopee</div>
           <div class="channel-btn gofood" id="chGofood" onclick="selectChannel('gofood')">🟢 GoFood</div>
           <div class="channel-btn tiktok" id="chTiktok" onclick="selectChannel('tiktokgo')">📱 TikTokGo</div>
@@ -1740,6 +1746,7 @@
     const CHANNEL_COMMISSIONS = {
       kedai: { type: 'percent', rate: 0, label: 'Kedai' },
       cfd: { type: 'percent', rate: 0, label: 'CFD' },
+      kopipelajar: { type: 'percent', rate: 0, label: 'Kopi Pelajar' },
       shopeefood: { type: 'percent', rate: 20, label: 'ShopeeFood' },
       marketplace: { type: 'percent', rate: 20, label: 'ShopeeFood' }, // alias kompatibilitas
       gofood: { type: 'percent', rate: 20, label: 'GoFood' },
@@ -1862,12 +1869,12 @@
         { id: '5', nama: 'Matcha', harga: 10000, hargaRegular: 10000, hargaLarge: 13000, hpp: 2408, hppRegular: 2408, hppLarge: 3608, kategori: 'Non Coffee', channel: 'kedai', hasSizes: true, emoji: '🍵' },
         { id: '6', nama: 'Cokelat', harga: 10000, hargaRegular: 10000, hargaLarge: 13000, hpp: 2048, hppRegular: 2048, hppLarge: 3248, kategori: 'Non Coffee', channel: 'kedai', hasSizes: true, emoji: '🍫' },
 
-        // ── LINI KOPI PELAJAR (KEDAI) ──
-        { id: 'kp1', nama: 'Americano (Pelajar)', harga: 6000, hargaRegular: 6000, hargaLarge: 8000, hpp: 1520, hppRegular: 1520, hppLarge: 2220, kategori: 'Kopi Pelajar', channel: 'kedai', hasSizes: true, emoji: '🎓' },
-        { id: 'kp2', nama: 'Kopi Susu (Pelajar)', harga: 8000, hargaRegular: 8000, hargaLarge: 11000, hpp: 2650, hppRegular: 2650, hppLarge: 3850, kategori: 'Kopi Pelajar', channel: 'kedai', hasSizes: true, emoji: '🎓' },
-        { id: 'kp3', nama: 'Gula Aren (Pelajar)', harga: 8000, hargaRegular: 8000, hargaLarge: 11000, hpp: 2950, hppRegular: 2950, hppLarge: 4150, kategori: 'Kopi Pelajar', channel: 'kedai', hasSizes: true, emoji: '🎓' },
-        { id: 'kp4', nama: 'Matcha (Pelajar)', harga: 8000, hargaRegular: 8000, hargaLarge: 11000, hpp: 2800, hppRegular: 2800, hppLarge: 4000, kategori: 'Kopi Pelajar', channel: 'kedai', hasSizes: true, emoji: '🎓' },
-        { id: 'kp5', nama: 'Cokelat (Pelajar)', harga: 8000, hargaRegular: 8000, hargaLarge: 11000, hpp: 2700, hppRegular: 2700, hppLarge: 3900, kategori: 'Kopi Pelajar', channel: 'kedai', hasSizes: true, emoji: '🎓' },
+        // ── LINI KOPI PELAJAR (CHANNEL MANDIRI) ──
+        { id: 'kp1', nama: 'Americano (Pelajar)', harga: 6000, hargaRegular: 6000, hargaLarge: 8000, hpp: 1520, hppRegular: 1520, hppLarge: 2220, kategori: 'Coffee', channel: 'kopipelajar', hasSizes: true, emoji: '☕' },
+        { id: 'kp2', nama: 'Kopi Susu (Pelajar)', harga: 8000, hargaRegular: 8000, hargaLarge: 11000, hpp: 2650, hppRegular: 2650, hppLarge: 3850, kategori: 'Coffee', channel: 'kopipelajar', hasSizes: true, emoji: '🥛' },
+        { id: 'kp3', nama: 'Gula Aren (Pelajar)', harga: 8000, hargaRegular: 8000, hargaLarge: 11000, hpp: 2950, hppRegular: 2950, hppLarge: 4150, kategori: 'Coffee', channel: 'kopipelajar', hasSizes: true, emoji: '🍯' },
+        { id: 'kp4', nama: 'Matcha (Pelajar)', harga: 8000, hargaRegular: 8000, hargaLarge: 11000, hpp: 2800, hppRegular: 2800, hppLarge: 4000, kategori: 'Non Coffee', channel: 'kopipelajar', hasSizes: true, emoji: '🍵' },
+        { id: 'kp5', nama: 'Cokelat (Pelajar)', harga: 8000, hargaRegular: 8000, hargaLarge: 11000, hpp: 2700, hppRegular: 2700, hppLarge: 3900, kategori: 'Non Coffee', channel: 'kopipelajar', hasSizes: true, emoji: '🍫' },
 
         // ── SHOPEEFOOD MENUS (13 ITEM RESMI) ──
         { id: 'sf1', nama: 'Americano', harga: 11000, hargaRegular: 11000, hargaLarge: 14000, hpp: 2681, hppRegular: 2681, hppLarge: 3881, kategori: 'Coffee', channel: 'shopeefood', hasSizes: true, emoji: '☕' },
@@ -1894,6 +1901,7 @@
 
       document.getElementById('chKedai').classList.toggle('active', ch === 'kedai');
       document.getElementById('chCfd').classList.toggle('active', ch === 'cfd');
+      document.getElementById('chPelajar').classList.toggle('active', ch === 'kopipelajar');
       document.getElementById('chShopee').classList.toggle('active', ch === 'shopeefood' || ch === 'marketplace');
       document.getElementById('chGofood').classList.toggle('active', ch === 'gofood');
       document.getElementById('chTiktok').classList.toggle('active', ch === 'tiktokgo');

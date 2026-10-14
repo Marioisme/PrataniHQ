@@ -8297,8 +8297,9 @@
     "dikopi_rek_2026-05": 104159,
     "dikopi_setup_2026-05": true,
     "channelLabels": {
-      "cfd": "🏃 CFD",
       "kedai": "☕ Kedai",
+      "cfd": "🏃 CFD",
+      "kopipelajar": "🎓 Kopi Pelajar",
       "shopeefood": "🧡 ShopeeFood",
       "gofood": "🟢 GoFood",
       "tiktokgo": "🎵 TikTokGo",
@@ -8346,7 +8347,14 @@
     "dikopi_cash_vff": 0,
     "dikopi_rek_vff": 0,
     "dikopi_setup_vff": true,
-    "dikopiChannels": [],
+    "dikopiChannels": [
+      "kedai",
+      "cfd",
+      "kopipelajar",
+      "shopeefood",
+      "gofood",
+      "tiktokgo"
+    ],
     "dikopi_cash_2026-09": 0,
     "dikopi_rek_2026-09": 38500,
     "dikopi_setup_2026-09": true,
